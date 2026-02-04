@@ -175,7 +175,7 @@ const ProjectFirmManagement: React.FC<ProjectFirmManagementProps> = ({ open, onC
 
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
-        debugger
+
         try {
             const response = await axios.put(
                 server.baseurl + server.warehouse + "update-project-firm",

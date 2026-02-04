@@ -3,23 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, CircularProgress, Typography } from '@mui/material';
 
 import axios from 'axios';
-// @ts-ignore
-import server from '../../../assets/address.json'; // فرض می‌کنیم آدرس صحیح است
-// @ts-ignore
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // فرض می‌کنیم Context وجود دارد
-
-// Define the component props for type safety
+import server from '../../../assets/address.json';
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 type DeleteProps = {
     openModal: boolean;
     idToDelete: number | string | null;
     nameToDelete: string;
     onClose: () => void;
     onDeleteSuccess: () => void;
-    // تابع نمایش هشدار که از کامپوننت والد می‌آید
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-// ⭐️ نام کامپوننت به DeleteCourses تغییر یافت ⭐️
 const DeleteCourses = ({ openModal, idToDelete, nameToDelete, onClose, onDeleteSuccess, showAlert }: DeleteProps) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
@@ -53,7 +47,6 @@ const DeleteCourses = ({ openModal, idToDelete, nameToDelete, onClose, onDeleteS
                 }
             );
             if (response.data.httpStatusCode === 200) {
-                // ⭐️ اصلاح پیام موفقیت برای دوره ⭐️
                 showAlert('Kurs kaydı başarıyla silindi!', 'success');
                 onDeleteSuccess();
                 onClose();
@@ -62,7 +55,6 @@ const DeleteCourses = ({ openModal, idToDelete, nameToDelete, onClose, onDeleteS
                 onClose();
             }
         } catch (e: any) {
-            // مدیریت خطاهای رایج
             if (e.response && e.response.status === 500) {
                 showAlert('Bu kayıt başka bir işlemde kullanıldığı için silinemez.', 'error');
             } else if (e.response && e.response.status === 401) {
@@ -81,7 +73,6 @@ const DeleteCourses = ({ openModal, idToDelete, nameToDelete, onClose, onDeleteS
         <Dialog
             open={openModal}
             onClose={onClose}
-            // ⭐️ به‌روزرسانی شناسه Dialog ⭐️
             aria-labelledby="delete-course-title"
             aria-describedby="delete-course-desc"
             maxWidth="sm"
@@ -96,7 +87,7 @@ const DeleteCourses = ({ openModal, idToDelete, nameToDelete, onClose, onDeleteS
                 <DialogContentText id="delete-course-desc">
                     Seçtiğiniz
                     <span style={{ fontSize: 16, fontWeight: 'bold', color: '#FA896B', margin: '0 5px' }}>{nameToDelete}</span>
-                    {/* ⭐️ اصلاح متن تأیید ⭐️ */}
+
                     kurs kaydını silerseniz bu işlem geri alınamaz. Lütfen onaylayın.
                 </DialogContentText>
             </DialogContent>

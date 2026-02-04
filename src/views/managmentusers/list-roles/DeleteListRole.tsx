@@ -10,13 +10,12 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  // CircularProgress,
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
 import server from '../../../assets/address.json';
 
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // **ایمپورت useTooltip و CustomTooltip**
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type Props = {
   openModal: boolean;
@@ -30,7 +29,6 @@ const DeleteSystemRole = ({ openModal, rowIdToDelete, onClose, onDeleteSuccess, 
   const navigate = useNavigate();
   const [loading, setLoading] = useState<boolean>(false);
 
-  // **استفاده از useTooltip برای دسترسی به وضعیت Tooltip**
   const { isTooltipGloballyEnabled } = useTooltip();
 
   const handleDeleteRole = async () => {
@@ -102,11 +100,9 @@ const DeleteSystemRole = ({ openModal, rowIdToDelete, onClose, onDeleteSuccess, 
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          {/* **Tooltip برای دکمه "İptal et"** */}
           <CustomTooltip title={isTooltipGloballyEnabled ? "İşlemi iptal et" : ""}>
             <Button onClick={onClose} disabled={loading}>İptal et</Button>
           </CustomTooltip>
-          {/* **Tooltip برای دکمه "Silmek"** */}
           <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen rolü sil" : ""}>
             <Button
               color="error"

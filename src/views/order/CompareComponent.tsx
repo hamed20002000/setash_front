@@ -39,11 +39,10 @@ import BlankCard from 'src/components/shared/BlankCard';
 
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    fontFamily: 'NotoSans',
+    fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: {
-        fontSize: '1rem', // Masaüstünde daha büyük
+        fontSize: '1rem',
     },
 }));
 
@@ -58,7 +57,6 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
 }));
 
 
-// Type Definitions
 interface Work { id: string; title: string; startDate: string; endDate: string; createAt: string; recordStatus: number; }
 interface Network { id: string; createAt: string; recordStatus: number; title: string; description: string; work: Work; }
 interface UnitType { id: string; title: string; recordStatus: number; createAt: string; }
@@ -76,12 +74,10 @@ interface OrderItem {
 }
 interface RequestComboItem {
     id: number;
-    subject: string; // برای نمایش در کمبو
+    subject: string;
 }
-// در کنار سایر رابط‌ها (Interfaces)
 interface User {
     username: string;
-    // ... سایر فیلدهای لازم کاربر
 }
 
 interface OrderStatusHistory {
@@ -89,10 +85,10 @@ interface OrderStatusHistory {
     status: 0 | 1 | 2;
     description: string | null;
     createAt: string;
-    user: User; // کاربری که عملیات را انجام داده است
+    user: User;
 }
-interface RequestInfo { // Yeni bir arayüz tanımlayalım
-    id: string; // API'de string geliyor
+interface RequestInfo {
+    id: string;
     subject: string;
 }
 interface WorkhouseType {
@@ -125,7 +121,6 @@ interface OrderDetailType {
 interface WarehouseType { id: string; name: string; code: number; recordStatus: number; createAt: string; }
 interface TenderType { id: string; title: string; recordStatus: number; createAt: string; }
 
-// Table Style and Functions
 type SortableOrderKeys = 'id' | 'network.title' | 'docDate' | 'status' | 'createAt';
 
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
@@ -206,10 +201,9 @@ const CompareComponent = () => {
     const hasIdsFilter = notifIds.length > 0;
     const idsSet = new Set<number>(notifIds);
 
-    // States from previous form
     const [network, setNetwork] = useState('');
     const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
-    const [workhouse, setWorkhouse] = useState<string | number>(''); // ذخیره ID شانتیه انتخاب شده
+    const [workhouse, setWorkhouse] = useState<string | number>('');
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
     const [itemsList, setItemsList] = useState<ItemType[]>([]);
@@ -226,7 +220,6 @@ const CompareComponent = () => {
     const [requestId, setRequestId] = useState<number | null>(null);
     const [requestsList, setRequestsList] = useState<RequestComboItem[]>([]);
 
-    // States for comparison form
     const [warehouse, setWarehouse] = useState<WarehouseType | null>(null);
     const [tender, setTender] = useState<TenderType | null>(null);
     const [warehousesList, setWarehousesList] = useState<WarehouseType[]>([]);
@@ -242,7 +235,6 @@ const CompareComponent = () => {
 
     const [openHistoryModal, setOpenHistoryModal] = useState(false);
     const [historyData, setHistoryData] = useState<OrderStatusHistory[]>([]);
-    // Table States
     const [ordersList, setOrdersList] = useState<OrderType[]>([]);
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -252,7 +244,6 @@ const CompareComponent = () => {
     const [order, setOrder] = useState<'asc' | 'desc'>('desc');
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedOrderForMenu, setSelectedOrderForMenu] = useState<OrderType | null>(null);
-    // const openMenu = Boolean(anchorEl);
     const [openModal, setOpenModal] = useState(false);
     const [modalDetails, setModalDetails] = useState<OrderDetailType[]>([]);
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -282,27 +273,11 @@ const CompareComponent = () => {
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
-    // const { allowedOperations } = useAuth();
-    // const hasCreatePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-    // }, [allowedOperations]);
-
-    // const hasEditPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-    // }, [allowedOperations]);
-
-    // const hasDeletePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-    // }, [allowedOperations]);
-
-
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -311,24 +286,19 @@ const CompareComponent = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -343,13 +313,6 @@ const CompareComponent = () => {
 
     const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
 
-    // const hasDownloadPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
-    // }, [allowedOperations]);
-
-    // const hasStatusPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Onaylamak');
-    // }, [allowedOperations]);
 
     const formatDateDisplay = (dateString: string | null): string => {
         if (!dateString) return "N/A";
@@ -365,7 +328,6 @@ const CompareComponent = () => {
         if (priceInput === null || priceInput === undefined) {
             return '₺0.00';
         }
-        // حذف هر کاراکتری که عدد، نقطه یا منفی نیست (برای اطمینان بیشتر)
         const cleanedString = String(priceInput).replace(/[^0-9.-]/g, '');
         const numericValue = parseFloat(cleanedString);
 
@@ -373,7 +335,6 @@ const CompareComponent = () => {
             return '₺0.00';
         }
 
-        // تغییر tr-TR به en-US برای استفاده از نقطه به عنوان اعشار
         const formattedPrice = numericValue.toLocaleString('en-US', {
             style: 'currency',
             currency: 'TRY',
@@ -388,14 +349,13 @@ const CompareComponent = () => {
         return doc.body.textContent || "";
     };
 
-    // ------------------ New Export Functions ------------------
 
     const addPdfHeader = (doc: jsPDF, title: string) => {
         const pageWidth = doc.internal.pageSize.getWidth();
-        const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+        const logoWidth = 35;
         const logoHeight = 18;
         const margin = 15;
-        const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+        const logoX = pageWidth - logoWidth - margin;
 
         try {
             doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -405,7 +365,7 @@ const CompareComponent = () => {
 
         doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
-        doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+        doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
         doc.setFontSize(10);
         doc.setFont('NotoSans', 'bold');
@@ -413,8 +373,6 @@ const CompareComponent = () => {
         doc.setFont('NotoSans', 'normal');
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
 
-        // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-        // doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
         doc.line(15, 45, pageWidth - 15, 45);
     };
@@ -451,9 +409,8 @@ const CompareComponent = () => {
 
 
     const exportToPdf = (orderData: OrderType) => {
-        debugger
+
         const doc = new jsPDF();
-        // بارگذاری فونت‌ها
         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
@@ -462,7 +419,6 @@ const CompareComponent = () => {
         doc.addFont('Arial.ttf', 'Arial', 'normal');
         doc.setFont('Arial');
 
-        // داده‌های جدول اصلی
         const rows = orderData.orderDetails.map(detail => [
             detail.item.name || '-',
             Number(detail.quantity).toFixed(2) || '-',
@@ -471,7 +427,6 @@ const CompareComponent = () => {
             cleanAndFormatPrice(detail.price),
         ]);
 
-        // رسم جدول اصلی
         autoTable(doc, {
             startY: 105,
             head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
@@ -499,7 +454,6 @@ const CompareComponent = () => {
 
         const finalY = (doc as any).lastAutoTable.finalY;
 
-        // --- محاسبات جدول خلاصه ---
         const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
         let grandTotalPrice = 0;
 
@@ -507,11 +461,10 @@ const CompareComponent = () => {
             const unitTitle = detail.item.unit.title;
             const qty = Number(detail.quantity);
 
-            // تمیز کردن قیمت
             const rawPriceString = String(detail.price).replace(/[$,]/g, '');
             const unitPrice = parseFloat(rawPriceString) || 0;
 
-            const lineTotal = qty * unitPrice; // قیمت کل این ردیف
+            const lineTotal = qty * unitPrice;
 
             const currentData = summaryData.get(unitTitle) || { totalQty: 0, totalPrice: 0 };
             summaryData.set(unitTitle, {
@@ -522,24 +475,22 @@ const CompareComponent = () => {
             grandTotalPrice += lineTotal;
         });
 
-        // رسم جدول خلاصه
         if (summaryData.size > 0) {
             const summaryRows = Array.from(summaryData.entries()).map(([unit, data]) => [
                 unit,
                 data.totalQty.toFixed(2),
-                cleanAndFormatPrice(data.totalPrice) // جمع قیمت واحد
+                cleanAndFormatPrice(data.totalPrice)
             ]);
 
             autoTable(doc, {
                 startY: finalY + 10,
-                head: [['Birim', 'Toplam Miktar', 'Toplam Tutar']], // ستون سوم اضافه شد
+                head: [['Birim', 'Toplam Miktar', 'Toplam Tutar']],
                 body: summaryRows,
                 theme: 'grid',
                 styles: { font: 'Arial', fontSize: 10 },
                 headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0] },
             });
 
-            // نمایش جمع کل نهایی
             const priceSummaryY = (doc as any).lastAutoTable.finalY + 10;
             doc.setFontSize(12);
             doc.setFont('Arial', 'normal');
@@ -576,8 +527,8 @@ const CompareComponent = () => {
             doc.setFontSize(10);
             doc.text(`Sipariş No: ${order.id}`, 15, 54);
             doc.text(`Şebeke: ${order.network ? order.network.title : '-'}`, 15, 60);
-            doc.text(`Şantiye: ${order.workhouse ? order.workhouse.name : '-'}`, 15, 66); // تغییر Y coordinate بقیه
-            doc.text(`Tarih: ${formatDateDisplay(order.docDate)}`, 15, 75); // Y += 7
+            doc.text(`Şantiye: ${order.workhouse ? order.workhouse.name : '-'}`, 15, 66);
+            doc.text(`Tarih: ${formatDateDisplay(order.docDate)}`, 15, 75);
             doc.text(`İlişkili Talep No: ${order.request ? '#' + order.request.id + order.request.subject : '-'}`, 15, 82); // Y += 7
             doc.text(`Genel Açıklama: ${order.description || '-'}`, 15, 90);
 
@@ -605,7 +556,6 @@ const CompareComponent = () => {
 
             const finalY = (doc as any).lastAutoTable.finalY;
 
-            // --- محاسبات جدول خلاصه ---
             const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
             let grandTotalPrice = 0;
 
@@ -721,8 +671,6 @@ const CompareComponent = () => {
                 cleanAndFormatPrice(detail.price)
             ]);
         });
-
-        // تنظیم عرض ستون‌ها
         worksheet.columns.forEach((column) => {
             let maxLength = 0;
             if (column && typeof column.eachCell === 'function') {
@@ -736,7 +684,6 @@ const CompareComponent = () => {
             column.width = Math.min(Math.max(maxLength + 2, 15), 50);
         });
 
-        // --- محاسبات جدول خلاصه ---
         const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
         let grandTotalPrice = 0;
 
@@ -808,7 +755,6 @@ const CompareComponent = () => {
             const worksheet = workbook.addWorksheet(`Sipariş_${order.id}`);
             worksheet.views = [{ rightToLeft: false }];
 
-            // هدر گزارش
             worksheet.addRow([`Sipariş Detayları`]).font = { name: 'Arial', size: 12, bold: true };
             worksheet.mergeCells('A1:E1');
             worksheet.getCell('A1').alignment = { horizontal: 'center' };
@@ -817,7 +763,6 @@ const CompareComponent = () => {
             worksheet.getCell('A2').alignment = { horizontal: 'left' };
             worksheet.addRow([]);
 
-            // جزئیات سفارش
             worksheet.addRow(['Sipariş No', order.id]);
             worksheet.addRow(['Şebeke', order.network ? order.network.title : '-']);
             worksheet.addRow(['Şantiye', order.workhouse ? order.workhouse.name : '-']);
@@ -826,7 +771,6 @@ const CompareComponent = () => {
             worksheet.addRow(['Genel Açıklama', order.description || '-']);
             worksheet.addRow([]);
 
-            // هدرهای جدول
             const tableHeaders = ['Ürün', 'ÖLÇÜ', 'Miktar', 'Açıklama', 'Fiyat'];
             const headerRow = worksheet.addRow(tableHeaders);
             headerRow.font = { name: 'Arial', bold: true };
@@ -838,7 +782,6 @@ const CompareComponent = () => {
                 };
             });
 
-            // اقلام سفارش
             order.orderDetails.forEach(detail => {
                 worksheet.addRow([
                     detail.item.name,
@@ -849,7 +792,6 @@ const CompareComponent = () => {
                 ]);
             });
 
-            // تنظیم عرض ستون‌ها
             worksheet.columns.forEach((column) => {
                 let maxLength = 0;
                 if (column && typeof column.eachCell === 'function') {
@@ -863,7 +805,6 @@ const CompareComponent = () => {
                 column.width = Math.min(Math.max(maxLength + 2, 15), 50);
             });
 
-            // --- محاسبات جدول خلاصه ---
             const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
             let grandTotalPrice = 0;
 
@@ -927,7 +868,6 @@ const CompareComponent = () => {
         setOpenDownloadAllModal(false);
         setOpenDownloadFilteredModal(false);
     };
-    // ------------------ End of New Export Functions ------------------
     const handleItemChange = (id: number, field: string, value: any) => {
         const itemToUpdate = orderItems.find(item => item.id === id);
         if (!itemToUpdate) return;
@@ -1134,18 +1074,17 @@ const CompareComponent = () => {
         }
     };
 
-    // در کنار سایر توابع واکشی (getNetworks, getListItem, getListOrders)
     const fetchRequestsList = async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) return;
         try {
             const response = await axios.get(
-                server.baseurl + server.hr + "get-all-requests", // ⬅️ API درخواستی شما
+                server.baseurl + server.hr + "get-all-requests",
                 { headers: { "Authorization": `Bearer ${authToken}` } }
             );
             if (response.data.httpStatusCode === 200 && response.data.data) {
                 const activeRequests = (response.data.data as any[])
-                    .filter(req => req.status === 1) // فیلتر کردن فقط درخواست‌های "Beklemede" یا "Aktif"
+                    .filter(req => req.status === 1)
                     .map(req => ({ id: Number(req.id), subject: req.subject }));
                 setRequestsList(activeRequests);
             } else {
@@ -1408,13 +1347,10 @@ const CompareComponent = () => {
         const itemsToEdit: OrderItem[] = row.orderDetails.map(detail => {
             const fullItem = itemsList.find(item => item.id === detail.item.id);
 
-            // پاکسازی قیمت
             let priceValue = 0;
             if (detail.price !== null && detail.price !== undefined) {
-                // حذف $ و , و تبدیل به عدد
                 const cleanString = String(detail.price).replace(/[$,]/g, '');
                 const parsed = parseFloat(cleanString);
-                // اگر نتیجه NaN نبود، مقدار را استفاده کن
                 priceValue = isNaN(parsed) ? 0 : parsed;
             }
 
@@ -1426,7 +1362,7 @@ const CompareComponent = () => {
                 isEditing: false,
                 unit: fullItem ? fullItem.unit : undefined,
                 isRegistered: true,
-                price: priceValue // مقدار اصلاح شده
+                price: priceValue
             };
         });
         setOrderItems(itemsToEdit);
@@ -1454,12 +1390,10 @@ const CompareComponent = () => {
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: OrderType) => { setAnchorEl(event.currentTarget); setSelectedOrderForMenu(row); };
     const handleCloseMenu = () => {
         setAnchorEl(null);
-        // setSelectedOrderForMenu(null); 
     };
     const handleClickOpenDeleteModal = (id: number, title: string) => { setOrderIdToDelete(id); setOrderTitleToDelete(title); setOpenDeleteModal(true); handleCloseMenu(); };
     const handleClickCloseDeleteModal = () => { setOpenDeleteModal(false); setOrderIdToDelete(null); setOrderTitleToDelete(''); };
 
-    // const handleOpenRegisterModal = (_item: { name: string; unit: string; }) => { };
 
     const handleClickOpenStatusModal = (id: number, action: 'approve' | 'reject') => {
         setStatusToUpdate(action === 'approve' ? 1 : 2);
@@ -1550,7 +1484,6 @@ const CompareComponent = () => {
     };
 
     const handleOpenHistoryModal = (row: OrderType) => {
-        // گرفتن کپی از آرایه و مرتب‌سازی آن بر اساس تاریخ (نزولی)
         const sortedHistory = row.orderHeaderStatusHistories
             ? [...row.orderHeaderStatusHistories].sort((a, b) =>
                 new Date(b.createAt).getTime() - new Date(a.createAt).getTime()
@@ -1594,15 +1527,12 @@ const CompareComponent = () => {
             const unitTitle = detail.item?.unit?.title || "Diğer";
             const qty = Number(detail.quantity) || 0;
 
-            // راه حل خطا: تبدیل اجباری به رشته و سپس تمیزسازی
-            // این خط هم برای عدد کار می‌کند و هم برای رشته‌های دارای علامت مثل $
             const rawPrice = String(detail.price);
             const cleanPrice = rawPrice.replace(/[^0-9.-]/g, '');
             const priceVal = parseFloat(cleanPrice) || 0;
 
             const lineTotal = qty * priceVal;
 
-            // اضافه کردن به جمع واحد مربوطه
             summary[unitTitle] = (summary[unitTitle] || 0) + lineTotal;
             grandTotal += lineTotal;
         });
@@ -1627,7 +1557,7 @@ const CompareComponent = () => {
                                 color="primary"
                                 onClick={() => setIsFormVisible(true)}
                                 isBlinking={isBlinking}
-                                fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                                fullWidth={false}
                             >
                                 Yeni Satın Alma Kaydet
                             </BlinkingButton>
@@ -1639,7 +1569,6 @@ const CompareComponent = () => {
                                 variant="contained"
                                 color="error"
                                 onClick={resetForm}
-                                // disabled={loadingButton}
                                 fullWidth={false}
                                 startIcon={<IconX size={20} />}
                             >
@@ -1735,8 +1664,8 @@ const CompareComponent = () => {
                                 multiline
                                 rows={3}
                                 variant="outlined"
-                                value={generalDescription} // ⬅️ استفاده از نام جدید
-                                onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                value={generalDescription}
+                                onChange={(e) => setGeneralDescription(e.target.value)}
                             />
                         </Grid>
                     </Grid>
@@ -1981,7 +1910,6 @@ const CompareComponent = () => {
                                                 <Typography variant="body1">#{row.id}</Typography>
                                             </StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.network ? row.network.title : "-"}</Typography></StyledTableCell>
-                                            {/* نمایش مقدار شانتیه */}
                                             <StyledTableCell><Typography variant="body1">{row.workhouse ? row.workhouse.name : "-"}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 <Typography variant="body1">
@@ -1991,7 +1919,6 @@ const CompareComponent = () => {
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 {row.description && row.description.trim().length > 0 ? (
-                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button
 
@@ -2003,7 +1930,6 @@ const CompareComponent = () => {
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (
-                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
                                                     <Typography variant="body2" align="center">
                                                         -
                                                     </Typography>
@@ -2127,7 +2053,6 @@ const CompareComponent = () => {
                 />
             </BlankCard>
 
-            {/* ⬅️ HISTORY MODAL (تاریخچه وضعیت) */}
             <Dialog open={openHistoryModal} onClose={handleCloseHistoryModal} maxWidth="md" fullWidth>
                 <DialogTitle>Sipariş Durum Geçmişi</DialogTitle>
                 <DialogContent dividers>
@@ -2221,7 +2146,6 @@ const CompareComponent = () => {
                                                     </StyledTableCell>
                                                 </TableRow>
                                             ))}
-                                            {/* نمایش جمع کل نهایی (اختیاری) */}
                                             <TableRow sx={{ bgcolor: '#e3f2fd' }}>
                                                 <StyledTableCell sx={{ fontWeight: 'bold' }}>GENEL TOPLAM</StyledTableCell>
                                                 <StyledTableCell align="right" sx={{ fontWeight: 'bold' }}>
@@ -2365,7 +2289,6 @@ const CompareComponent = () => {
                 onDeleteSuccess={getListOrders} showAlert={showAlert}
             />
 
-            {/* New Download Modals */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
                 <DialogTitle>Tüm Siparişleri İndir</DialogTitle>
                 <DialogContent>

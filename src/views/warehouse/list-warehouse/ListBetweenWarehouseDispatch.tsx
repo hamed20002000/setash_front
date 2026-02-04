@@ -473,7 +473,7 @@ const ListBetweenWarehouseDispatch = () => {
 
     // // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     // const currentMenu = useMemo(() => {
-    //     debugger
+    //      
     //     return findMenuByHref(menuItems, location.pathname);
     // }, [menuItems, location.pathname]);
 
@@ -793,7 +793,7 @@ const ListBetweenWarehouseDispatch = () => {
                 description: d.description
             }))
         };
-        debugger
+
         try {
             const response = await axios.put(server.baseurl + server.warehouse + "update-between-warehouse-dispatch", payload, { headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" } });
             if (response.data.httpStatusCode === 200) {

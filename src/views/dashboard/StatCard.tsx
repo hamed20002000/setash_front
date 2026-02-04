@@ -33,9 +33,9 @@ const StatCard: React.FC<StatCardProps> = ({
             overflow: 'hidden',
             height: '100%',
 
-            cursor: 'pointer', // تغییر نشانگر موس به حالت کلیک
+            cursor: 'pointer',
 
-            boxShadow: '0 2px 10px rgba(0,0,0,0.05)', // سایه پیش‌فرض (اختیاری)
+            boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
 
             '&:hover': {
                 boxShadow: `0 10px 25px -5px ${color}40`,
@@ -52,17 +52,16 @@ const StatCard: React.FC<StatCardProps> = ({
                             {title}
                         </Typography>
                         <Typography variant="h3" fontWeight={700}>
-                            {total.toLocaleString('tr-TR')} {/* اعداد سه رقم سه رقم جدا می‌شوند */}
+                            {total.toLocaleString('tr-TR')}
                         </Typography>
                     </Box>
 
-                    {/* آیکون هم در هاور کمی بزرگ شود (اختیاری) */}
                     <Avatar variant="rounded" sx={{
                         bgcolor: color,
                         width: 48,
                         height: 48,
                         transition: 'transform 0.3s',
-                        '.MuiCard-root:hover &': { transform: 'scale(1.1)' } // وقتی کارت هاور شد، آیکون بزرگ شود
+                        '.MuiCard-root:hover &': { transform: 'scale(1.1)' }
                     }}>
                         <Icon size={26} color="white" />
                     </Avatar>

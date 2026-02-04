@@ -15,7 +15,7 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { styled, keyframes } from '@mui/system';
-import axios from 'axios'; // استفاده از axios به جای fetch برای تطابق با ساختار پاسخ شما
+import axios from 'axios';
 
 import { loginType } from 'src/types/auth/auth';
 import CustomCheckbox from '../../../components/forms/theme-elements/CustomCheckbox';
@@ -28,7 +28,6 @@ import server from 'src/assets/address.json';
 
 import { useAuth } from 'src/context/AuthContext';
 
-// Keyframes برای افکت "جریان الکتریکی" (بدون تغییر)
 const electricFlow = keyframes`
   0% {
     transform: translateX(-100%);
@@ -49,7 +48,6 @@ const electricFlow = keyframes`
   }
 `;
 
-// کامپوننت استایل شده برای افکت الکتریکی داخل دکمه (بدون تغییر)
 const ElectricEffect = styled('span')({
   position: 'absolute',
   top: '50%',
@@ -119,45 +117,37 @@ const AuthLogin = ({ title, subtext }: loginType) => {
       );
 
       if (response.data.success) {
-        debugger
+
         const token = response.data.data;
-        debugger
+
         if (token) {
-          localStorage.setItem('authToken', token); // ذخیره توکن
+          localStorage.setItem('authToken', token);
 
           loadAuthData();
           showAlert('Giriş başarılı!', 'success');
 
           if (redirectUrl) {
-            // 1. آدرس کامل encoded را Decode می‌کنیم
             const decodedUrl = decodeURIComponent(redirectUrl);
 
-            // 2. ساخت یک شیء URL برای استخراج مسیر و پارامترها
             const urlObject = new URL(decodedUrl);
 
-            // 3. استخراج مسیر داخلی (pathname + search query)
-            // نتیجه: /hr/list-consignments?id=21&code=000008
             const internalPath = urlObject.pathname + urlObject.search;
 
-            // 4. هدایت به مسیر داخلی
             navigate(internalPath);
 
           } else {
-            // در غیر این صورت، به صفحه پیش‌فرض هدایت کن
             navigate('/dashboards/dashboard');
           }
         } else {
-          // اگر 'success' true بود ولی 'data' (توکن) خالی بود
           throw new Error('Sunucudan geçerli bir token alınamadı.');
         }
       } else {
-        // اگر 'success' false بود، پیام خطا را از سرور بگیرید
         const errorMessage = response.data.message || 'Kullanıcı adı veya şifre yanlış. Lütfen tekrar deneyin.';
         throw new Error(errorMessage);
       }
 
     } catch (err: any) {
-      debugger
+
 
       const errorMessage = (err.response?.data?.message == "Username or Password is not corrected!" ? "Şifre veya Kullanıcı Adı yanlış!" : "")
         || (err.message == "Request failed with status code 400" ? "Kullanıcı adınızı veya şifrenizi girin." : "") || 'Giriş sırasında beklenmeyen bir hata oluştu.';

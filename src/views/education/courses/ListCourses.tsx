@@ -33,31 +33,19 @@ import { format } from 'date-fns';
 
 import axios from 'axios';
 import server from '../../../assets/address.json';
-// @ts-ignore
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
-// @ts-ignore
 import { useAuth } from 'src/context/AuthContext';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
-// @ts-ignore
 import autoTable from 'jspdf-autotable';
 
 import Logo from 'src/assets/images/logos/logo.png';
-// @ts-ignore
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
-
-// @ts-ignore
 import DeleteCourses from './DeleteCourses';
-// @ts-ignore
 import ListCourseDateTimes from '../course-date-times/ListCourseDateTimes';
-// @ts-ignore
 import ListCourseParticipants from '../course-participants/ListCourseParticipants';
 
-
-// =====================================================================================
-// === INTERFACES & TYPES ===
-// =====================================================================================
 interface AttachmentType { fileUrl: string; }
 interface TeacherApi { id: string; name: string; surname: string; field: string; recordStatus: 0 | 1; createAt: string; }
 
@@ -78,7 +66,7 @@ interface CourseDetail {
     title: string;
     description: string;
     startDateTime: string;
-    endDateTime: string | null; // می تواند null باشد
+    endDateTime: string | null;
     attachments: AttachmentType[];
     teacherId: number;
     recordStatus: 0 | 1;
@@ -88,16 +76,11 @@ interface CourseDetail {
     user: UserDetail;
     workhouse: WorkhouseDetail | null;
     hours: number;
-    // ⭐ NEW FIELD ⭐
     ISG: boolean;
 }
 type SortableKeys = 'title' | 'startDateTime' | 'endDateTime' | 'createAt';
 
 
-// =====================================================================================
-// === COMMON STYLED COMPONENTS & HELPERS ===
-// (فرض بر این است که این بخش بدون تغییر است، اما برای تکمیل کد اضافه شده است)
-// =====================================================================================
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans',
     fontSize: '0.8rem',
@@ -213,10 +196,10 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -226,7 +209,7 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
@@ -234,8 +217,6 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     doc.setFont('NotoSans', 'normal');
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -298,10 +279,6 @@ const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, colum
         rowNum++;
     });
 };
-
-// =====================================================================================
-// === ConsignmentFileUpload Component ===
-// =====================================================================================
 const ConsignmentFileUpload: React.FC<{
     files: File[];
     setFiles: (f: File[]) => void;
@@ -352,7 +329,6 @@ const ConsignmentFileUpload: React.FC<{
                 </Button>
             </Stack>
 
-            {/* Display Existing Attachments */}
             {currentAttachments.length > 0 && (
                 <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
                     <Typography variant="caption" sx={{ color: 'gray', width: '100%' }}>Mevcut Dosyalar ({currentAttachments.length}):</Typography>
@@ -375,7 +351,6 @@ const ConsignmentFileUpload: React.FC<{
                 </Stack>
             )}
 
-            {/* Display New Files to Upload */}
             {files.length > 0 && (
                 <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
                     <Typography variant="caption" sx={{ color: 'gray', width: '100%' }}>Yüklenecek Yeni Dosyalar ({files.length}):</Typography>
@@ -400,30 +375,18 @@ const ConsignmentFileUpload: React.FC<{
 };
 
 
-// =====================================================================================
-// === Main Component: ListCourses ===
-// =====================================================================================
-
 const ListCourses: React.FC = () => {
     const navigate = useNavigate();
-    // const { allowedOperations } = useAuth();
     const { isTooltipGloballyEnabled } = useTooltip();
 
 
     const nameInputRef = useRef<HTMLInputElement>(null);
-    // Permissions
-    // const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
-    // const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
-    // const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -432,24 +395,19 @@ const ListCourses: React.FC = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -463,9 +421,6 @@ const ListCourses: React.FC = () => {
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
 
 
-    // ------------------------------------
-    // States Form
-    // ------------------------------------
     const [editingId, setEditingId] = useState<number | null>(null);
     const [title, setTitle] = useState<string>('');
     const [description, setDescription] = useState<string>('');
@@ -474,7 +429,6 @@ const ListCourses: React.FC = () => {
     const [hours, setHours] = useState<number | ''>('');
     const [hoursError, setHoursError] = useState(false);
 
-    // ⭐ NEW ISG STATE ⭐
     const [ISG, setISG] = useState(false);
 
     const [teachersList, setTeachersList] = useState<TeacherApi[]>([]);
@@ -484,13 +438,10 @@ const ListCourses: React.FC = () => {
     const [currentAttachments, setCurrentAttachments] = useState<AttachmentType[]>([]);
     const [attachmentError, setAttachmentError] = useState(false);
 
-    // Form Validation States
     const [titleError, setTitleError] = useState(false);
     const [teacherError, setTeacherError] = useState(false);
     const [startDateTimeError, setStartDateTimeError] = useState(false);
-    // const [endDateTimeError, setEndDateTimeError] = useState(false); // ❌ حذف شد
 
-    // Global States
     const [courses, setCourses] = useState<CourseDetail[]>([]);
     const [loadingData, setLoadingData] = useState<boolean>(true);
     const [loadingButton, setLoadingButton] = useState<boolean>(false);
@@ -499,7 +450,6 @@ const ListCourses: React.FC = () => {
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
-    // Table/Filter/Modals States
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
@@ -531,7 +481,6 @@ const ListCourses: React.FC = () => {
 
     const [openParticipantsModal, setOpenParticipantsModal] = useState(false);
 
-    // ⭐ NEW END COURSE MODAL STATES ⭐
     const [openEndCourseModal, setOpenEndCourseModal] = useState(false);
     const [rowForEndCourse, setRowForEndCourse] = useState<CourseDetail | null>(null);
     const [endCourseDate, setEndCourseDate] = useState<Date | null>(null);
@@ -543,7 +492,6 @@ const ListCourses: React.FC = () => {
     const [workhouseError, setWorkhouseError] = useState(false);
 
 
-    // --- Utility Functions (Alerts) ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -562,7 +510,7 @@ const ListCourses: React.FC = () => {
         title: r.title,
         description: r.description || '',
         startDateTime: r.startDateTime,
-        endDateTime: r.endDateTime || null, // 💡 مقدار null را قبول می‌کند
+        endDateTime: r.endDateTime || null,
         attachments: (r.attachments || r.attacments || []).map((a: any) => ({ fileUrl: a.fileUrl })),
         teacherId: Number(r.teacher?.id),
         workhouseId: Number(r.workhouse?.id),
@@ -572,7 +520,6 @@ const ListCourses: React.FC = () => {
         user: r.user as UserDetail,
         workhouse: r.workhouse || null,
         hours: r.hours,
-        // ⭐ NEW: ISG FIELD MAPPING ⭐
         ISG: r.ISG ?? false,
     });
 
@@ -611,7 +558,7 @@ const ListCourses: React.FC = () => {
             const url = `${server.baseurl}${server.education}get-all-courses`;
             const res = await axios.get(url, { headers: { Authorization: `Bearer ${authToken}` } });
             if (res.data.httpStatusCode === 200) {
-                debugger
+
                 const rawRows = (res.data.data as any[]).map(mapApiDataToCourseDetail);
                 setCourses(rawRows);
             } else {
@@ -665,11 +612,10 @@ const ListCourses: React.FC = () => {
         }
     }, [navigate]);
 
-    // --- Initial Load Effect ---
     useEffect(() => {
         fetchTeachers();
         fetchCourses();
-        getWorkhousesList(); // اطمینان از لود شدن لیست شانتیه‌ها
+        getWorkhousesList();
     }, [fetchTeachers, fetchCourses, getWorkhousesList]);
 
 
@@ -681,7 +627,6 @@ const ListCourses: React.FC = () => {
         if (!selectedTeacher) { setTeacherError(true); ok = false; }
         if (!startDateTime) { setStartDateTimeError(true); ok = false; }
 
-        // hours must be > 0 and a valid number
         if (hours === '' || Number(hours) <= 0 || isNaN(Number(hours))) {
             setHoursError(true);
             ok = false;
@@ -696,12 +641,11 @@ const ListCourses: React.FC = () => {
         setTitle('');
         setDescription('');
         setStartDateTime(null);
-        // endDateTime از اینجا حذف شد
         setSelectedTeacher(null);
         setSelectedWorkhouse(null);
         setWorkhouseError(false);
         setHours('');
-        setISG(false); // ⭐ NEW: Reset ISG
+        setISG(false);
         setSelectedFiles([]);
         setCurrentAttachments([]);
         setTitleError(false); setTeacherError(false); setStartDateTimeError(false);
@@ -732,7 +676,7 @@ const ListCourses: React.FC = () => {
     };
 
     const handleSubmitForm = async () => {
-        debugger
+
         if (!validateForm() || !selectedTeacher) return;
         setLoadingButton(true);
         const authToken = localStorage.getItem('authToken');
@@ -810,9 +754,6 @@ const ListCourses: React.FC = () => {
         setDescription(row.description);
         setStartDateTime(row.startDateTime ? new Date(row.startDateTime) : null);
         setHours(row.hours || '');
-        // row.endDateTime از اینجا حذف شد
-
-        // ⭐ LOAD ISG ON EDIT ⭐
         setISG(row.ISG ?? false);
 
         setCurrentAttachments(row.attachments);
@@ -827,7 +768,6 @@ const ListCourses: React.FC = () => {
         handleCloseMenu();
     };
 
-    // ⭐ NEW END COURSE LOGIC ⭐
     const submitEndCourse = async () => {
         if (!rowForEndCourse || !endCourseDate) {
             setEndCourseError(true);
@@ -835,7 +775,6 @@ const ListCourses: React.FC = () => {
         }
 
         const startDate = new Date(rowForEndCourse.startDateTime);
-        // اعتبارسنجی: تاریخ اتمام نباید قبل از تاریخ شروع باشد
         if (endCourseDate < startDate) {
             setEndCourseError(true);
             showAlert('Bitiş tarihi, başlangıç tarihinden (' + formatDateDisplay(rowForEndCourse.startDateTime) + ') daha erken olamaz.', 'warning');
@@ -947,13 +886,10 @@ const ListCourses: React.FC = () => {
     const handleCloseDeleteModal = () => { setOpenDeleteModal(false); setDeleteId(null); setDeleteName(''); fetchCourses(); };
 
 
-    // --- Download Handlers ---
-    // 💡 PDF columns are 8
     const exportDetailsToPdf = (data: CourseDetail[], title: string) => {
         if (!data || data.length === 0) { showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning'); return; }
         setLoadingData(true); showAlert('Rapor oluşturuluyor...', 'info');
 
-        // @ts-ignore
         const doc = new jsPDF();
         const docAny = doc as any;
 
@@ -965,7 +901,7 @@ const ListCourses: React.FC = () => {
             formatDateDisplay(r.startDateTime || null),
             formatDateDisplay(r.endDateTime || null),
             r.hours ? `${r.hours} Saat` : '-',
-            r.ISG ? 'Evet' : 'Hayır', // ⭐ NEW ISG DATA ⭐
+            r.ISG ? 'Evet' : 'Hayır',
             r.description,
             formatDateDisplay(r.createAt || null),
         ]);
@@ -995,7 +931,6 @@ const ListCourses: React.FC = () => {
         }
     };
 
-    // 💡 Excel columns are 8
     const exportDetailsToExcel = (data: CourseDetail[], title: string) => {
         if (!data || data.length === 0) { showAlert('Excel oluşturulacak kayıt bulunamadı.', 'warning'); return; }
         setLoadingData(true); showAlert('Excel dosyası oluşturuluyor...', 'info');
@@ -1019,7 +954,7 @@ const ListCourses: React.FC = () => {
                     formatDateDisplay(r.startDateTime || null),
                     formatDateDisplay(r.endDateTime || null),
                     r.hours || '-',
-                    r.ISG ? 'Evet' : 'Hayır', // ⭐ NEW ISG DATA ⭐
+                    r.ISG ? 'Evet' : 'Hayır',
                     r.description || '-',
                     formatDateDisplay(r.createAt || null),
                 ]);
@@ -1035,7 +970,7 @@ const ListCourses: React.FC = () => {
                 column.width = Math.min(Math.max(maxLength + 2, 12), 50);
             });
 
-            addExcelCompanyInfo(worksheet, worksheet.lastRow!.number + 2, columns.length); // 💡 Columns length = 8
+            addExcelCompanyInfo(worksheet, worksheet.lastRow!.number + 2, columns.length);
 
             const fileName = `${title.replace(/ /g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`;
             workbook.xlsx.writeBuffer().then(buffer => {
@@ -1094,8 +1029,6 @@ const ListCourses: React.FC = () => {
     };
 
 
-
-    // در ListCourses
     const handleOpenDateTimesModal = (row: CourseDetail) => {
         setCourseStartForModal(row.startDateTime);
         setCourseEndForModal(row.endDateTime);
@@ -1168,7 +1101,6 @@ const ListCourses: React.FC = () => {
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
 
-                {/* --- Header & Buttons --- */}
                 <Stack
                     direction={{ xs: 'column', md: 'row' }}
                     justifyContent="space-between"
@@ -1181,7 +1113,6 @@ const ListCourses: React.FC = () => {
                         Kurs Yönetimi
                     </Typography>
 
-                    {/* Action Buttons */}
                     <Stack
                         direction={{ xs: 'column', sm: 'row' }}
                         spacing={1}
@@ -1223,7 +1154,6 @@ const ListCourses: React.FC = () => {
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                         <Typography variant="h6" mb={2}>{editingId ? 'Kurs Düzenle' : 'Yeni Kurs Kaydı'}</Typography>
                         <Grid container spacing={2}>
-                            {/* Title & Teacher Selection */}
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel>Şantiye</CustomFormLabel>
                                 <Autocomplete
@@ -1271,7 +1201,6 @@ const ListCourses: React.FC = () => {
                                     disabled={loadingButton}
                                 />
                             </Grid>
-                            {/* Start DateTime */}
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Başlangıç Tarihi/Saati</CustomFormLabel>
                                 <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
@@ -1285,9 +1214,6 @@ const ListCourses: React.FC = () => {
                                 </LocalizationProvider>
                             </Grid>
 
-                            {/* ❌ Bitiş Tarihi/Saati از اینجا حذف شد */}
-
-                            {/* Saat Field */}
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Saat</CustomFormLabel>
                                 <CustomTextField
@@ -1298,7 +1224,6 @@ const ListCourses: React.FC = () => {
                                     value={hours}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                         const value = e.target.value === '' ? '' : Number(e.target.value);
-                                        // 💡 جلوگیری از ورود عدد منفی
                                         if (e.target.value === '' || Number(e.target.value) >= 0) {
                                             setHours(value);
                                             setHoursError(false);
@@ -1311,7 +1236,6 @@ const ListCourses: React.FC = () => {
                                 />
                             </Grid>
 
-                            {/* ⭐ NEW: ISG Checkbox ⭐ */}
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel>ISG Eğitimi mi?</CustomFormLabel>
                                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1 }}>
@@ -1328,12 +1252,10 @@ const ListCourses: React.FC = () => {
                                 </Stack>
                             </Grid>
 
-                            {/* Description */}
                             <Grid item xs={12}>
                                 <CustomFormLabel>Açıklama</CustomFormLabel>
                                 <CustomTextField placeholder="Detaylı Açıklama" size="small" fullWidth value={description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)} multiline rows={2} />
                             </Grid>
-                            {/* Attachments */}
                             <Grid item xs={12}>
                                 <CustomFormLabel>Ekler (Resim/pdf/excel)</CustomFormLabel>
                                 <ConsignmentFileUpload
@@ -1344,7 +1266,6 @@ const ListCourses: React.FC = () => {
                                     setCurrentAttachments={setCurrentAttachments}
                                 />
                             </Grid>
-                            {/* Form Actions */}
                             <Grid item xs={12}>
                                 <Stack direction="row" spacing={1} justifyContent="flex-end">
                                     <Button variant="contained" color={editingId ? "info" : "success"} onClick={handleSubmitForm} disabled={loadingButton || !selectedTeacher || !startDateTime || hoursError || hours === ''} size="small">
@@ -1365,7 +1286,6 @@ const ListCourses: React.FC = () => {
                 )}
             </div>
 
-            {/* --- Alert --- */}
             {alertMessage && (
                 <Stack sx={{ width: '100%', mb: 3 }} spacing={2}><Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert></Stack>
             )}
@@ -1388,7 +1308,6 @@ const ListCourses: React.FC = () => {
                         </Stack>
                     </Grid>
                     <Grid container spacing={2} alignItems="center">
-                        {/* Search & Date Filters */}
                         <Grid item xs={12} sm={6} md={3}>
                             <TextField label="Ara (Başlık / Öğretmen)" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange} size="small" InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }} />
                         </Grid>
@@ -1421,8 +1340,6 @@ const ListCourses: React.FC = () => {
                     </Grid>
                 </Box>
 
-
-                {/* --- Table --- */}
                 <TableContainer>
                     {loadingData ? (
                         <Box display="flex" justifyContent="center" alignItems="center" height="200px">
@@ -1437,7 +1354,7 @@ const ListCourses: React.FC = () => {
                                     <StyledTableCell><TableSortLabel active={orderBy === 'startDateTime'} direction={orderBy === 'startDateTime' ? order : 'asc'} onClick={() => handleRequestSort('startDateTime')} sx={{ color: 'inherit' }}><Typography variant="h6">Başlangıç</Typography></TableSortLabel></StyledTableCell>
                                     <StyledTableCell><TableSortLabel active={orderBy === 'endDateTime'} direction={orderBy === 'endDateTime' ? order : 'asc'} onClick={() => handleRequestSort('endDateTime')} sx={{ color: 'inherit' }}><Typography variant="h6">Bitiş</Typography></TableSortLabel></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Saat</Typography></StyledTableCell>
-                                    {/* ⭐ NEW COLUMN HEADER: ISG ⭐ */}
+
                                     <StyledTableCell><Typography variant="h6">ISG</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Ekler</Typography></StyledTableCell>
@@ -1451,7 +1368,6 @@ const ListCourses: React.FC = () => {
                                     paginatedRows.map((row) => (
                                         <TableRow
                                             key={row.id}
-                                            // 💡 ردیف‌هایی که تاریخ پایان دارند، رنگ پس‌زمینه بگیرند (اختیاری)
                                             sx={{
                                                 '&:last-child td, &:last-child th': { border: 0 },
                                                 ...(row.endDateTime ? { backgroundColor: '#ffa7a76e' } : {})
@@ -1462,7 +1378,6 @@ const ListCourses: React.FC = () => {
                                             <StyledTableCell>{formatDateDisplay(row.startDateTime || null)}</StyledTableCell>
                                             <StyledTableCell>{formatDateDisplay(row.endDateTime || null)}</StyledTableCell>
                                             <StyledTableCell>{row.hours ? `${row.hours} Saat` : '-'}</StyledTableCell>
-                                            {/* ⭐ NEW CELL DATA: ISG ⭐ */}
                                             <StyledTableCell>
                                                 <Chip
                                                     label={row.ISG ? 'Evet' : 'Hayır'}
@@ -1470,22 +1385,8 @@ const ListCourses: React.FC = () => {
                                                     size="small"
                                                 />
                                             </StyledTableCell>
-                                            {/* <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
-                                                <Box sx={{
-                                                    maxHeight: '5em', overflow: 'hidden', textOverflow: 'ellipsis',
-                                                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                                                }}>
-                                                    <div dangerouslySetInnerHTML={{ __html: row.description }} />
-                                                </Box>
-                                                {row.description.length > 50 && (
-                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => { handleOpenDescriptionModal(row.description); }}>Açıklamanı Oku</Button>
-                                                    </CustomTooltip>
-                                                )}
-                                            </StyledTableCell> */}
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 {row.description && row.description.trim().length > 0 ? (
-                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button
                                                             variant="text"
@@ -1496,7 +1397,6 @@ const ListCourses: React.FC = () => {
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (
-                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
                                                     <Typography variant="body2" align="center">
                                                         -
                                                     </Typography>
@@ -1530,7 +1430,6 @@ const ListCourses: React.FC = () => {
                                                         </MuiMenuItem>
                                                     </CustomTooltip>
 
-                                                    {/* ⭐ NEW: End Course Option ⭐ */}
                                                     {hasEditPermission && selectedRowForMenu && (
                                                         <CustomTooltip
                                                             placement="left"
@@ -1577,7 +1476,6 @@ const ListCourses: React.FC = () => {
                 <TablePagination rowsPerPageOptions={[5, 10, 25]} component="div" count={filteredCourses.length} rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage} labelRowsPerPage="Satır başına düşen:" labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`} />
             </BlankCard>
 
-            {/* --- Download Modals (remains the same) --- */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
                 <DialogTitle>Tüm Kursları İndir</DialogTitle>
                 <DialogContent><Stack direction="column" spacing={2} sx={{ mt: 2 }}><Button variant="contained" color="primary" startIcon={<IconFileText />} onClick={() => handleDownloadAll('pdf')}>PDF Olarak İndir</Button><Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />} onClick={() => handleDownloadAll('excel')}>Excel Olarak İndir</Button></Stack></DialogContent>
@@ -1594,7 +1492,6 @@ const ListCourses: React.FC = () => {
                 <DialogActions><Button onClick={handleCloseRowDownloadModal} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* ⭐ NEW: Kursu Sonlandır Modal (End Course Modal) ⭐ */}
             <Dialog open={openEndCourseModal} onClose={() => setOpenEndCourseModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Kursu Sonlandır</DialogTitle>
                 <DialogContent>
@@ -1629,7 +1526,6 @@ const ListCourses: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* --- Delete Modal (Using DeleteCourses component) --- */}
             <DeleteCourses
                 openModal={openDeleteModal}
                 onClose={handleCloseDeleteModal}
@@ -1649,7 +1545,6 @@ const ListCourses: React.FC = () => {
                 courseEnd={courseEndForModal}
             />
 
-            {/* --- Course Participants Modal --- */}
             <ListCourseParticipants
                 open={openParticipantsModal}
                 courseId={courseIdForModal}
@@ -1658,7 +1553,6 @@ const ListCourses: React.FC = () => {
                 showAlert={showAlert}
             />
 
-            {/* --- Attachments Modal --- */}
             <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Ekler ({attachmentsToView.length} adet)</DialogTitle>
                 <DialogContent dividers>
@@ -1695,7 +1589,6 @@ const ListCourses: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* --- Description Modal --- */}
             <Dialog open={openDescriptionModal} onClose={handleCloseDescriptionModal} maxWidth="md" fullWidth>
                 <DialogTitle>Açıklamanın Tamamı</DialogTitle>
                 <DialogContent dividers>

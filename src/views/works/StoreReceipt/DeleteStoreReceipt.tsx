@@ -5,11 +5,10 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
-import server from '../../../assets/address.json'; // مسیر فایل address.json را تنظیم کنید
+import server from '../../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// --- Props interface for Receipts ---
 type Props = {
     openModal: boolean;
     receiptIdToDelete: string | null;
@@ -24,7 +23,6 @@ const DeleteStoreReceipt = ({ openModal, receiptIdToDelete, receiptCodeToDelete,
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // State for Receipt In Use modal
     const [openReceiptInUseModal, setOpenReceiptInUseModal] = useState<boolean>(false);
 
     const handleDeleteReceipt = async () => {
@@ -43,7 +41,7 @@ const DeleteStoreReceipt = ({ openModal, receiptIdToDelete, receiptCodeToDelete,
         setLoading(true);
         try {
             const response = await axios.delete(
-                `${server.baseurl}${server.warehouse}delete-store-receipt/${receiptIdToDelete}`, // ✅ آدرس API برای حذف رسید
+                `${server.baseurl}${server.warehouse}delete-store-receipt/${receiptIdToDelete}`,
                 {
                     headers: {
                         "Accept": "application/json",
@@ -84,7 +82,6 @@ const DeleteStoreReceipt = ({ openModal, receiptIdToDelete, receiptCodeToDelete,
 
     return (
         <>
-            {/* Main Delete Confirmation Modal */}
             <Dialog
                 open={openModal}
                 onClose={onClose}
@@ -124,7 +121,6 @@ const DeleteStoreReceipt = ({ openModal, receiptIdToDelete, receiptCodeToDelete,
                 </DialogActions>
             </Dialog>
 
-            {/* Dialog for Receipt In Use */}
             <Dialog
                 open={openReceiptInUseModal}
                 onClose={handleCloseReceiptInUseModal}

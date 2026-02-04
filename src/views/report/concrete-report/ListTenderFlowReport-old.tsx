@@ -77,17 +77,16 @@ interface WorkhouseType {
 }
 
 interface TenderFlowReportRowType {
-    ihaleTitle: string;
-    ihaleCategory: string;
-    demontaj: string;
-    demontajMontaj: string;
-    demontajMontajPrice: string;
-    demontajTutari: string;
-    montajPrice: string;
-    demontajPrice: string;
-    itemId: string;
-    itmCode: String;
-    itmName: string;
+    ihale_title: string;
+    ihale_category: string;
+    Demontaj: string;
+    DemontajMontaj: string;
+    DemontajMontajPrice: string;
+    DemontajTutari: string;
+    MontajPrice: string;
+    DemontajPrice: string;
+    item_id: string;
+    item_name: string;
     unit: string;
     work_id: string;
     work_name: string;
@@ -106,9 +105,6 @@ interface TenderFlowReportRowType {
     receipt_date: string;
     receipt_item_id: string;
     Quantity: string;
-    ourQty: String;
-    qty: String;
-    firmQty: String;
     warehouse_code: string;
     warehouse_name: string;
     warhouse_dispatch_code: string;
@@ -188,8 +184,8 @@ function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
     let bValue: any = b[orderBy];
 
     const numericFields = [
-        'qty', 'demontaj', 'demontajMontaj',
-        'demontajMontajPrice', 'demontajTutari', 'montajPrice', 'demontajPrice'
+        'Quantity', 'Demontaj', 'DemontajMontaj',
+        'DemontajMontajPrice', 'DemontajTutari', 'MontajPrice', 'DemontajPrice'
     ];
 
     if (numericFields.includes(orderBy as string)) {
@@ -228,59 +224,59 @@ interface DetailViewModalProps {
 const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report, onExportExcel, onExportPdf }) => {
     if (!report) return null;
 
-    const reportTitle = `İhale Akışı Detayları: ${report.ihaleTitle}`;
+    const reportTitle = `İhale Akışı Detayları: ${report.ihale_title}`;
 
     return (
-        <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+        <Dialog open={open} onClose={onClose} fullWidth maxWidth="xl">
             <DialogTitle>{reportTitle}</DialogTitle>
             <DialogContent dividers>
                 <Grid container spacing={3}>
                     {/* Sütun 1: İhale ve İş Bilgileri */}
-                    <Grid item xs={12} md={6}>
+                    <Grid item xs={12} md={3}>
                         <Typography variant="h6" mb={1} color="primary">İhale ve İş Bilgileri</Typography>
                         <Stack spacing={1}>
-                            <TextField label="İhale Adı" size="small" fullWidth value={report.ihaleTitle} disabled />
-                            <TextField label="İhale Kategori" size="small" fullWidth value={report.ihaleCategory} disabled />
-                            {/* <TextField label="İş Adı" size="small" fullWidth value={report.work_name} disabled /> */}
-                            {/* <TextField label="Ağ Başlığı" size="small" fullWidth value={report.network_title} disabled /> */}
-                            <TextField label="İhale Kategori ID" size="small" fullWidth value={report.itemId} disabled />
-                            {/* <TextField label="İş ID" size="small" fullWidth value={report.work_id} disabled /> */}
+                            <TextField label="İhale Adı" size="small" fullWidth value={report.ihale_title} disabled />
+                            <TextField label="İhale Kategori" size="small" fullWidth value={report.ihale_category} disabled />
+                            <TextField label="İş Adı" size="small" fullWidth value={report.work_name} disabled />
+                            <TextField label="Ağ Başlığı" size="small" fullWidth value={report.network_title} disabled />
+                            <TextField label="İhale Kategori ID" size="small" fullWidth value={report.item_id} disabled />
+                            <TextField label="İş ID" size="small" fullWidth value={report.work_id} disabled />
                         </Stack>
                     </Grid>
 
                     {/* Sütun 2: Miktar ve Fiyatlar */}
-                    <Grid item xs={12} md={6}>
+                    <Grid item xs={12} md={3}>
                         <Typography variant="h6" mb={1} color="warning.main">Miktar ve Fiyatlar</Typography>
                         <Stack spacing={1}>
-                            <TextField label="Ürün Adı" size="small" fullWidth value={report.itmName} disabled />
-                            {/* <TextField label="Birim" size="small" fullWidth value={report.unit} disabled /> */}
-                            <TextField label="Toplam Miktar (Makbuz)" size="small" fullWidth value={formatPriceDisplay(report.qty)} disabled />
-                            <TextField label="Demontaj Miktarı (Net)" size="small" fullWidth value={formatPriceDisplay(report.demontaj)} disabled />
-                            <TextField label="Demontaj+Montaj Miktarı" size="small" fullWidth value={formatPriceDisplay(report.demontajMontaj)} disabled />
-                            <TextField label="Demontaj Tutarı" size="small" fullWidth value={formatPriceDisplay(report.demontajTutari)} disabled />
-                            <TextField label="Montaj Fiyatı" size="small" fullWidth value={formatPriceDisplay(report.montajPrice)} disabled />
-                            <TextField label="Demontaj+Montaj Fiyatı" size="small" fullWidth value={formatPriceDisplay(report.demontajMontajPrice)} disabled />
+                            <TextField label="Ürün Adı" size="small" fullWidth value={report.item_name} disabled />
+                            <TextField label="Birim" size="small" fullWidth value={report.unit} disabled />
+                            <TextField label="Toplam Miktar (Makbuz)" size="small" fullWidth value={formatPriceDisplay(report.Quantity)} disabled />
+                            <TextField label="Demontaj Miktarı (Net)" size="small" fullWidth value={formatPriceDisplay(report.Demontaj)} disabled />
+                            <TextField label="Demontaj+Montaj Miktarı" size="small" fullWidth value={formatPriceDisplay(report.DemontajMontaj)} disabled />
+                            <TextField label="Demontaj Tutarı" size="small" fullWidth value={formatPriceDisplay(report.DemontajTutari)} disabled />
+                            <TextField label="Montaj Fiyatı" size="small" fullWidth value={formatPriceDisplay(report.MontajPrice)} disabled />
+                            <TextField label="Demontaj+Montaj Fiyatı" size="small" fullWidth value={formatPriceDisplay(report.DemontajMontajPrice)} disabled />
                         </Stack>
                     </Grid>
 
                     {/* Sütun 3: Sipariş و فاکتور (Fatura) */}
-                    {/* <Grid item xs={12} md={3}> */}
-                    {/* <Typography variant="h6" mb={1} color="info">Sipariş ve Fatura Bilgileri</Typography>
-                        <Stack spacing={1}> */}
-                    {/* <TextField label="Sipariş No" size="small" fullWidth value={report.order_no} disabled /> */}
-                    {/* <TextField label="Sipariş Tarihi" size="small" fullWidth value={formatDateDisplay(report.order_date)} disabled /> */}
-                    {/* <TextField label="Sipariş Ürün ID" size="small" fullWidth value={report.order_item_id} disabled /> */}
-                    {/* <TextField label="Sipariş Miktarı" size="small" fullWidth value={formatPriceDisplay(report.order_qty)} disabled /> */}
-                    {/* <TextField label="Fatura No" size="small" fullWidth value={report.invoice_no} disabled /> */}
-                    {/* <TextField label="Fatura Tarihi" size="small" fullWidth value={formatDateDisplay(report.invoice_date)} disabled /> */}
-                    {/* <TextField label="Fatura Ürün ID" size="small" fullWidth value={report.invoice_itemid} disabled /> */}
-                    {/* <TextField label="Fatura Fiyatı" size="small" fullWidth value={formatPriceDisplay(report.invoice_price)} disabled /> */}
-                    {/* <TextField label="Fatura Miktarı" size="small" fullWidth value={formatPriceDisplay(report.invoice_qty)} disabled /> */}
-                    {/* </Stack>
-                    </Grid> */}
+                    <Grid item xs={12} md={3}>
+                        <Typography variant="h6" mb={1} color="info">Sipariş ve Fatura Bilgileri</Typography>
+                        <Stack spacing={1}>
+                            <TextField label="Sipariş No" size="small" fullWidth value={report.order_no} disabled />
+                            <TextField label="Sipariş Tarihi" size="small" fullWidth value={formatDateDisplay(report.order_date)} disabled />
+                            <TextField label="Sipariş Ürün ID" size="small" fullWidth value={report.order_item_id} disabled />
+                            <TextField label="Sipariş Miktarı" size="small" fullWidth value={formatPriceDisplay(report.order_qty)} disabled />
+                            <TextField label="Fatura No" size="small" fullWidth value={report.invoice_no} disabled />
+                            <TextField label="Fatura Tarihi" size="small" fullWidth value={formatDateDisplay(report.invoice_date)} disabled />
+                            <TextField label="Fatura Ürün ID" size="small" fullWidth value={report.invoice_itemid} disabled />
+                            <TextField label="Fatura Fiyatı" size="small" fullWidth value={formatPriceDisplay(report.invoice_price)} disabled />
+                            <TextField label="Fatura Miktarı" size="small" fullWidth value={formatPriceDisplay(report.invoice_qty)} disabled />
+                        </Stack>
+                    </Grid>
 
                     {/* Sütun 4: انبار ( Depo) و Sevk Akışı */}
-                    {/* <Grid item xs={12} md={3}>
+                    <Grid item xs={12} md={3}>
                         <Typography variant="h6" mb={1} color="success.main"> Depo ve Sevk Akışı</Typography>
                         <Stack spacing={1}>
                             <TextField label="Şantiye Adı" size="small" fullWidth value={`${report.workhouse_name} (${report.workhouse_code})`} disabled />
@@ -293,7 +289,7 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
                             <TextField label=" Depo Makbuz Miktarı" size="small" fullWidth value={formatPriceDisplay(report.store_receipt_qty)} disabled />
                             <TextField label=" Depo Stok Adı" size="small" fullWidth value={`${report.store_name} (${report.store_code})`} disabled />
                         </Stack>
-                    </Grid> */}
+                    </Grid>
 
                     {/* Export Section */}
                     <Grid item xs={12} mt={3}>
@@ -328,7 +324,7 @@ const ListTenderFlowReport = () => {
 
     const [searchTerm, setSearchTerm] = useState('');
     const [order, setOrder] = useState<Order>('asc');
-    const [orderBy, setOrderBy] = useState<keyof TenderFlowReportRowType>('ihaleTitle');
+    const [orderBy, setOrderBy] = useState<keyof TenderFlowReportRowType>('ihale_title');
 
     // ✅ Client Side Pagination States
     const [page, setPage] = useState(0); // MUI TablePagination starts at 0
@@ -494,7 +490,7 @@ const ListTenderFlowReport = () => {
         if (searchTerm) {
             const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
             data = data.filter(row => {
-                const columnsToSearch = [row.ihaleTitle, row.workhouse_name, row.itmName];
+                const columnsToSearch = [row.ihale_title, row.workhouse_name, row.item_name];
                 return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
             });
         }
@@ -525,13 +521,13 @@ const ListTenderFlowReport = () => {
         return filteredReportData.reduce((acc, row) => {
             // طبق خواسته شما:
             // totalDemontaj = جمع DemontajPrice
-            acc.totalDemontaj += parseNumberFromString(row.demontajPrice);
+            acc.totalDemontaj += parseNumberFromString(row.DemontajPrice);
 
             // totalMontaj = جمع MontajPrice
-            acc.totalMontaj += parseNumberFromString(row.montajPrice);
+            acc.totalMontaj += parseNumberFromString(row.MontajPrice);
 
             // totalDemontajMontaj = جمع DemontajMontajPrice
-            acc.totalDemontajMontaj += parseNumberFromString(row.demontajMontajPrice);
+            acc.totalDemontajMontaj += parseNumberFromString(row.DemontajMontajPrice);
 
             return acc;
         }, { totalDemontaj: 0, totalMontaj: 0, totalDemontajMontaj: 0 });
@@ -608,17 +604,17 @@ const ListTenderFlowReport = () => {
         showAlert('PDF raporu hazırlanıyor, lütfen bekleyin...', 'info');
         try {
             const doc = new jsPDF('portrait', 'pt', 'a4'); (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular); (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal"); doc.setFont("NotoSans", "normal");
-            const reportTitle = `İhale Akış Detay Raporu: ${report.ihaleTitle}`; addPdfHeader(doc, reportTitle);
+            const reportTitle = `İhale Akış Detay Raporu: ${report.ihale_title}`; addPdfHeader(doc, reportTitle);
             const tableColumn = ["Alan", "Değer"];
             const tableRows = [
-                ["İhale Başlığı", report.ihaleTitle], ["Şantiye", report.workhouse_name],
-                ["Toplam Miktar", `${parseNumberFromString(report.qty)} (${report.unit})`],
-                ["Demontaj", parseNumberFromString(report.demontaj)], ["DemontajMontaj", parseNumberFromString(report.demontajMontaj)],
-                ["DemontajMontajPrice", formatPriceDisplay(report.demontajMontajPrice)], ["DemontajTutari", formatPriceDisplay(report.demontajTutari)],
-                ["MontajPrice", formatPriceDisplay(report.montajPrice)], ["DemontajPrice", formatPriceDisplay(report.demontajPrice)],
+                ["İhale Başlığı", report.ihale_title], ["Şantiye", report.workhouse_name],
+                ["Toplam Miktar", `${parseNumberFromString(report.Quantity)} (${report.unit})`],
+                ["Demontaj", parseNumberFromString(report.Demontaj)], ["DemontajMontaj", parseNumberFromString(report.DemontajMontaj)],
+                ["DemontajMontajPrice", formatPriceDisplay(report.DemontajMontajPrice)], ["DemontajTutari", formatPriceDisplay(report.DemontajTutari)],
+                ["MontajPrice", formatPriceDisplay(report.MontajPrice)], ["DemontajPrice", formatPriceDisplay(report.DemontajPrice)],
             ];
             autoTable(doc, { startY: 70, head: [tableColumn], body: tableRows, theme: 'grid', styles: { font: 'NotoSans', fontStyle: "normal", fontSize: 9, cellPadding: 5, }, headStyles: { fillColor: [60, 141, 188], textColor: 255 }, didDrawPage: (_data) => { addPdfFooter(doc); } });
-            doc.save(`İhale_Detay_${report.itmName}_${format(new Date(), 'yyyyMMdd')}.pdf`); showAlert('PDF raporu başarıyla oluşturuldu ve indiriliyor.', 'success');
+            doc.save(`İhale_Detay_${report.item_name}_${format(new Date(), 'yyyyMMdd')}.pdf`); showAlert('PDF raporu başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (e: any) { handleApiError(e, 'PDF raporu oluşturulurken bir hata oluştu.'); }
     };
 
@@ -627,12 +623,12 @@ const ListTenderFlowReport = () => {
         showAlert('Excel raporu hazırlanıyor, lütfen bekleyin...', 'info');
         try {
             const workbook = new Excel.Workbook(); const sheet = workbook.addWorksheet('İhale Detay', { views: [{ rightToLeft: false }] });
-            const data = [['İhale', report.ihaleTitle], ['Şantiye', report.workhouse_name], ['Toplam Miktar', parseNumberFromString(report.qty)], ['Demontaj', parseNumberFromString(report.demontaj)], ['DemontajMontaj', parseNumberFromString(report.demontajMontaj)], ['DemontajMontajPrice', parseNumberFromString(report.demontajMontajPrice)], ['DemontajTutari', parseNumberFromString(report.demontajTutari)], ['MontajPrice', parseNumberFromString(report.montajPrice)], ['DemontajPrice', parseNumberFromString(report.demontajPrice)],];
-            const titleRow = sheet.addRow([`İhale Akış Raporu Detayı: ${report.ihaleTitle}`]); titleRow.font = { name: 'Calibri', size: 14, bold: true }; sheet.mergeCells('A1:B1'); sheet.addRow([]);
+            const data = [['İhale', report.ihale_title], ['Şantiye', report.workhouse_name], ['Toplam Miktar', parseNumberFromString(report.Quantity)], ['Demontaj', parseNumberFromString(report.Demontaj)], ['DemontajMontaj', parseNumberFromString(report.DemontajMontaj)], ['DemontajMontajPrice', parseNumberFromString(report.DemontajMontajPrice)], ['DemontajTutari', parseNumberFromString(report.DemontajTutari)], ['MontajPrice', parseNumberFromString(report.MontajPrice)], ['DemontajPrice', parseNumberFromString(report.DemontajPrice)],];
+            const titleRow = sheet.addRow([`İhale Akış Raporu Detayı: ${report.ihale_title}`]); titleRow.font = { name: 'Calibri', size: 14, bold: true }; sheet.mergeCells('A1:B1'); sheet.addRow([]);
             const headerRow = sheet.addRow(['Alan', 'Değer']); headerRow.eachCell((cell) => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; cell.font = { bold: true }; cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; });
             data.forEach(row => { const newRow = sheet.addRow(row); newRow.eachCell((cell) => { cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; }); const fieldName = row[0] as string; if (fieldName.includes('Price') || fieldName.includes('Tutari')) { newRow.getCell(2).numFmt = '$ #,##0.00'; } });
             sheet.columns[0].width = 30; sheet.columns[1].width = 40;
-            const buffer = await workbook.xlsx.writeBuffer(); saveAs(new Blob([buffer]), `İhale_Detay_${report.itmName}_${format(new Date(), 'yyyyMMdd')}.xlsx`); showAlert('Excel raporu başarıyla oluşturuldu ve indiriliyor.', 'success');
+            const buffer = await workbook.xlsx.writeBuffer(); saveAs(new Blob([buffer]), `İhale_Detay_${report.item_name}_${format(new Date(), 'yyyyMMdd')}.xlsx`); showAlert('Excel raporu başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (e: any) { handleApiError(e, 'Excel raporu oluşturulurken bir hata oluştu.'); }
     };
 
@@ -681,18 +677,19 @@ const ListTenderFlowReport = () => {
             addPdfHeader(doc, "İhale Akış Genel Raporu");
 
             // اضافه کردن ستون "Ürün Adı" برای هماهنگی کامل با جدول
-            const tableColumn = ["İhale", "Ürün Adı", "Top. Miktar", "Demontaj", "Dem/Mon", "D+M Fiyat", "Dem Tutarı", "Mon Fiyat", "Dem Fiyat"];
+            const tableColumn = ["İhale", "Şantiye", "Ürün Adı", "Top. Miktar", "Demontaj", "Dem/Mon", "D+M Fiyat", "Dem Tutarı", "Mon Fiyat", "Dem Fiyat"];
 
             const tableRows = dataToExport.map(row => [
-                row.ihaleTitle,
-                row.itmName, // اضافه شد
-                parseNumberFromString(row.qty).toLocaleString('us-US'),
-                parseNumberFromString(row.demontaj).toLocaleString('us-US'),
-                parseNumberFromString(row.demontajMontaj).toLocaleString('us-US'),
-                formatPriceDisplay(row.demontajMontajPrice),
-                formatPriceDisplay(row.demontajTutari),
-                formatPriceDisplay(row.montajPrice),
-                formatPriceDisplay(row.demontajPrice),
+                row.ihale_title,
+                row.workhouse_name,
+                row.item_name, // اضافه شد
+                parseNumberFromString(row.Quantity).toLocaleString('us-US'),
+                parseNumberFromString(row.Demontaj).toLocaleString('us-US'),
+                parseNumberFromString(row.DemontajMontaj).toLocaleString('us-US'),
+                formatPriceDisplay(row.DemontajMontajPrice),
+                formatPriceDisplay(row.DemontajTutari),
+                formatPriceDisplay(row.MontajPrice),
+                formatPriceDisplay(row.DemontajPrice),
             ]);
 
             autoTable(doc, {
@@ -743,7 +740,7 @@ const ListTenderFlowReport = () => {
             const workbook = new Excel.Workbook();
             const sheet = workbook.addWorksheet('İhale Akış Genel Raporu', { views: [{ rightToLeft: false }] });
 
-            const headerRowData = ["İhale", "Ürün Adı", "Toplam Miktar", "Demontaj", "DemontajMontaj", "DemontajMontajPrice", "DemontajTutari", "MontajPrice", "DemontajPrice"];
+            const headerRowData = ["İhale", "Şantiye", "Ürün Adı", "Toplam Miktar", "Demontaj", "DemontajMontaj", "DemontajMontajPrice", "DemontajTutari", "MontajPrice", "DemontajPrice"];
 
             // عنوان گزارش
             sheet.addRow(["İhale Akış Genel Raporu"]);
@@ -774,15 +771,16 @@ const ListTenderFlowReport = () => {
             // افزودن داده‌ها
             dataToExport.forEach(row => {
                 const newRow = sheet.addRow([
-                    row.ihaleTitle,
-                    row.itmName, // اضافه شدن نام محصول به اکسل
-                    parseNumberFromString(row.qty),
-                    parseNumberFromString(row.demontaj),
-                    parseNumberFromString(row.demontajMontaj),
-                    parseNumberFromString(row.demontajMontajPrice),
-                    parseNumberFromString(row.demontajTutari),
-                    parseNumberFromString(row.montajPrice),
-                    parseNumberFromString(row.demontajPrice),
+                    row.ihale_title,
+                    row.workhouse_name,
+                    row.item_name, // اضافه شدن نام محصول به اکسل
+                    parseNumberFromString(row.Quantity),
+                    parseNumberFromString(row.Demontaj),
+                    parseNumberFromString(row.DemontajMontaj),
+                    parseNumberFromString(row.DemontajMontajPrice),
+                    parseNumberFromString(row.DemontajTutari),
+                    parseNumberFromString(row.MontajPrice),
+                    parseNumberFromString(row.DemontajPrice),
                 ]);
 
                 // فرمت‌بندی اعداد و حذف علامت $ (سه رقم سه رقم جدا کردن)
@@ -809,16 +807,16 @@ const ListTenderFlowReport = () => {
     };
 
     const tableHeaders: { label: string; key: keyof TenderFlowReportRowType | 'actions' }[] = [
-        { label: 'İhale Başlığı', key: 'ihaleTitle' },
-        { label: 'Ürün Adı', key: 'itmName' },         // نام کارگاه/سایت
-        { label: 'Top. Miktar', key: 'qty' },               // مقدار کل
-        { label: 'Demontaj Miktarı', key: 'demontaj' },          // مقدار دمونتاژ
-        { label: 'D+M Miktarı', key: 'demontajMontaj' },
-        { label: 'Demontaj Tutarı', key: 'demontajTutari' },      // مقدار دمونتاژ + مونتاژ (مخفف D+M)
-        { label: 'D+M Fiyatı', key: 'demontajMontajPrice' },
-
-        { label: 'Montaj Fiyatı', key: 'montajPrice' },          // مبلغ مونتاژ
-        { label: 'Demontaj Fiyatı', key: 'demontajPrice' },      // قیمت واحد دمونتاژ
+        { label: 'İhale Başlığı', key: 'ihale_title' },          // عنوان مناقصه
+        { label: 'Şantiye Adı', key: 'workhouse_name' },
+        { label: 'Ürün Adı', key: 'item_name' },         // نام کارگاه/سایت
+        { label: 'Top. Miktar', key: 'Quantity' },               // مقدار کل
+        { label: 'Demontaj Miktarı', key: 'Demontaj' },          // مقدار دمونتاژ
+        { label: 'D+M Miktarı', key: 'DemontajMontaj' },         // مقدار دمونتاژ + مونتاژ (مخفف D+M)
+        { label: 'D+M Tutarı', key: 'DemontajMontajPrice' },     // مبلغ دمونتاژ + مونتاژ
+        { label: 'Demontaj Tutarı', key: 'DemontajTutari' },     // مبلغ دمونتاژ
+        { label: 'Montaj Tutarı', key: 'MontajPrice' },          // مبلغ مونتاژ
+        { label: 'Demontaj Fiyatı', key: 'DemontajPrice' },      // قیمت واحد دمونتاژ
         { label: 'İşlemler', key: 'actions' },                   // عملیات
     ];
 
@@ -878,31 +876,31 @@ const ListTenderFlowReport = () => {
                                 // ✅ فقط ردیف‌های برش خورده نمایش داده شوند
                                 visibleRows.map((row, index) => (
                                     <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                        <StyledTableCell>{row.ihaleTitle}</StyledTableCell>
+                                        <StyledTableCell>{row.ihale_title}</StyledTableCell>
+                                        <StyledTableCell>{row.workhouse_name}</StyledTableCell>
 
-                                        <StyledTableCell>{row.itmName}</StyledTableCell>
-                                        <StyledTableCell>{parseNumberFromString(row.qty)}</StyledTableCell>
+                                        <StyledTableCell>{row.item_name}</StyledTableCell>
+                                        <StyledTableCell>{parseNumberFromString(row.Quantity)}</StyledTableCell>
 
 
 
                                         {/* مقدار دمونتاژ */}
                                         <StyledTableCell>
-                                            {parseNumberFromString(row.demontaj).toLocaleString('us-US', {
+                                            {parseNumberFromString(row.Demontaj).toLocaleString('us-US', {
                                                 maximumFractionDigits: 0
                                             })}
                                         </StyledTableCell>
 
                                         {/* مقدار D+M */}
                                         <StyledTableCell>
-                                            {parseNumberFromString(row.demontajMontaj).toLocaleString('us-US', {
+                                            {parseNumberFromString(row.DemontajMontaj).toLocaleString('us-US', {
                                                 maximumFractionDigits: 0
                                             })}
                                         </StyledTableCell>
-                                        <StyledTableCell>{formatPriceDisplay(row.demontajTutari)}</StyledTableCell>
-
-                                        <StyledTableCell>{formatPriceDisplay(row.demontajMontajPrice)}</StyledTableCell>
-                                        <StyledTableCell>{formatPriceDisplay(row.montajPrice)}</StyledTableCell>
-                                        <StyledTableCell>{formatPriceDisplay(row.demontajPrice)}</StyledTableCell>
+                                        <StyledTableCell>{formatPriceDisplay(row.DemontajMontajPrice)}</StyledTableCell>
+                                        <StyledTableCell>{formatPriceDisplay(row.DemontajTutari)}</StyledTableCell>
+                                        <StyledTableCell>{formatPriceDisplay(row.MontajPrice)}</StyledTableCell>
+                                        <StyledTableCell>{formatPriceDisplay(row.DemontajPrice)}</StyledTableCell>
                                         <StyledTableCell>
                                             <Tooltip title="Detaylar ve İşlemler"><IconButton id={`actions-button-${index}`} onClick={(event) => handleClickMenu(event, row)} color="secondary" size="small"><IconDots width={20} /></IconButton></Tooltip>
                                             <Menu id="actions-menu" anchorEl={anchorEl} open={openMenu && selectedRowForMenu === row} onClose={handleCloseMenu}>
@@ -958,9 +956,7 @@ const ListTenderFlowReport = () => {
                 </>
 
             </BlankCard>
-            <DetailViewModal open={openDetailViewModal}
-                onClose={handleCloseDetailViewModal} report={selectedReportToDownload}
-                onExportExcel={handleExportExcelSingle} onExportPdf={handleExportPdfSingle} />
+            <DetailViewModal open={openDetailViewModal} onClose={handleCloseDetailViewModal} report={selectedReportToDownload} onExportExcel={handleExportExcelSingle} onExportPdf={handleExportPdfSingle} />
         </Box>
     );
 };

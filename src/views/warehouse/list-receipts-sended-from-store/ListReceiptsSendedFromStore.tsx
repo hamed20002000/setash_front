@@ -571,7 +571,7 @@ const ListReceiptsSendedFromStore = () => {
 
     // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
@@ -743,7 +743,7 @@ const ListReceiptsSendedFromStore = () => {
             const url = server.baseurl + server.warehouse + `get-Store-dispatches-to-center/${Number(storeId)}`;
             const response = await axios.get(url, { headers: { "Authorization": `Bearer ${authToken}` } });
             if (response.data?.httpStatusCode === 200 && Array.isArray(response.data.data)) {
-                debugger
+
                 const all: DispatchHeader[] = response.data.data;
                 const filtered = all.filter(d => Number(d.status) === 1 && d.isEnd !== true);
                 setDispatchHeadersList(filtered);

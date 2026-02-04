@@ -32,13 +32,11 @@ import server from 'src/assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import { useAuth } from 'src/context/AuthContext';
 
-// Import local components and utilities (assuming these paths exist)
 import DeletePersonnelConsigneds from './DeletePersonnelConsigneds';
 
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
-// @ts-ignore
 import autoTable from 'jspdf-autotable';
 import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
@@ -97,13 +95,11 @@ interface PersonnelConsignedPayload {
 type SortableKeys = 'id' | 'assignmentDate' | 'personnelName' | 'consignmentCode' | 'createAt';
 
 
-// --- Helper Functions and Styles (from previous file, keeping for context) ---
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "-";
     try {
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return "Geçersiz Tarih";
-        // Display only date
         return format(date, 'dd/MM/yyyy', { locale: tr });
     } catch (e) {
         return "Geçersiz Tarih";
@@ -134,7 +130,6 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: 'transform 0.3s ease-in-out',
 }));
 
-// --- Sorting Helpers (unchanged) ---
 const descendingComparator = <T, Key extends keyof T>(a: T, b: T, orderBy: Key): number => {
     const valA = a[orderBy];
     const valB = b[orderBy];
@@ -160,7 +155,6 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilizedThis.map((el) => el[0]);
 };
 
-// --- Consignment File Upload Component (Simplified for brevity and focus on core logic) ---
 const ConsignmentFileUpload: React.FC<{
     files: File[];
     setFiles: (f: File[]) => void;
@@ -196,7 +190,6 @@ const ConsignmentFileUpload: React.FC<{
         }
     };
 
-
     return (
         <Box mt={1} p={2} border={error ? '1px dashed red' : '1px dashed #ccc'} borderRadius={1}>
             <input
@@ -211,7 +204,6 @@ const ConsignmentFileUpload: React.FC<{
                 <Button size="small" variant="outlined" startIcon={<IconFile />} onClick={() => fileInputRef.current?.click()}>
                     Dosya Seç ({files.length + currentAttachments.length})
                 </Button>
-                {/* 🆕 نمایش فایل‌های موجود */}
                 {currentAttachments.map((attachment, index) => (
                     <Chip
                         key={`existing-${index}`}
@@ -223,7 +215,6 @@ const ConsignmentFileUpload: React.FC<{
                         sx={{ m: 0.5 }}
                     />
                 ))}
-                {/* نمایش فایل‌های جدید */}
                 {files.map((file, index) => (
                     <Chip key={index} label={file.name} onDelete={() => handleRemoveNewFile(index)} size="small" color="primary" sx={{ m: 0.5 }} />
                 ))}
@@ -233,27 +224,16 @@ const ConsignmentFileUpload: React.FC<{
     );
 };
 
-// --- Main Component ---
 const ListPersonnelConsigneds: React.FC = () => {
     const navigate = useNavigate();
-    // const { allowedOperations } = useAuth();
     const { isTooltipGloballyEnabled } = useTooltip();
     const theme = useTheme();
-
-    // Permissions (assuming similar system as previous component)
-    // const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
-    // const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
-    // const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
-
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -262,24 +242,19 @@ const ListPersonnelConsigneds: React.FC = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -292,21 +267,11 @@ const ListPersonnelConsigneds: React.FC = () => {
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
 
-
-    // ------------------------------------
-    // States: Data Lists & Main List
-    // ------------------------------------
     const [personnelConsigneds, setPersonnelConsigneds] = useState<PersonnelConsigned[]>([]);
     const [personnelList, setPersonnelList] = useState<PersonnelType[]>([]);
-    // 💡 تغییر: consignmentList اکنون مستقیماً کالاهای قابل واگذاری (Available) را ذخیره می‌کند
     const [consignmentList, setConsignmentList] = useState<ConsignmentType[]>([]);
-    // لیست کالاهایی که پرسنل می‌تواند بازگرداند (فقط برای حالت IADE)
     const [returnableConsignmentList, setReturnableConsignmentList] = useState<ConsignmentType[]>([]);
 
-
-    // ------------------------------------
-    // States: Form & UI & Tracking
-    // ------------------------------------
     const [editingId, setEditingId] = useState<number | null>(null);
     const [isAssignmentMode, setIsAssignmentMode] = useState<boolean>(true);
     const [selectedParentConsignedId, setSelectedParentConsignedId] = useState<number | ''>('');
@@ -316,7 +281,7 @@ const ListPersonnelConsigneds: React.FC = () => {
     const [assignmentDate, setAssignmentDate] = useState<Date | null>(new Date());
     const [returnDate, setReturnDate] = useState<Date | null>(null);
     const [description, setDescription] = useState<string>('');
-    const [selectedFiles, setSelectedFiles] = useState<File[]>([]); // فایل‌های جدید برای واگذاری/برگشت
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
     const [isFormVisible, setIsFormVisible] = useState<boolean>(false);
     const [isBlinking, setIsBlinking] = useState<boolean>(true);
@@ -326,13 +291,12 @@ const ListPersonnelConsigneds: React.FC = () => {
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
-    // Form Errors
     const [personnelError, setPersonnelError] = useState(false);
     const [consignmentError, setConsignmentError] = useState(false);
     const [assignmentDateError, setAssignmentDateError] = useState(false);
     const [returnDateError, setReturnDateError] = useState(false);
     const [attachmentError, setAttachmentError] = useState(false);
-    const [currentAttachments, setCurrentAttachments] = useState<AttachmentType[]>([]); // پیوست‌های موجود (فقط برای نمایش در فرم ویرایش)
+    const [currentAttachments, setCurrentAttachments] = useState<AttachmentType[]>([]);
 
 
     const [lastRecordDetail, setLastRecordDetail] = useState<PersonnelConsigned | null>(null);
@@ -340,9 +304,6 @@ const ListPersonnelConsigneds: React.FC = () => {
 
     const [pendingRecordDetails, setPendingRecordDetails] = useState<{ personnelId: number, consignmentId: number, isReturn: boolean } | null>(null);
 
-    // ------------------------------------
-    // States: Table/Filter (standard)
-    // ------------------------------------
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
@@ -352,9 +313,6 @@ const ListPersonnelConsigneds: React.FC = () => {
     const [startFilter, setStartFilter] = useState<Date | null>(null);
     const [endFilter, setEndFilter] = useState<Date | null>(null);
 
-    // ------------------------------------
-    // States: Menu/Modals (standard)
-    // ------------------------------------
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<PersonnelConsigned | null>(null);
     const openMenu = Boolean(anchorEl);
@@ -382,7 +340,6 @@ const ListPersonnelConsigneds: React.FC = () => {
     const [attachButtonLoading, setAttachButtonLoading] = useState(false);
     const [attachError, setAttachError] = useState(false);
 
-    // --- Alert & Initialization Logic ---
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -396,7 +353,6 @@ const ListPersonnelConsigneds: React.FC = () => {
     useEffect(() => { const t = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(t); }, []);
 
 
-    // --- Data Fetching: Reference Lists ---
     const fetchPersonnelList = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
@@ -407,7 +363,6 @@ const ListPersonnelConsigneds: React.FC = () => {
             });
             if (res.data.httpStatusCode === 200) {
                 const list: PersonnelType[] = (res.data?.data ?? [])
-                    // .filter((p: any) => p.hasISG === true && (!p.workEndDate || p.workEndDate === null))
                     .filter((p: any) => (!p.workEndDate || p.workEndDate === null))
                     .map((x: any) => ({
                         id: Number(x.id),
@@ -421,7 +376,7 @@ const ListPersonnelConsigneds: React.FC = () => {
 
                 if (list.length === 0) {
                     setLoadingData(false);
-                    setPersonnelConsigneds([]); // مطمئن شویم لیست اصلی هم خالی است
+                    setPersonnelConsigneds([]);
                 }
             }
         } catch (e: any) {
@@ -436,18 +391,15 @@ const ListPersonnelConsigneds: React.FC = () => {
         }
     }, [navigate]);
 
-    // 💡 تابع جدید برای واکشی کالاهای قابل واگذاری
     const fetchAvailableConsignmentList = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
         try {
-            // فراخوانی API جدید: get-available-consignments
             const res = await axios.get(`${server.baseurl}${server.hr}get-available-consignments`,
                 { headers: { Authorization: `Bearer ${authToken}` } });
 
             if (res.data.httpStatusCode === 200) {
                 setConsignmentList(res.data.data.map((item: any) => ({
-                    // استفاده از فیلدهای JSON نمونه با حروف بزرگ
                     id: Number(item.Id),
                     name: item.Name,
                     code: item.Code || 'KODSUZ',
@@ -544,19 +496,16 @@ const ListPersonnelConsigneds: React.FC = () => {
 
 
     const availableConsignmentList = useMemo(() => {
-        // این لیست فقط برای حالت ZIMMET VER (ASSIGN) استفاده می‌شود
         if (isAssignmentMode) {
             return consignmentList;
         }
         return [];
     }, [consignmentList, isAssignmentMode]);
 
-    // لیست کمکی برای یافتن parentId در حالت IADE (بدون تغییر)
     const activeConsignedsForReturnMapping = useMemo(() => {
         const personnelId = Number(selectedPersonnelId);
         if (!personnelId || !personnelConsigneds.length) return [];
 
-        // فیلتر کردن رکوردهای واگذاری فعال برای پرسنل انتخاب شده
         return personnelConsigneds.filter(r => {
             const matchPersonnel = Number(r.personnel?.id) === personnelId;
             const isActiveAssignment = r.parentId === 0 && r.returnDate === null;
@@ -565,10 +514,8 @@ const ListPersonnelConsigneds: React.FC = () => {
     }, [personnelConsigneds, selectedPersonnelId]);
 
 
-    // **Step 1: Fetch Reference Lists**
     useEffect(() => {
         fetchPersonnelList();
-        // 💡 فراخوانی تابع جدید
         fetchAvailableConsignmentList();
     }, [fetchPersonnelList, fetchAvailableConsignmentList]);
 
@@ -596,7 +543,7 @@ const ListPersonnelConsigneds: React.FC = () => {
 
         try {
             const uploadResponse = await axios.post(
-                server.baseurl + server.baseinfo + "upload-files", // 'server.baseinfo' is assumed to be the correct endpoint base
+                server.baseurl + server.baseinfo + "upload-files",
                 formData,
                 {
                     headers: {
@@ -631,10 +578,8 @@ const ListPersonnelConsigneds: React.FC = () => {
         if (isAssignmentMode) {
             if (!assignmentDate) { setAssignmentDateError(true); ok = false; }
         } else {
-            // In Return Mode
             if (!returnDate) { setReturnDateError(true); ok = false; }
             if (!selectedParentConsignedId) {
-                // اگر parentId پیدا نشد (یعنی کالا انتخاب نشده)
                 setConsignmentError(true);
                 ok = false;
             }
@@ -655,7 +600,7 @@ const ListPersonnelConsigneds: React.FC = () => {
         setDescription('');
         setSelectedFiles([]);
         setCurrentAttachments([]);
-        setReturnableConsignmentList([]); // ریست لیست IADE
+        setReturnableConsignmentList([]);
 
         setPersonnelError(false); setConsignmentError(false); setAssignmentDateError(false);
         setReturnDateError(false);
@@ -663,11 +608,9 @@ const ListPersonnelConsigneds: React.FC = () => {
         setIsFormVisible(false);
     };
 
-    // تابع برای یافتن parentId بر اساس consignmentId (فقط در حالت IADE نیاز است)
     const getParentIdForReturn = (consignmentId: number | '') => {
         if (!consignmentId) return '';
 
-        // تطبیق consignmentId انتخاب شده با رکوردهای فعال واگذاری
         const activeRecord = activeConsignedsForReturnMapping.find(r => Number(r.consignment?.id) === Number(consignmentId));
 
         return activeRecord ? activeRecord.id : '';
@@ -684,7 +627,7 @@ const ListPersonnelConsigneds: React.FC = () => {
         if (selectedFiles.length > 0) {
             showAlert('Dosyalar yükleniyor...', 'info');
             fileUrls = await uploadFiles(selectedFiles, authToken, showAlert);
-            if (fileUrls === null) { setLoadingButton(false); return; } // Upload failed
+            if (fileUrls === null) { setLoadingButton(false); return; }
         }
 
         const finalAttachments = [
@@ -700,7 +643,6 @@ const ListPersonnelConsigneds: React.FC = () => {
             : `${server.baseurl}${server.hr}create-personnel-consigned`;
         const method = isEditing ? 'put' : 'post';
 
-        // 💡 محاسبه parentId و returnDate نهایی
         const finalParentId = isReturning ? getParentIdForReturn(selectedConsignmentId) : 0;
 
         if (isReturning && !finalParentId) {
@@ -708,8 +650,6 @@ const ListPersonnelConsigneds: React.FC = () => {
             setLoadingButton(false);
             return;
         }
-
-        // 💡 تنظیم assignmentDate در حالت برگشت به تاریخ روز
         const payload: PersonnelConsignedPayload = {
             assignmentDate: isReturning ? format(new Date(), 'yyyy-MM-dd') : (assignmentDate ? format(assignmentDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')),
             description: description.trim(),
@@ -721,7 +661,7 @@ const ListPersonnelConsigneds: React.FC = () => {
             returnDate: isAssignmentMode ? null : (returnDate ? format(returnDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')),
         };
         if (isEditing) (payload as any).id = Number(editingId);
-        debugger
+
 
         try {
             const res = await axios.request({
@@ -756,13 +696,12 @@ const ListPersonnelConsigneds: React.FC = () => {
         } finally { setLoadingButton(false); }
     };
 
-    // Effect برای واکشی کالاهای قابل برگشت هنگام تغییر پرسنل در حالت IADE (بدون تغییر)
     useEffect(() => {
         if (!isAssignmentMode && selectedPersonnelId) {
             const personnelId = Number(selectedPersonnelId);
             fetchReturnableConsignments(personnelId);
         } else if (isAssignmentMode) {
-            setReturnableConsignmentList([]); // ریست در حالت ASSIGN
+            setReturnableConsignmentList([]);
         }
     }, [isAssignmentMode, selectedPersonnelId, fetchReturnableConsignments]);
 
@@ -798,20 +737,16 @@ const ListPersonnelConsigneds: React.FC = () => {
         showAlert(`"${fileUrl.split('/').pop()}" dosyası indiriliyor.`, 'info');
     };
 
-
-    // --- Table & Filter Logic ---
     const isFilterActive = useMemo(() => !!searchTerm.trim() || statusFilter !== 'all' || startFilter !== null || endFilter !== null, [searchTerm, statusFilter, startFilter, endFilter]);
 
     const filteredConsigneds = useMemo(() => {
         const list = personnelConsigneds.filter(r => {
-            // 1. Search Filter
             const matchesSearch = r.personnelName.toLowerCase().includes(searchTerm.toLowerCase()) || r.consignmentNameWithCode.toLowerCase().includes(searchTerm.toLowerCase()) || r.description.toLowerCase().includes(searchTerm.toLowerCase());
 
-            // 2. Status Filter: Active (assignment only), Inactive (return or deleted), All
-            const isActive = r.parentId === 0 && r.returnDate === null; // Considered active if it's an assignment and not returned/deleted
+            const isActive = r.parentId === 0 && r.returnDate === null;
             const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' && isActive) || (statusFilter === 'inactive' && !isActive);
 
-            // 3. Date Filter
+
             const cDate = r.createAt ? new Date(r.createAt) : null;
             const inRange = (!startFilter || (cDate && cDate >= startFilter)) && (!endFilter || (cDate && cDate <= endFilter));
 
@@ -822,8 +757,6 @@ const ListPersonnelConsigneds: React.FC = () => {
 
     const paginatedRows = useMemo(() => filteredConsigneds.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage), [filteredConsigneds, page, rowsPerPage]);
 
-
-    // Menu Handlers
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: PersonnelConsigned) => { setAnchorEl(event.currentTarget); setSelectedRowForMenu(row); };
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
 
@@ -848,7 +781,6 @@ const ListPersonnelConsigneds: React.FC = () => {
         if (!rows || rows.length === 0) { showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning'); return; }
         setLoadingData(true); showAlert('Rapor oluşturuluyor...', 'info');
 
-        // @ts-ignore
         const doc = new jsPDF();
         const docAny = doc as any;
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -875,7 +807,6 @@ const ListPersonnelConsigneds: React.FC = () => {
             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
             headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0], font: 'NotoSans', fontSize: 9 },
             didDrawPage: (_data: any) => {
-                // --- Header Logic ---
                 try {
                     docAny.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
                 } catch (e) {
@@ -894,7 +825,6 @@ const ListPersonnelConsigneds: React.FC = () => {
                 docAny.setLineWidth(0.5);
                 docAny.line(15, 48, pageWidth - 15, 48);
 
-                // --- Footer Logic (Company Info & Page Numbers) ---
                 docAny.setFont('NotoSans', 'normal'); docAny.setFontSize(8); docAny.setTextColor(0);
                 const companyInfo = ['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.', 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11', 'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'];
                 let footerY = pageHeight - 20;
@@ -941,25 +871,21 @@ const ListPersonnelConsigneds: React.FC = () => {
             const fullHeaderStyle = { border: border, alignment: centerAlignment, font: headerFont, fill: headerFill } as Partial<Excel.Style>;
             const bodyStyle = { border: border, alignment: leftAlignment, font: font } as Partial<Excel.Style>;
 
-            // --- Report Title and Date ---
             const titleText = isFiltered ? 'Filtrelenmiş Personel Zimmet Kayıtları Raporu' : 'Tüm Personel Zimmet Kayıtları Raporu';
             worksheet.addRow(['', '', '', '', '', '', '', '']);
             const titleRow = worksheet.addRow([titleText]);
             if (titleRow) { titleRow.font = { name: 'Times New Roman', size: 12, bold: true }; titleRow.getCell(1).alignment = { horizontal: 'center' }; }
-            worksheet.mergeCells(`A${titleRow.number}:H${titleRow.number}`); // Merge for 8 columns
+            worksheet.mergeCells(`A${titleRow.number}:H${titleRow.number}`);
 
             worksheet.addRow([`Tarih: ${formatDateDisplay(new Date().toISOString())}`]);
             const dateRow = worksheet.lastRow;
             if (dateRow) { dateRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: false }; dateRow.getCell(1).alignment = { horizontal: 'left' }; }
             worksheet.addRow([]);
 
-
-            // --- Table Headers ---
             const tableHeaders = ['Personel', 'Mal ', 'Açıklama', 'Veriliş Tarihi', 'Teslim Tarihi'];
             const headerRow = worksheet.addRow(tableHeaders);
             headerRow.eachCell((cell) => { cell.style = fullHeaderStyle; });
 
-            // --- Table Body ---
             rows.forEach(r => {
                 const row = worksheet.addRow([
 
@@ -972,10 +898,8 @@ const ListPersonnelConsigneds: React.FC = () => {
                 row.eachCell((cell) => { cell.style = bodyStyle; });
             });
 
-            // --- Column Sizing ---
             worksheet.columns.forEach((column) => {
                 let maxLength = 0;
-                // @ts-ignore
                 if (column.eachCell) {
                     // @ts-ignore
                     column.eachCell({ includeEmpty: true }, (cell) => {
@@ -986,7 +910,6 @@ const ListPersonnelConsigneds: React.FC = () => {
                 column.width = Math.min(Math.max(maxLength + 2, 15), 60);
             });
 
-            // --- Company Info (Footer) ---
             worksheet.addRow([]);
             const companyInfo = ['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.', 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11', 'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'];
             companyInfo.forEach(line => {
@@ -1013,8 +936,7 @@ const ListPersonnelConsigneds: React.FC = () => {
     const createPostSubmissionReportPdf = (record: PersonnelConsigned, showAlert: (m: string, s: 'success' | 'error' | 'warning' | 'info') => void) => {
         const title = record.returnDate ? "ZİMMET TESLİM ALMA BELGESİ" : "ZİMMET VERİLİŞ BELGESİ";
 
-        // @ts-ignore
-        const doc = new jsPDF("p", "pt", "a4"); // حفظ حالت pt و a4 کد اصلی خودت
+        const doc = new jsPDF("p", "pt", "a4");
         const docAny = doc as any;
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -1028,7 +950,6 @@ const ListPersonnelConsigneds: React.FC = () => {
         const sideMargin = 40;
         let finalY = 80;
 
-        // --- چاپ متن‌های اصلی (بدون هیچ تغییری) ---
         doc.setFontSize(12);
         doc.text(`Personel: ${record.personnelName}`, sideMargin, finalY);
         finalY += 16;
@@ -1054,9 +975,7 @@ const ListPersonnelConsigneds: React.FC = () => {
             styles: { font: "NotoSans", fontStyle: "normal", fontSize: 10, cellPadding: 5, overflow: 'linebreak' },
             headStyles: { fillColor: record.returnDate ? [255, 200, 200] : [200, 255, 200], textColor: [0, 0, 0] },
 
-            // 🔹 هدر و فوتر دقیقاً مطابق ساختار exportToPdf 🔹
             didDrawPage: (_data: any) => {
-                // --- Header ---
                 try {
                     docAny.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
                 } catch (e) { }
@@ -1074,7 +993,6 @@ const ListPersonnelConsigneds: React.FC = () => {
                 docAny.setLineWidth(0.5);
                 docAny.line(15, 52, pageWidth - 15, 52);
 
-                // --- Footer ---
                 docAny.setFont('NotoSans', 'normal');
                 docAny.setFontSize(8);
                 const companyInfo = [
@@ -1099,7 +1017,6 @@ const ListPersonnelConsigneds: React.FC = () => {
             margin: { top: 60, bottom: 45, left: 10, right: 10 }
         });
 
-        // --- بخش امضا (دقیقاً کد خودت بدون تغییر) ---
         finalY = (docAny.lastAutoTable.finalY || finalY) + 30;
         doc.setFontSize(10);
         doc.text("Personel İmzası:", sideMargin, finalY);
@@ -1140,7 +1057,6 @@ const ListPersonnelConsigneds: React.FC = () => {
         handleCloseMenu();
     };
 
-    // --- Handlers for Attachment Update Modal ---
     const handleOpenAttachModal = (row: PersonnelConsigned) => {
         setRowToUpdateAttachments(row);
         setAttachCurrentAttachments(row.attachments);
@@ -1171,22 +1087,20 @@ const ListPersonnelConsigneds: React.FC = () => {
             if (fileUrls === null) { setAttachButtonLoading(false); return; }
         }
 
-        // ترکیب پیوست‌های موجود (پس از حذف‌های احتمالی) با پیوست‌های جدید آپلود شده
         const finalAttachments: AttachmentType[] = [
             ...attachCurrentAttachments,
             ...(fileUrls?.map(url => ({ fileUrl: url })) ?? [])
         ];
 
-        // 💡 ساختار Payload برای آپدیت: شامل تمام فیلدهای اصلی رکورد + attachments جدید
         const payloadForUpdate: PersonnelConsignedPayload = {
-            id: Number(rowToUpdateAttachments.id), // ID برای PUT
+            id: Number(rowToUpdateAttachments.id),
             assignmentDate: rowToUpdateAttachments.assignmentDate,
             description: rowToUpdateAttachments.description,
             consignmentId: Number(rowToUpdateAttachments.consignment?.id),
             personnelId: Number(rowToUpdateAttachments.personnel?.id),
             parentId: rowToUpdateAttachments.parentId,
             returnDate: rowToUpdateAttachments.returnDate,
-            attachments: finalAttachments, // لیست نهایی پیوست‌ها
+            attachments: finalAttachments,
         };
 
         const updateUrl = `${server.baseurl}${server.hr}update-personnel-consigned`;
@@ -1196,7 +1110,7 @@ const ListPersonnelConsigneds: React.FC = () => {
 
             if (res.data.httpStatusCode === 200) {
                 showAlert('Ekler başarıyla güncellendi.', 'success');
-                fetchPersonnelConsigneds(); // رفرش جدول
+                fetchPersonnelConsigneds();
                 handleCloseAttachModal();
             } else {
                 showAlert(res.data.message || 'Ekler güncellenirken bir hata oluştu.', 'error');
@@ -1262,11 +1176,11 @@ const ListPersonnelConsigneds: React.FC = () => {
                                         if (v !== null) {
                                             setIsAssignmentMode(v === 'ASSIGN');
                                             setSelectedParentConsignedId('');
-                                            setSelectedPersonnelId(''); // 👈 ریست پرسنل الزامی است تا فیلتر جدید اعمال شود
-                                            setSelectedConsignmentId(''); // 👈 ریست کالا الزامی است
+                                            setSelectedPersonnelId('');
+                                            setSelectedConsignmentId('');
                                             setReturnDate(v === 'RETURN' ? new Date() : null);
                                             setDescription('');
-                                            setReturnableConsignmentList([]); // 👈 ریست لیست IADE
+                                            setReturnableConsignmentList([]);
                                         }
                                     }}
                                     aria-label="İşlem Modu"
@@ -1286,11 +1200,10 @@ const ListPersonnelConsigneds: React.FC = () => {
                                     onChange={(_, newValue) => {
                                         const newPersonnelId = newValue ? newValue.id : '';
                                         setSelectedPersonnelId(newPersonnelId);
-                                        setSelectedConsignmentId(''); // ریست کالا
-                                        setSelectedParentConsignedId(''); // ریست والد
+                                        setSelectedConsignmentId('');
+                                        setSelectedParentConsignedId('');
                                         if (personnelError) setPersonnelError(false);
 
-                                        // اگر در حالت RETURN هستیم و پرسنل انتخاب شد، لیست کالاهای قابل بازگشت را واکشی می‌کنیم
                                         if (!isAssignmentMode && newPersonnelId) {
                                             fetchReturnableConsignments(Number(newPersonnelId));
                                         } else if (!newPersonnelId) {
@@ -1312,11 +1225,9 @@ const ListPersonnelConsigneds: React.FC = () => {
                             <Grid item xs={12} sm={6} md={isAssignmentMode ? 4 : 4}>
                                 <CustomFormLabel required>Mal</CustomFormLabel>
                                 <Autocomplete
-                                    // 💡 استفاده از لیست مناسب بر اساس حالت
                                     options={isAssignmentMode ? availableConsignmentList : returnableConsignmentList}
                                     getOptionLabel={(option) => `${option.name} (${option.code})`}
 
-                                    // 💡 یافتن مقدار فعلی از لیست مربوطه
                                     value={
                                         isAssignmentMode ?
                                             availableConsignmentList.find(c => c.id === selectedConsignmentId) || null :
@@ -1328,7 +1239,6 @@ const ListPersonnelConsigneds: React.FC = () => {
                                         setSelectedConsignmentId(newConsignmentId);
                                         if (consignmentError) setConsignmentError(false);
 
-                                        // پیدا کردن parentId (id رکورد واگذاری) فقط در حالت RETURN
                                         if (!isAssignmentMode) {
                                             const parentId = getParentIdForReturn(newConsignmentId);
                                             setSelectedParentConsignedId(parentId);
@@ -1377,14 +1287,12 @@ const ListPersonnelConsigneds: React.FC = () => {
                             </Grid>
 
 
-                            {/* Description */}
                             <Grid item xs={12} >
                                 <CustomFormLabel>Açıklama</CustomFormLabel>
                                 <CustomTextField placeholder="Açıklama" size="small" fullWidth multiline rows={4} value={description}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)} />
                             </Grid>
 
-                            {/* Attachments (Required for Return mode) */}
                             <Grid item xs={12} >
                                 <CustomFormLabel >Ekler ({currentAttachments.length + selectedFiles.length} dosya)</CustomFormLabel>
                                 <ConsignmentFileUpload files={selectedFiles}
@@ -1392,14 +1300,12 @@ const ListPersonnelConsigneds: React.FC = () => {
                                     error={attachmentError}
                                     currentAttachments={currentAttachments}
                                 />
-                                {/* Display existing attachments during edit/return */}
                                 {currentAttachments.length > 0 && (
                                     <Typography variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Mevcut Ekler: {currentAttachments.length}</Typography>
                                 )}
                             </Grid>
 
 
-                            {/* Form Actions */}
                             <Grid item xs={12}>
                                 <Stack direction="row" spacing={1} justifyContent="flex-end">
                                     {editingId !== null && isAssignmentMode ? (
@@ -1411,14 +1317,14 @@ const ListPersonnelConsigneds: React.FC = () => {
                                                 <Button variant="outlined" color="secondary" onClick={resetForm}>İptal Et</Button>
                                             </CustomTooltip>
                                         </>
-                                    ) : !isAssignmentMode ? ( // Return mode
+                                    ) : !isAssignmentMode ? (
                                         <>
                                             <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili zimmeti iade al (Yeni teslim kaydı oluşturur)" : ""}>
                                                 <Button variant="contained" color="error" onClick={handleSubmitForm} disabled={loadingButton} startIcon={<IconDownload />}>{loadingButton ? <><CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> İade Alınıyor...</> : 'Zimmeti İade Al'}</Button>
                                             </CustomTooltip>
                                             <Button variant="outlined" color="secondary" onClick={resetForm}>İptal Et</Button>
                                         </>
-                                    ) : ( // New Assignment mode
+                                    ) : (
                                         <>
                                             {hasCreatePermission && (
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni zimmet kaydı ekle" : ""}>
@@ -1456,7 +1362,6 @@ const ListPersonnelConsigneds: React.FC = () => {
 
                 <Box sx={{ p: 2 }}>
                     <Grid container spacing={2} alignItems="center">
-                        {/* Filters */}
                         <Grid item xs={12} sm={6} md={3}>
                             <TextField label="Ara (Personel  / Açıklama)" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange} InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }} />
                         </Grid>
@@ -1521,22 +1426,9 @@ const ListPersonnelConsigneds: React.FC = () => {
                                         <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 }, backgroundColor: row.returnDate ? '#f1f1f1' : 'inherit' }}>
                                             <StyledTableCell>{row.personnelName}</StyledTableCell>
                                             <StyledTableCell>{row.consignmentNameWithCode}</StyledTableCell>
-                                            {/* <StyledTableCell>
-                                                <Typography variant="body1" noWrap title={row.description || ''}>{row.description || '-'}</Typography>
 
-                                                {row.description != null && row.description.length > 50 && (
-                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
-                                                            handleOpenDescriptionModal(row.description);
-                                                        }}>
-                                                            Açıklamanı Oku
-                                                        </Button>
-                                                    </CustomTooltip>
-                                                )}
-                                            </StyledTableCell> */}
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 {row.description && row.description.trim().length > 0 ? (
-                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button
                                                             variant="text"
@@ -1547,7 +1439,6 @@ const ListPersonnelConsigneds: React.FC = () => {
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (
-                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
                                                     <Typography variant="body2" align="center">
                                                         -
                                                     </Typography>
@@ -1614,7 +1505,6 @@ const ListPersonnelConsigneds: React.FC = () => {
                 <TablePagination rowsPerPageOptions={[5, 10, 25]} component="div" count={filteredConsigneds.length} rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage} labelRowsPerPage="Satır başına düşen:" labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`} />
             </BlankCard>
 
-            {/* Attachments Modal */}
             <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Ekler ({currentAttachmentsModal.length} adet)</DialogTitle>
                 <DialogContent dividers>
@@ -1648,9 +1538,6 @@ const ListPersonnelConsigneds: React.FC = () => {
                 </DialogContent>
                 <DialogActions><Button onClick={() => setOpenAttachmentsModal(false)} color="primary">Kapat</Button></DialogActions>
             </Dialog>
-
-
-            {/* Download Modals (All, Filtered, Row) - Structure same as previous component */}
             <Dialog open={openDownloadAllModal} onClose={handleCloseDownloadAllModal} maxWidth="xs">
                 <DialogTitle>Tüm Kayıtları İndir</DialogTitle>
                 <DialogContent>
@@ -1765,7 +1652,6 @@ const ListPersonnelConsigneds: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* --- NEW: Attachment Edit Modal --- */}
             <Dialog open={openAttachModal} onClose={attachButtonLoading ? undefined : handleCloseAttachModal} maxWidth="sm" fullWidth>
                 <DialogTitle>
                     Ekleri Düzenle: {rowToUpdateAttachments?.personnelName || 'Kayıt'}
@@ -1780,7 +1666,7 @@ const ListPersonnelConsigneds: React.FC = () => {
                             setFiles={setAttachFiles}
                             error={attachError}
                             currentAttachments={attachCurrentAttachments}
-                            setCurrentAttachments={setAttachCurrentAttachments} // 👈 تابع حذف پیوست موجود
+                            setCurrentAttachments={setAttachCurrentAttachments}
                         />
                         {attachError && <Alert severity="error" sx={{ mt: 1 }}>Lütfen dosya seçin یا hatayı giderin.</Alert>}
                     </Stack>
@@ -1799,7 +1685,6 @@ const ListPersonnelConsigneds: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Delete Modal */}
             <DeletePersonnelConsigneds
                 openModal={openDeleteModal}
                 onClose={handleCloseDeleteModal}

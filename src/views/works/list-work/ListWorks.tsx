@@ -233,7 +233,7 @@ const ListWorks = () => {
 
     // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 

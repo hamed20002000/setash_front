@@ -82,7 +82,7 @@ interface LeaveType {
     id: string | number;
     startDate: string;
     endDate: string;
-    type: number;  // اضافه کردن فیلد type
+    type: number;
     status: number;
     recordStatus: number;
     createAt: string;
@@ -123,35 +123,6 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilized.map((el) => el[0]);
 };
 
-// const calculateLeaveDuration = (startDate: string, endDate: string): string => {
-//     const start = new Date(startDate);
-//     const end = new Date(endDate);
-
-//     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-//         return "Geçersiz Tarih";
-//     }
-
-//     const diffTime = Math.abs(end.getTime() - start.getTime());
-
-//    if (start.toDateString() === end.toDateString()) {
-//         const diffHours = Math.ceil(diffTime / (1000 * 60 * 60)); // ⬅️ گرد کردن به بالا
-//         if (diffHours < 1) {
-//             const diffMinutes = Math.ceil(diffTime / (1000 * 60)); // ⬅️ گرد کردن به بالا
-//             return `${diffMinutes} Dakika`;
-//         }
-//         return `${diffHours} Saat`; // ⬅️ محاسبه بر اساس ساعت گرد شده
-//     }
-
-//     else {
-//         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-//         if (diffDays <= 0) {
-//             return "1 Gün";
-//         }
-//         return `${diffDays} Gün`;
-//     }
-// };
-
-
 const calculateLeaveDuration = (startDate: string, endDate: string): string => {
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -160,24 +131,14 @@ const calculateLeaveDuration = (startDate: string, endDate: string): string => {
         return "Geçersiz Tarih";
     }
 
-    // اگر مرخصی چند روزه است
     if (start.toDateString() !== end.toDateString()) {
-        // از differenceInDays استفاده می کنیم تا دقیق تر باشد
-        const diffDays = differenceInDays(end, start) + 1; // +1 برای پوشش روز اول
-
-        // اگر تاریخ شروع و پایان فقط یک روز تفاوت داشته باشند اما زمان در یک روز نباشد،
-        // همچنان باید به صورت روز نمایش داده شود، مگر اینکه بخواهیم پیچیدگی بیشتری اضافه کنیم.
+        const diffDays = differenceInDays(end, start) + 1;
 
         if (diffDays <= 1) {
-            // اگر فقط اختلاف ساعت و دقیقه است، به بلوک پایین می رویم
         } else {
             return `${diffDays} Gün`;
         }
     }
-
-    // اگر مرخصی کمتر از یک روز است یا محاسبات دقیق ساعتی لازم است (نوع 2: Saatlik İzin)
-
-    // استفاده از differenceInMinutes برای دقت بالا
     const totalMinutes = differenceInMinutes(end, start);
 
     if (totalMinutes === 0) return "0 Dakika";
@@ -227,35 +188,6 @@ export const formatDateDisplay = (dateString: string | null): string => {
         return "Geçersiz Tarih";
     }
 };
-// const drawHeader = (doc: jsPDF, title: string) => {
-//     const pw = doc.internal.pageSize.getWidth();
-//     doc.setFont("Arial", "normal"); doc.setFontSize(14);
-//     doc.text(title, pw / 2, 40, { align: "center" });
-
-//     doc.setFont("Times", "normal"); doc.setFontSize(10);
-//     doc.text(`Rapor Tarihi: ${printDateTR()}`, 40, 56, { align: "left" });
-
-//     try { doc.addImage(Logo as any, "PNG", pw - 100, 20, 68, 68); } catch { }
-// };
-// const drawFooter = (doc: jsPDF) => {
-//     const pw = doc.internal.pageSize.getWidth();
-//     const ph = doc.internal.pageSize.getHeight();
-//     doc.setFont("NotoSans", "normal"); doc.setFontSize(8);
-//     const companyInfo = [
-//         "SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.",
-//         "Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11",
-//         "http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr",
-//     ];
-//     let y = ph - 48;
-//     companyInfo.forEach((line) => { doc.text(line, pw / 2, y, { align: "center" }); y += 12; });
-//     const anyDoc = doc as any;
-//     const pageNum = anyDoc.internal.getCurrentPageInfo().pageNumber;
-//     const pageCount = anyDoc.internal.getNumberOfPages();
-//     doc.text(`Sayfa ${pageNum} / ${pageCount}`, 40, ph - 16);
-//     doc.text("İmza", pw - 40, ph - 16, { align: "right" });
-//     doc.line(pw - 120, ph - 24, pw - 40, ph - 24);
-// };
-
 const drawHeader = (doc: jsPDF, title: string) => {
 
     const docAny = doc as any;
@@ -263,10 +195,10 @@ const drawHeader = (doc: jsPDF, title: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -276,7 +208,7 @@ const drawHeader = (doc: jsPDF, title: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
@@ -284,8 +216,6 @@ const drawHeader = (doc: jsPDF, title: string) => {
     doc.setFont('NotoSans', 'normal');
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -396,22 +326,11 @@ const exportExcel = async (rows: LeaveType[], filename: string) => {
 const generateLeavePDF = (row: LeaveType) => {
     const doc = new jsPDF("p", "pt", "a4");
 
-    // تنظیم فونت و اندازه
     addFonts(doc);
-
-    // هدر
     generateLeavePDFHeader(doc, row);
-
-    // زیر هدر
     generateLeavePDFSubHeader(doc, row);
-
-    // اطلاعات پرسنل
     generateLeavePDFPersonnelInfo(doc, row);
-
-    // فوتر
     generateLeavePDFFooter(doc, row);
-
-    // ذخیره فایل PDF
     doc.save(`İzin_Belgesi_${row.id}.pdf`);
 };
 
@@ -528,8 +447,6 @@ const generateLeavePDFFooter = (doc: jsPDF, row: LeaveType) => {
     doc.text(`${leaveTypeTitle} Mesai izinimi ${fmtTR(row.startDate)} - ${fmtTR(row.endDate)}  kullandım.`, 40, leavePeriodYPosition);
 
     const leavePeriodYPosition1 = leavePeriodYPosition + 20;
-    // doc.text(` ${fmtTR(row.startDate)} - ${fmtTR(row.endDate)} tarihleri arasında kullandım.`, 40, leavePeriodYPosition1);
-    // doc.text(` ${fmtTR(row.startDate)} - ${fmtTR(row.endDate)}  kullandım.`, 40, leavePeriodYPosition1);
 
     const signatureYPosition = leavePeriodYPosition1 + 90;
     doc.text("Adı Soyadı", 380, signatureYPosition);
@@ -787,21 +704,12 @@ const ListLeaves: React.FC = () => {
 
 
     const { isTooltipGloballyEnabled } = useTooltip();
-    // const { allowedOperations = [] } = useAuth() as { allowedOperations?: any[] };
     const { menuItems, allowedOperations } = useAuth();
-
-    // const hasCreatePermission = useMemo(() => allowedOperations.some((op) => op.systemOperationName === "Eklemek"), [allowedOperations]);
-    // const hasEditPermission = useMemo(() => allowedOperations.some((op) => op.systemOperationName === "Düzenlemek"), [allowedOperations]);
-    // const hasDeletePermission = useMemo(() => allowedOperations.some((op) => op.systemOperationName === "Silmek"), [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => allowedOperations.some((op) => op.systemOperationName === "İndirmek ve Yazdırmak"), [allowedOperations]);
-
 
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -810,24 +718,19 @@ const ListLeaves: React.FC = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -1074,7 +977,7 @@ const ListLeaves: React.FC = () => {
     const updateLeaveStatus = async (id: string | number, status: 0 | 1 | 2) => {
         const authToken = localStorage.getItem("authToken");
         if (!authToken) { navigate("/"); }
-        debugger
+
         try {
             const res = await axios.put(server.baseurl + server.hr + "update-leave-status",
                 { id: Number(id), status }, {
@@ -1117,7 +1020,6 @@ const ListLeaves: React.FC = () => {
         if (downloadScope === "all") {
             await exportExcel(sorted, "Izin_Listesi.xlsx");
         } else if (rowForDownload) {
-            // ⬅️ فراخوانی تابع جدید generateLeaveExcel برای دانلود تک ردیفی
             await generateLeaveExcel(rowForDownload);
         }
         setOpenDownloadModal(false);
@@ -1474,7 +1376,6 @@ const ListLeaves: React.FC = () => {
                 <DialogContent dividers>
                     {selectedLeaveDetails && (
                         <Grid container spacing={3}>
-                            {/* بخش اول: اطلاعات پرسنل */}
                             <Grid item xs={12} md={6}>
                                 <Typography variant="h6" gutterBottom color="primary">Personel Bilgileri</Typography>
                                 <Stack spacing={1}>
@@ -1485,7 +1386,6 @@ const ListLeaves: React.FC = () => {
                                 </Stack>
                             </Grid>
 
-                            {/* بخش دوم: اطلاعات این مرخصی */}
                             <Grid item xs={12} md={6}>
                                 <Typography variant="h6" gutterBottom color="primary">İzin Detayı</Typography>
                                 <Stack spacing={1}>
@@ -1497,7 +1397,6 @@ const ListLeaves: React.FC = () => {
                                 </Stack>
                             </Grid>
 
-                            {/* بخش سوم: خلاصه مرخصی‌های سالانه (از API دوم) */}
                             <Grid item xs={12}>
                                 <Divider sx={{ my: 2 }} />
                                 <Typography variant="h6" gutterBottom color="secondary">Genel İzin Özeti</Typography>

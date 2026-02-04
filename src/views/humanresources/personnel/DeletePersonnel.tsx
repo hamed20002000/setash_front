@@ -33,7 +33,6 @@ const DeletePersonnel = ({
     const [loading, setLoading] = useState(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // در صورت استفاده شدن رکورد
     const [openInUseModal, setOpenInUseModal] = useState(false);
 
     const handleDeletePersonnel = async () => {
@@ -71,7 +70,6 @@ const DeletePersonnel = ({
             }
         } catch (e: any) {
             if (e?.response?.status === 500) {
-                // رکورد در حال استفاده است
                 setOpenInUseModal(true);
             } else if (e?.response?.status === 401) {
                 localStorage.removeItem('authToken');
@@ -90,7 +88,6 @@ const DeletePersonnel = ({
 
     return (
         <>
-            {/* Confirm dialog */}
             <Dialog
                 open={openModal}
                 onClose={onClose}
@@ -142,7 +139,6 @@ const DeletePersonnel = ({
                 </DialogActions>
             </Dialog>
 
-            {/* In-use dialog */}
             <Dialog
                 open={openInUseModal}
                 onClose={() => setOpenInUseModal(false)}

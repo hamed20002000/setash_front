@@ -55,18 +55,19 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
 }));
 
 
+interface FirmType {
+    id: number;
+    title: string;
+    abbreviation: string;
+    createAt: string;
+    recordStatus: number;
+}
+
 interface WorkhouseType {
     id: number;
     name: string;
     code: string;
     address: string;
-    createAt: string;
-    recordStatus: number;
-}
-interface FirmType {
-    id: number;
-    title: string;
-    abbreviation: string;
     createAt: string;
     recordStatus: number;
 }
@@ -330,11 +331,6 @@ const ListProjects = () => {
     // const { allowedOperations } = useAuth();
     const titleInputRef = useRef<HTMLInputElement>(null);
 
-    // const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
-    // const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
-    // const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
-
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
@@ -353,7 +349,7 @@ const ListProjects = () => {
 
     // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
@@ -622,7 +618,7 @@ const ListProjects = () => {
             workhouseId: Number(selectedWorkhouseId),
             firmId: Number(selectedFirmId),
         };
-        debugger
+
         try {
             const response = await axios.post(server.baseurl + server.warehouse + "create-project", payload, {
                 headers: { "Authorization": `Bearer ${authToken}` }

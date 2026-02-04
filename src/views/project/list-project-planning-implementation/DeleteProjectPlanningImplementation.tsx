@@ -11,26 +11,23 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
-import server from 'src/assets/address.json'; // فرض بر این است که مسیر صحیح است
+import server from 'src/assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type Props = {
     openModal: boolean;
-    // تغییر نام prop برای انعکاس بهتر داده‌های تاریخ
     implementationDateIdToDelete: string | null;
     onClose: () => void;
-    onDeleteSuccess: () => void; // تابعی برای رفرش کردن لیست اصلی
+    onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-// تغییر نام کامپوننت
 const DeleteProjectPlanningImplementation = ({ openModal, implementationDateIdToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // تغییر نام تابع
     const handleDeleteImplementationDate = async () => {
         if (implementationDateIdToDelete === null) {
             showAlert('Silinecek uygulama tarihi kaydı seçilmedi.', 'warning');

@@ -71,7 +71,6 @@ import Logo from "src/assets/images/logos/logo.png";
 import Excel from "exceljs";
 import { saveAs } from "file-saver";
 
-// ---------- Styled ----------
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: "NotoSans",
     fontSize: "0.8rem",
@@ -105,7 +104,6 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: "transform 0.3s ease-in-out",
 }));
 
-// ---------- Types ----------
 interface RegionType { id: string; name: string; depth: number; recordStatus: number; }
 interface WorkhouseType {
     id: number;
@@ -141,13 +139,12 @@ interface InvoiceDetailFromList {
     item: ItemType;
 }
 interface InvoiceFromWorkhouse {
-    id: string;                // header id
+    id: string;
     invoiceNo: string;
     docDate: string;
     recordStatus: number;
     invoiceDetails: InvoiceDetailFromList[];
 
-    // ✅ افزوده برای فیلتر و مودال
     status?: number;
     isEnd?: boolean | null;
 }
@@ -190,13 +187,11 @@ interface InactiveInvoiceRow {
     invoiceNo?: string;
 }
 
-// ---------- Utils ----------
 const formatDateDisplay = (iso: string | null) => {
     if (!iso) return "N/A";
     try { return format(new Date(iso), "dd MMMM yyyy", { locale: tr }); } catch { return "Geçersiz Tarih"; }
 };
 
-// ---------- PDF/Excel helpers ----------
 const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
 
     const docAny = doc as any;
@@ -204,10 +199,10 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -217,7 +212,7 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
@@ -226,8 +221,6 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
     if (subtitle) doc.text(subtitle, 70, 52);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -262,29 +255,19 @@ const addPdfFooter = (doc: jsPDF) => {
     doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
 };
 
-// ---------- Component ----------
 const ListStoreReceiptInvoice: React.FC = () => {
     const navigate = useNavigate();
     const { storeId: routeStoreId } = useParams<{ storeId: string }>();
     const authToken = localStorage.getItem("authToken");
 
-    // UI/Perms
     const { isTooltipGloballyEnabled } = useTooltip();
-    // const { allowedOperations } = useAuth();
-    // const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === "Eklemek"), [allowedOperations]);
-    // const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === "Düzenlemek"), [allowedOperations]);
-    // const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === "Silmek"), [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === "İndirmek ve Yazdırmak"), [allowedOperations]);
-
 
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -293,24 +276,19 @@ const ListStoreReceiptInvoice: React.FC = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -323,9 +301,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
 
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
-
-    // Lists / data
     const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
     const [storesList, setStoresList] = useState<StoreType[]>([]);
     const [invoicesList, setInvoicesList] = useState<InvoiceFromWorkhouse[]>([]);
@@ -333,17 +308,12 @@ const ListStoreReceiptInvoice: React.FC = () => {
     const [displayedReceipts, setDisplayedReceipts] = useState<StoreReceiptType[]>([]);
 
     const [generalDescription, setGeneralDescription] = useState('');
-    // Selections
     const [selectedWorkhouse, setSelectedWorkhouse] = useState<WorkhouseType | null>(null);
     const [selectedStore, setSelectedStore] = useState<StoreType | null>(null);
     const [selectedInvoice, setSelectedInvoice] = useState<InvoiceFromWorkhouse | null>(null);
-
-    // Form/detail
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [receiptDetails, setReceiptDetails] = useState<FormReceiptDetail[]>([]);
     const [removedReceiptDetails, setRemovedReceiptDetails] = useState<FormReceiptDetail[]>([]);
-
-    // Table/UI
     const [loadingData, setLoadingData] = useState(true);
     const [loadingButton, setLoadingButton] = useState(false);
     const [isFormVisible, setIsFormVisible] = useState(false);
@@ -355,8 +325,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
     const [isFilterActive, setIsFilterActive] = useState(false);
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
-
-    // Menu & dialogs
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<StoreReceiptType | null>(null);
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -364,40 +332,29 @@ const ListStoreReceiptInvoice: React.FC = () => {
     const [receiptCodeToDelete, setReceiptCodeToDelete] = useState<string>("");
 
     const [openDetailsModal, setOpenDetailsModal] = useState(false);
-    // const [detailsToShow, setDetailsToShow] = useState<ReceiptDetailType[]>([]);
 
     const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
     const [openDownloadFilteredModal, setOpenDownloadFilteredModal] = useState(false);
     const [openRowDownloadModal, setOpenRowDownloadModal] = useState(false);
     const [selectedReceiptForDownload, setSelectedReceiptForDownload] = useState<StoreReceiptType | null>(null);
-
-    // isEnd dialogs
     const [openIsEndModal, setOpenIsEndModal] = useState(false);
     const [justInsertedInvoice, setJustInsertedInvoice] = useState<{ id: string; invoiceNo: string } | null>(null);
-
-    // inactive invoices modal (by store receipts)
     const [openInactiveModal, setOpenInactiveModal] = useState(false);
     const [inactiveInvoices, setInactiveInvoices] = useState<InactiveInvoiceRow[]>([]);
 
 
     const [viewedReceipt, setViewedReceipt] = useState<StoreReceiptType | null>(null);
-
-    // 🔹 مودال جدید «Listeyi Göster» برای فاکتورهای کمبو
     const [openInvoiceListModal, setOpenInvoiceListModal] = useState(false);
 
 
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
-
-    // Alerts
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<"success" | "error" | "warning" | "info">("info");
     const showAlert = useCallback((msg: string, sev: "success" | "error" | "warning" | "info") => {
         setAlertMessage(msg); setAlertSeverity(sev);
         setTimeout(() => setAlertMessage(null), 5000);
     }, []);
-
-    // ---------- API helpers ----------
     const updateInvoiceIsEnd = async (invoiceHeaderId: string | number, isEnd: boolean) => {
         if (!authToken) { navigate("/"); return; }
         try {
@@ -406,7 +363,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
             const resp = await axios.put(url, payload, { headers: { Authorization: `Bearer ${authToken}` } });
             if (resp.data?.httpStatusCode === 200) {
                 showAlert(isEnd ? "Fatura sonlandırıldı." : "Fatura tekrar açıldı.", "success");
-                // تازه‌سازی کمبو
                 if (selectedWorkhouse?.id) await fetchInvoicesByWorkhouseId(String(selectedWorkhouse.id));
             } else {
                 showAlert(resp.data?.message || "Fatura durumu güncellenemedi.", "error");
@@ -416,7 +372,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
         }
     };
 
-    // ---------- API ----------
     const fetchWorkhouses = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         const role = localStorage.getItem('activeUserRoleName') || '';
@@ -568,7 +523,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
         } finally { setLoadingData(false); }
     }, [authToken, navigate, showAlert]);
 
-    // ---------- Derived ----------
     const filteredInvoicesForCombo = useMemo(() => {
         const raw = invoicesList || [];
         const statusFiltered = raw.filter(inv => (typeof inv.status === "number" ? inv.status === 1 : inv.recordStatus === 0));
@@ -607,7 +561,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
         return () => clearTimeout(t);
     }, []);
 
-    // inactive invoices (from receipts with isEnd=true) by selected store
     useEffect(() => {
         const storeId = String(routeStoreId || selectedStore?.id || "");
         if (!storeId) { setInactiveInvoices([]); return; }
@@ -636,7 +589,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
         return !!docDate && !!selectedWorkhouse && !!selectedStore && !!selectedInvoice && detailsOk;
     }, [docDate, selectedWorkhouse, selectedStore, selectedInvoice, receiptDetails]);
 
-    // ---------- Handlers ----------
     const resetForm = () => {
         setDocDate(new Date());
         setGeneralDescription('');
@@ -675,7 +627,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
 
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
 
-    // ---------- Edit (حفظ شده) ----------
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingCode, setEditingCode] = useState<string | null>(null);
 
@@ -774,7 +725,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
 
     const handleClearDateFilters = () => { setStartDate(null); setEndDate(null); };
 
-    // ---------- CRUD ----------
     const insertReceipt = async () => {
         if (!isFormValid) {
             showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning');
@@ -807,11 +757,9 @@ const ListStoreReceiptInvoice: React.FC = () => {
             if (res.data?.httpStatusCode === 201) {
                 showAlert('Yeni fiş başarıyla eklendi!', 'success');
 
-                // آخرین رسید همان Store را پیدا کن
                 const freshReceipts = await fetchReceiptsRaw();
                 const latest = pickLatestReceiptForStore(freshReceipts, storeIdForPick);
 
-                // پس از ثبت، سؤال کن آیا فاکتور کمبو را Sonlandır کنیم؟
                 if (latest && selectedInvoice) {
                     setJustInsertedInvoice({ id: selectedInvoice.id, invoiceNo: selectedInvoice.invoiceNo });
                     setOpenIsEndModal(true);
@@ -871,24 +819,18 @@ const ListStoreReceiptInvoice: React.FC = () => {
         } finally { setLoadingButton(false); }
     };
 
-    // این تابع لیست کالاها را می‌گیرد و بر اساس واحد (Unit) جمع می‌زند
     const calculateReceiptSummaries = (details: any[]) => {
         const summary: Record<string, number> = {};
 
         details.forEach(d => {
-            // نام واحد (اگر نبود "Diğer")
             const unitTitle = d.item?.unit?.title || "Diğer";
-            // تبدیل مقدار به عدد
             const qty = Number(d.quantity) || 0;
-
-            // جمع زدن
             summary[unitTitle] = (summary[unitTitle] || 0) + qty;
         });
 
         return summary;
     };
 
-    // ---------- Export ----------
     const exportReceiptsToPdf = (data: StoreReceiptType[], title: string, subtitle?: string) => {
         if (!data || data.length === 0) { showAlert("PDF oluşturulacak fiş bulunamadı.", "warning"); return; }
         showAlert("PDF oluşturuluyor...", "info");
@@ -897,7 +839,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
         const docAny = doc as any;
         let yPos = 60;
 
-        // بارگذاری فونت‌ها (مشابه کد قبلی شما)
         docAny.addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
         docAny.addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
         doc.setFont("NotoSans");
@@ -905,15 +846,11 @@ const ListStoreReceiptInvoice: React.FC = () => {
         data.forEach((receipt, index) => {
             if (index > 0) { doc.addPage(); yPos = 60; }
             addPdfHeader(doc, title, subtitle);
-
-            // هدرهای اطلاعاتی
             doc.setFontSize(12);
             doc.text(`Fiş Kodu: ${receipt.code}`, 15, yPos); yPos += 7;
             doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, yPos); yPos += 9;
             doc.text(`Şantiye: ${receipt.store?.name || "-"}`, 15, yPos); yPos += 15;
-            doc.text(`Genel Açıklama: ${receipt.description || '-'}`, 15, yPos); yPos += 15; // فاصله بیشتر برای جدول
-
-            // آماده‌سازی سطرهای جدول
+            doc.text(`Genel Açıklama: ${receipt.description || '-'}`, 15, yPos); yPos += 15;
             const rows = (receipt.storeReceiptDetails || []).map((d) => [
                 d.item?.name || "-",
                 Number(d.quantity).toLocaleString('tr-TR'),
@@ -921,7 +858,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
                 d.description || "-",
             ]);
 
-            // --- محاسبه جمع‌ها برای فوتر ---
             const summaries = calculateReceiptSummaries(receipt.storeReceiptDetails || []);
             const summaryRows = Object.entries(summaries).map(([unit, total]) => [
                 "TOPLAM:",
@@ -934,12 +870,10 @@ const ListStoreReceiptInvoice: React.FC = () => {
                 startY: yPos,
                 head: [["Malzeme", "Miktar", "Birim", "Açıklama"]],
                 body: rows,
-                // اضافه کردن جمع‌ها به انتهای جدول
                 foot: summaryRows,
                 theme: "grid",
                 styles: { font: "NotoSans", fontStyle: "normal", fontSize: 10, cellPadding: 2, overflow: "linebreak" },
                 headStyles: { font: "NotoSans", fillColor: [220, 220, 220], textColor: [0, 0, 0] },
-                // استایل فوتر (جمع کل)
                 footStyles: { font: "NotoSans", fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold' },
                 columnStyles: { 0: { halign: "left" }, 1: { halign: "center" }, 2: { halign: "center" }, 3: { halign: "left" } },
                 didDrawPage: () => addPdfFooter(doc),
@@ -963,7 +897,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
             const cols = ["Malzeme", "Miktar", "Birim", "Açıklama"];
             ws.views = [{ rightToLeft: false }];
 
-            // Header
             const t = ws.addRow([title]);
             t.font = { name: "NotoSans", size: 14, bold: true };
             ws.mergeCells(t.number, 1, t.number, cols.length);
@@ -971,7 +904,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
             const d = ws.addRow([`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`]);
             ws.mergeCells(d.number, 1, d.number, cols.length); ws.addRow([]);
 
-            // Receipt Info
             ws.addRow(["Fiş Kodu:", r.code]);
             ws.addRow(["Şantiye:", r.store?.name || "-"]);
             ws.addRow(["Belge Tarihi:", formatDateDisplay(r.docDate)]);
@@ -980,12 +912,10 @@ const ListStoreReceiptInvoice: React.FC = () => {
             ws.addRow(['Genel Açıklama', r.description || '-']);
             ws.addRow([]);
 
-            // Table Headers
             const h = ws.addRow(cols);
             h.font = { name: "NotoSans", bold: true };
             h.eachCell((cell) => (cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9E1F2" } }));
 
-            // Table Data
             (r.storeReceiptDetails || []).forEach((x) => {
                 ws.addRow([
                     x.item?.name || "-",
@@ -995,8 +925,7 @@ const ListStoreReceiptInvoice: React.FC = () => {
                 ]);
             });
 
-            // --- Summary Section ---
-            ws.addRow([]); // سطر خالی
+            ws.addRow([]);
             const summaryTitle = ws.addRow(["Birim Bazlı Toplamlar"]);
             summaryTitle.font = { bold: true, underline: true };
 
@@ -1008,7 +937,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
                 row.getCell(2).font = { bold: true };
             });
 
-            // Auto width (Basic)
             ws.getColumn(1).width = 30;
             ws.getColumn(2).width = 15;
             ws.getColumn(3).width = 15;
@@ -1058,7 +986,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
     };
 
 
-    // ---------- Render ----------
     return (
         <Box sx={{ p: 3 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
@@ -1092,7 +1019,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
                 <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                     <Typography variant="h5" mb={2}>{editingId ? `Fiş Düzenle (${editingCode})` : "Yeni Fiş Oluştur"}</Typography>
                     <Grid container spacing={2}>
-                        {/* Workhouse */}
                         <Grid item xs={12} sm={4}>
                             <CustomFormLabel required>Şantiye</CustomFormLabel>
                             <Autocomplete
@@ -1117,7 +1043,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
                             />
                         </Grid>
 
-                        {/* Store */}
                         {!routeStoreId && (
                             <Grid item xs={12} sm={4}>
                                 <CustomFormLabel required>Şantiye Depo</CustomFormLabel>
@@ -1137,7 +1062,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
                             </Grid>
                         )}
 
-                        {/* Doc date */}
                         <Grid item xs={12} sm={routeStoreId ? 4 : 4}>
                             <CustomFormLabel required>Belge Tarihi</CustomFormLabel>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
@@ -1163,12 +1087,11 @@ const ListStoreReceiptInvoice: React.FC = () => {
                                 multiline
                                 rows={3}
                                 variant="outlined"
-                                value={generalDescription} // ⬅️ استفاده از نام جدید
-                                onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                value={generalDescription}
+                                onChange={(e) => setGeneralDescription(e.target.value)}
                             />
                         </Grid>
 
-                        {/* Invoice (by workhouse) */}
                         <Grid item xs={12}>
                             <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
                                 <CustomFormLabel required>Fatura Belgesi*</CustomFormLabel>
@@ -1208,7 +1131,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
                         </Grid>
                     </Grid>
 
-                    {/* Details */}
                     <Box mt={4}>
                         {removedReceiptDetails.length > 0 && (
                             <Box sx={{ border: "1px dashed", borderColor: "error.main", p: 2, mb: 2, mt: 2, borderRadius: 1, backgroundColor: "rgba(255,0,0,0.05)" }}>
@@ -1314,7 +1236,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
                 </Stack>
             )}
 
-            {/* Filters + table */}
             <BlankCard>
                 <Grid item xs={12} mt={2} mr={2}>
                     <Stack direction="row" spacing={2} justifyContent="flex-end" mb={2} mr={2}>
@@ -1411,7 +1332,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
                                                 <StyledTableCell><Typography variant="body1" fontWeight="bold">{totalQty.toLocaleString()}</Typography></StyledTableCell>
                                                 <StyledTableCell sx={{ maxWidth: 150 }}>
                                                     {row.description && row.description.trim().length > 0 ? (
-                                                        // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                         <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                             <Button
 
@@ -1423,7 +1343,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
                                                             </Button>
                                                         </CustomTooltip>
                                                     ) : (
-                                                        // حالت دوم: اگر توضیحات نال یا خالی بود
                                                         <Typography variant="body2" align="center">
                                                             -
                                                         </Typography>
@@ -1431,10 +1350,8 @@ const ListStoreReceiptInvoice: React.FC = () => {
                                                 </StyledTableCell>
                                                 <StyledTableCell>
                                                     <Button variant="outlined" startIcon={<IconEye />}
-                                                        // onClick={() => { setDetailsToShow(row.storeReceiptDetails || []);
-                                                        //  setOpenDetailsModal(true); }}
                                                         onClick={() => {
-                                                            setViewedReceipt(row); // 👈 ذخیره کل آبجکت فیش
+                                                            setViewedReceipt(row);
                                                             setOpenDetailsModal(true);
                                                         }}
                                                     >
@@ -1484,7 +1401,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
                 />
             </BlankCard>
 
-            {/* Details modal */}
             <Dialog
                 open={openDetailsModal}
                 onClose={() => setOpenDetailsModal(false)}
@@ -1499,7 +1415,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
                 <DialogContent dividers>
                     {viewedReceipt && viewedReceipt.storeReceiptDetails && viewedReceipt.storeReceiptDetails.length > 0 ? (
                         <>
-                            {/* جدول لیست کالاها */}
                             <TableContainer component={Paper} variant="outlined">
                                 <Table aria-label="Ürün detayları tablosu" size="small">
                                     <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
@@ -1523,7 +1438,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
                                 </Table>
                             </TableContainer>
 
-                            {/* جدول خلاصه جمع کل */}
                             <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
                                 <TableContainer component={Paper} variant="outlined" sx={{ width: 'auto', minWidth: '300px' }}>
                                     <Table size="small">
@@ -1555,18 +1469,17 @@ const ListStoreReceiptInvoice: React.FC = () => {
                     )}
                 </DialogContent>
 
-                {/* بخش دکمه‌ها */}
                 <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
-                    {/* سمت چپ: دکمه‌های دانلود */}
+
                     <Stack
-                        direction={{ xs: 'column', sm: 'row' }} // در موبایل ستونی، در دسکتاپ ردیفی
-                        spacing={2} // فاصله یکسان بین تمام دکمه‌ها
-                        sx={{ width: '100%' }} // اشغال تمام عرض کادر
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={2}
+                        sx={{ width: '100%' }}
                     >
                         <Button
                             variant="contained"
-                            color="error" // قرمز برای PDF
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            color="error"
+                            fullWidth
                             sx={{ flex: 1 }}
                             startIcon={<IconFileText />}
                             onClick={() => {
@@ -1581,8 +1494,8 @@ const ListStoreReceiptInvoice: React.FC = () => {
                         </Button>
                         <Button
                             variant="contained"
-                            color="success" // سبز برای اکسل
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            color="success"
+                            fullWidth
                             sx={{ flex: 1 }}
                             startIcon={<IconFileSpreadsheet />}
                             onClick={() => {
@@ -1595,9 +1508,8 @@ const ListStoreReceiptInvoice: React.FC = () => {
                         >
                             Excel İndir
                         </Button>
-                        {/* سمت راست: دکمه بستن */}
                         <Button onClick={() => setOpenDetailsModal(false)} color="secondary" variant="outlined"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }} >
                             Kapat
                         </Button>
@@ -1606,7 +1518,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Delete */}
             <DeleteStoreReceiptInvoice
                 openModal={openDeleteModal}
                 onClose={handleCloseDeleteModal}
@@ -1616,7 +1527,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
                 showAlert={showAlert}
             />
 
-            {/* Download modals */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
                 <DialogTitle>Tüm Fişleri İndir</DialogTitle>
                 <DialogContent>
@@ -1650,7 +1560,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
                 <DialogActions><Button onClick={() => setOpenRowDownloadModal(false)} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* ✅ بعد از ثبت: آیا فاکتور کمبو Sonlandır شود؟ */}
             <Dialog open={openIsEndModal} onClose={() => setOpenIsEndModal(false)}>
                 <DialogTitle>Fatura Durumu Onayı</DialogTitle>
                 <DialogContent>
@@ -1679,7 +1588,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* ✅ مودال «Listeyi Göster» برای کمبوی فاکتور */}
             <Dialog open={openInvoiceListModal} onClose={() => setOpenInvoiceListModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Fatura Belgesi Listesi</DialogTitle>
                 <DialogContent dividers>
@@ -1729,7 +1637,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Inactive invoices (receipt-based) */}
             <Dialog open={openInactiveModal} onClose={() => setOpenInactiveModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Sonlandırılmış Faturalar</DialogTitle>
                 <DialogContent dividers>
@@ -1756,7 +1663,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
                                                     size="small"
                                                     color="warning"
                                                     onClick={() => {
-                                                        // بازگشایی Receipt (منطق قبلی تو):
                                                         (async () => {
                                                             if (!authToken) { navigate("/"); return; }
                                                             try {

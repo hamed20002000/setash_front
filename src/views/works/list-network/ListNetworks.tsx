@@ -282,7 +282,7 @@ const ListNetwork = () => {
     }, [allNetworks, filterWorkId, searchTerm, statusFilter]);
 
     useEffect(() => {
-        debugger
+
         if (workId) {
             const parsedWorkId = parseInt(workId);
             setSelectedWorkIdForForm(parsedWorkId);
@@ -343,7 +343,7 @@ const ListNetwork = () => {
     };
 
     const fetchAllNetworksAndWorks = async () => {
-        debugger
+
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -590,7 +590,7 @@ const ListNetwork = () => {
             navigate("/");
             setLoadingButton(false);
             return;
-        } debugger
+        }
         try {
             const payload = {
                 id: Number(editingId),

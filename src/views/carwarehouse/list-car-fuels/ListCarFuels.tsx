@@ -24,25 +24,19 @@ import { format } from 'date-fns';
 import { keyframes, styled } from '@mui/material/styles';
 
 import axios from 'axios';
-// @ts-ignore
 import server from '../../../assets/address.json';
-// @ts-ignore
 import { useAuth } from 'src/context/AuthContext';
-// @ts-ignore
 import DeleteCarFuels from './DeleteCarFuels';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
-// @ts-ignore
 import autoTable from 'jspdf-autotable';
-// @ts-ignore
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
 import CustomFormLabel from "src/components/forms/theme-elements/CustomFormLabel";
 import BlankCard from "src/components/shared/BlankCard";
 import { CustomTooltip, useTooltip } from "src/context/TooltipContext";
 
-// --- ثابت‌ها ---
 const FUEL_TYPES = [
     { value: 'Benzin', label: 'Benzin' },
     { value: 'Dizel', label: 'Dizel' },
@@ -53,25 +47,21 @@ const FUEL_TYPES = [
 
 interface AttachmentType { fileUrl: string; }
 
-// Interface برای داده‌های جدول (دریافتی از API)
 interface CarFuelRecord {
     id: number | string;
     date: string;
     fuelType: string;
     amount: number;
     description: string;
-    fee: number; // ⚠️ در مرحله 2 نیاز به تغییر
-    totatPrice: number; // ⚠️ در مرحله 2 نیاز به تغییر
-    // --- اصلاح شده ---
-    attachment: AttachmentType[]; // 💡 تغییر از attachments به attachment
-    // ------------------
+    fee: number;
+    totatPrice: number;
+    attachment: AttachmentType[];
     consignedCarId: number | string;
     createAt: string;
 }
 
-// Interface برای Payload ارسالی به API
 interface CarFuelPayload {
-    id?: number | string; // 💡 اضافه شده برای عملیات Update
+    id?: number | string;
     date: string;
     fuelType: string;
     amount: number;
@@ -82,7 +72,7 @@ interface CarFuelPayload {
     consignedCarId: number | string;
 }
 interface FuelTotals {
-    [key: string]: { // GASOLINE | DIESEL | LPG | ELECTRIC
+    [key: string]: {
         amount: number;
         fee: number;
         totalPrice: number;
@@ -92,7 +82,6 @@ interface FuelTotals {
 type SortableKeys = 'date' | 'amount' | 'totatPrice' | 'createAt';
 
 
-// --- Styles ---
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans',
     fontSize: '0.8rem',
@@ -112,7 +101,6 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
 
 
 
-// --- توابع کمکی: تاریخ، مرتب‌سازی ---
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "-";
     try {
@@ -143,7 +131,6 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilizedThis.map((el) => el[0]);
 };
 
-// --- توابع فایل (Icon/Color/Upload) ---
 const getFileIcon = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase();
     if (ext === 'pdf') return <IconFileText size={18} />;
@@ -214,7 +201,6 @@ const FuelFileUpload: React.FC<{
 
 
 
-// --- توابع کامل دانلود PDF/Excel (کپی شده از کامپوننت قبلی با اصلاحات جزئی) ---
 const addPdfHeader = (doc: jsPDF, title: string) => {
 
     const docAny = doc as any;
@@ -222,10 +208,10 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -235,7 +221,7 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
@@ -243,8 +229,6 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     doc.setFont('NotoSans', 'normal');
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -283,7 +267,7 @@ const addPdfFooter = (doc: jsPDF) => {
 const exportToPdf = (data: CarFuelRecord[], title: string, showAlert: (m: string, s: any) => void, setLoadingData: (l: boolean) => void) => {
     if (!data || data.length === 0) { showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning'); return; }
     setLoadingData(true); showAlert('Rapor oluşturuluyor...', 'info');
-    // @ts-ignore
+
     const doc = new jsPDF();
     const docAny = doc as any;
 
@@ -374,7 +358,6 @@ const exportToExcel = (data: CarFuelRecord[], title: string, showAlert: (m: stri
         worksheet.addRow([]);
     };
     const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, columnsLength: number) => {
-        // const companyInfo = ['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.', 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR'];
         const companyInfo = [
             'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
             'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
@@ -490,14 +473,12 @@ const ListCarFuels: React.FC = () => {
     const state = location.state as { initialFuelType?: string } | null;
     const transferredFuelType = state?.initialFuelType;
 
-    // ست کردن مقدار اولیه استیت نوع سوخت
     const [fuelType, setFuelType] = useState<string>(transferredFuelType || 'GASOLINE');
 
     const { isTooltipGloballyEnabled } = useTooltip();
 
 
     const nameInputRef = useRef<HTMLInputElement>(null);
-    // Permissions (مجوزها)
     const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
     const hasEditPermission = useMemo(() => allowedOperations.some((op) => op.systemOperationName === "Düzenlemek"), [allowedOperations]);
 
@@ -505,56 +486,9 @@ const ListCarFuels: React.FC = () => {
     const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
 
 
-    // const { menuItems, allowedOperations } = useAuth();
-    // const findMenuByHref = (items: any[], path: string): any => {
-    //     for (const item of items) {
-    //         // اگر خود آیتم تطبیق داشت
-    //         if (item.href === path) return item;
-
-    //         // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
-    //         if (item.children && item.children.length > 0) {
-    //             const found = findMenuByHref(item.children, path);
-    //             if (found) return found;
-    //         }
-    //     }
-    //     return null;
-    // };
-
-    // // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
-    // const currentMenu = useMemo(() => {
-    //     debugger
-    //     return findMenuByHref(menuItems, location.pathname);
-    // }, [menuItems, location.pathname]);
-
-    // // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
-    // const currentMenuOpIds = useMemo(() => {
-    //     // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
-    //     if (!currentMenu || !currentMenu.menuOperations) return [];
-
-    //     return currentMenu.menuOperations.map((op: any) => {
-    //         // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
-    //         return String(op.id);
-    //     });
-    // }, [currentMenu]);
-
-    // // ۴. تابع نهایی بررسی دسترسی
-    // const hasPermission = (opName: string) => {
-    //     return allowedOperations.some((op: any) =>
-    //         op.systemOperationName === opName &&
-    //         currentMenuOpIds.includes(String(op.menuOperationId))
-    //     );
-    // };
-
-    // const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
-    // const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
-    // const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
-    // const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
-
-
     const [isEditMode, setIsEditMode] = useState(false);
     const [editRecordId, setEditRecordId] = useState<number | string | null>(null);
 
-    // Form Inputs
     const [date, setDate] = useState<Date | null>(new Date());
     const [amount, setAmount] = useState<number | ''>('');
     const [fee, setFee] = useState<number | ''>('');
@@ -563,15 +497,11 @@ const ListCarFuels: React.FC = () => {
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [currentAttachments, setCurrentAttachments] = useState<AttachmentType[]>([]);
 
-    // Validation States
     const [amountError, setAmountError] = useState(false);
     const [feeError, setFeeError] = useState(false);
     const [totalPriceError, setTotalPriceError] = useState(false);
     const [fuelTypeError, setFuelTypeError] = useState(false);
 
-    // ------------------------------------
-    // Table States (فیلتر و نمایش)
-    // ------------------------------------
     const [fuelRecords, setFuelRecords] = useState<CarFuelRecord[]>([]);
     const [loadingData, setLoadingData] = useState<boolean>(true);
     const [loadingButton, setLoadingButton] = useState<boolean>(false);
@@ -595,8 +525,8 @@ const ListCarFuels: React.FC = () => {
     const [isBlinking, setIsBlinking] = useState(true);
 
 
-    const [searchTerm, setSearchTerm] = useState(''); // ⬅️ جستجو
-    const [startFilter, setStartFilter] = useState<Date | null>(null); // ⬅️ فیلتر تاریخ شروع
+    const [searchTerm, setSearchTerm] = useState('');
+    const [startFilter, setStartFilter] = useState<Date | null>(null);
     const [endFilter, setEndFilter] = useState<Date | null>(null);
 
     const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
@@ -615,7 +545,6 @@ const ListCarFuels: React.FC = () => {
 
 
 
-    // --- Utility Functions ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -651,7 +580,7 @@ const ListCarFuels: React.FC = () => {
             const res = await axios.get(url, { headers: { Authorization: `Bearer ${authToken}` } });
 
             if (res.data.httpStatusCode === 200) {
-                debugger
+
                 const cleanedRecords = (res.data.data as any[]).map(record => ({
                     ...record,
                     fee: parseFloat(String(record.fee).replace(/[^0-9.]/g, '')),
@@ -682,7 +611,6 @@ const ListCarFuels: React.FC = () => {
         const calculatedTotal = Number(amount || 0) * Number(fee || 0);
         setTotalPrice(calculatedTotal > 0 ? calculatedTotal : '');
 
-        // اگر مقدار تغییر کرد، خطای احتمالی فیلد TotalPrice را هم پاک کن
         if (calculatedTotal > 0) setTotalPriceError(false);
     }, [amount, fee]);
 
@@ -692,7 +620,6 @@ const ListCarFuels: React.FC = () => {
         setAmountError(false); setFeeError(false); setTotalPriceError(false); setFuelTypeError(false);
 
         const checkPositive = (val: number | '', setError: (e: boolean) => void) => {
-            // چک کردن اینکه خالی نباشد و بزرگتر از صفر باشد
             if (val === '' || Number(val) <= 0) {
                 setError(true);
                 ok = false;
@@ -765,7 +692,6 @@ const ListCarFuels: React.FC = () => {
         const isEditing = editRecordId !== null;
 
         const payload: CarFuelPayload = {
-            // 💡 اضافه کردن id به Payload در صورت ویرایش
             id: isEditing ? Number(editRecordId) : undefined,
             date: date ? date.toISOString() : new Date().toISOString(),
             fuelType: fuelType,
@@ -777,15 +703,13 @@ const ListCarFuels: React.FC = () => {
             consignedCarId: Number(consignedCarId),
         };
 
-        // 💡 اصلاح URL بر اساس الگوی جدید (URL بدون ID)
         const url = isEditing
-            ? `${server.baseurl}${server.warehouse}update-car-fuel` // URL آپدیت بدون شناسه
+            ? `${server.baseurl}${server.warehouse}update-car-fuel`
             : `${server.baseurl}${server.warehouse}create-car-fuel`;
 
         const method = isEditing ? 'put' : 'post';
 
         try {
-            // 💡 استفاده از axios.request برای مدیریت متد PUT/POST و ارسال داده
             const res = await axios.request({
                 method,
                 url,
@@ -807,9 +731,6 @@ const ListCarFuels: React.FC = () => {
         } finally { setLoadingButton(false); }
     };
 
-    // ------------------------------------
-    // Table Action Handlers
-    // ------------------------------------
 
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: CarFuelRecord) => { setAnchorEl(event.currentTarget); setSelectedRowForMenu(row); };
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
@@ -838,18 +759,15 @@ const ListCarFuels: React.FC = () => {
 
     const filteredFuelRecords = useMemo(() => {
         const list = fuelRecords.filter(r => {
-            // 1. فیلتر جستجو (نوع سوخت یا توضیحات)
             const matchesSearch = r.fuelType.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 r.description.toLowerCase().includes(searchTerm.toLowerCase());
 
-            // 2. فیلتر تاریخ
             const cDate = new Date(r.date);
             const inRange = (!startFilter || (cDate && cDate >= startFilter)) &&
                 (!endFilter || (cDate && cDate <= endFilter));
 
             return matchesSearch && inRange;
         });
-        // 3. اعمال مرتب سازی و بازگرداندن
         return stableSort(list, getComparator(order, orderBy));
     }, [fuelRecords, searchTerm, startFilter, endFilter, order, orderBy]);
 
@@ -896,7 +814,7 @@ const ListCarFuels: React.FC = () => {
     const handleOpenRowDownloadMenu = (row: CarFuelRecord) => {
         setSelectedRowForDownload(row);
         setOpenRowDownloadModal(true);
-        handleCloseMenu(); // بستن منوی سه نقطه
+        handleCloseMenu();
     };
 
     const handleDownloadRowAction = (format: 'pdf' | 'excel') => {
@@ -905,7 +823,6 @@ const ListCarFuels: React.FC = () => {
         const title = `Araç Yakıt Kaydı - ${formatDateDisplay(selectedRowForDownload.date)}`;
         const handler = format === 'pdf' ? exportToPdf : exportToExcel;
 
-        // ارسال به صورت آرایه تک عضوی برای استفاده از توابع موجود
         handler([selectedRowForDownload], title, showAlert, setLoadingData);
 
         setOpenRowDownloadModal(false);
@@ -982,15 +899,7 @@ const ListCarFuels: React.FC = () => {
                                         value={date} onChange={(v) => setDate(v)} inputFormat="dd/MM/yyyy" renderInput={(params) => <TextField {...params} size="small" fullWidth />} disabled={loadingButton} />
                                 </LocalizationProvider>
                             </Grid>
-                            {/* <Grid item xs={12} sm={6} md={4}>
-                                <CustomFormLabel required>Yakıt Tipi</CustomFormLabel>
-                                <FormControl fullWidth size="small" error={fuelTypeError}>
-                                    <InputLabel>Yakıt Tipi Seçin</InputLabel>
-                                    <Select label="Yakıt Tipi Seçin" value={fuelType} onChange={(e) => { setFuelType(e.target.value as string); setFuelTypeError(false); }} disabled={loadingButton}>
-                                        {FUEL_TYPES.map(option => (<MuiMenuItem key={option.value} value={option.value}>{option.label}</MuiMenuItem>))}
-                                    </Select>
-                                </FormControl>
-                            </Grid> */}
+
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Yakıt Tipi</CustomFormLabel>
                                 <FormControl fullWidth size="small" error={fuelTypeError}>
@@ -998,7 +907,6 @@ const ListCarFuels: React.FC = () => {
                                     <Select
                                         label="Yakıt Tipi"
                                         value={fuelType}
-                                        // همیشه غیرفعال است چون از دیتای خودرو خوانده می‌شود
                                         disabled={true}
                                         onChange={(e) => setFuelType(e.target.value as string)}
                                         sx={{
@@ -1036,11 +944,10 @@ const ListCarFuels: React.FC = () => {
                                     size="small"
                                     fullWidth
                                     value={totalPrice}
-                                    // 👇 فیلد غیرفعال می‌شود چون سیستمی محاسبه می‌گردد
                                     disabled={true}
                                     error={totalPriceError}
                                     helperText={totalPriceError ? 'Miktar و Birim Fiyat geçerli olmalıdır.' : ''}
-                                    // برای استایل بهتر در حالت غیرفعال
+
                                     sx={{ "& .MuiInputBase-input.Mui-disabled": { WebkitTextFillColor: "#000", fontWeight: "bold" } }}
                                 />
                             </Grid>
@@ -1078,7 +985,6 @@ const ListCarFuels: React.FC = () => {
             {alertMessage && (<Stack sx={{ width: '100%', mb: 3 }} spacing={2}><Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert></Stack>)}
 
             <BlankCard>
-                {/* --- Filters (فیلترهای جدول) --- */}
                 <Box sx={{ p: 2 }}>
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', pt: 0 }}>
@@ -1101,7 +1007,6 @@ const ListCarFuels: React.FC = () => {
                             />
                         </Grid>
 
-                        {/* 4. Tarih Başlangıç (فیلتر تاریخ شروع) */}
                         <Grid item xs={12} sm={6} md={3}>
                             <CustomFormLabel>Tarih Aralığı (Başlangıç)</CustomFormLabel>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
@@ -1109,7 +1014,6 @@ const ListCarFuels: React.FC = () => {
                             </LocalizationProvider>
                         </Grid>
 
-                        {/* 5. Tarih Bitiş (فیلتر تاریخ پایان) */}
                         <Grid item xs={12} sm={6} md={3}>
                             <CustomFormLabel>Tarih Aralığı (Bitiş)</CustomFormLabel>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
@@ -1123,7 +1027,6 @@ const ListCarFuels: React.FC = () => {
                     </Grid>
                 </Box>
 
-                {/* --- Table --- */}
                 <TableContainer>
                     {loadingData ? (<Box display="flex" justifyContent="center" alignItems="center" height="200px">
                         <CircularProgress /><Typography variant="h6" sx={{ ml: 2 }}>Kayıtlar yükleniyor...</Typography>
@@ -1157,7 +1060,6 @@ const ListCarFuels: React.FC = () => {
                                             <StyledTableCell><Chip label={row.totatPrice.toLocaleString() + ' TL'} color="success" size="small" /></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 {row.description && row.description.trim().length > 0 ? (
-                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button
                                                             variant="text"
@@ -1168,7 +1070,6 @@ const ListCarFuels: React.FC = () => {
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (
-                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
                                                     <Typography variant="body2" align="center">
                                                         -
                                                     </Typography>
@@ -1246,7 +1147,6 @@ const ListCarFuels: React.FC = () => {
                 <DialogActions><Button onClick={() => setOpenAttachmentsModal(false)} color="primary" variant="outlined">Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* --- Modals --- */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
                 <DialogTitle>Tüm Kayıtları İndir</DialogTitle>
                 <DialogContent><Stack direction="column" spacing={2} sx={{ mt: 2 }}><Button variant="contained" color="primary" startIcon={<IconFileText />} onClick={() => handleDownloadAllAction('pdf')}>PDF Olarak İndir</Button><Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />} onClick={() => handleDownloadAllAction('excel')}>Excel Olarak İndir</Button></Stack></DialogContent>
@@ -1346,7 +1246,6 @@ const ListCarFuels: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* --- مودال انتخاب فرمت برای تک ردیف --- */}
             <Dialog open={openRowDownloadModal} onClose={() => setOpenRowDownloadModal(false)} maxWidth="xs" fullWidth>
                 <DialogTitle>Kayıt Formatını Seçin</DialogTitle>
                 <DialogContent>

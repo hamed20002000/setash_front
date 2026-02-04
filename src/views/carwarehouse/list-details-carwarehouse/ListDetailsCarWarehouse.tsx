@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom"; // ⭐️ useParams حذف شد
+import { useNavigate } from "react-router-dom";
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
     TableCell as MuiTableCell,
@@ -34,29 +34,18 @@ import { format } from 'date-fns';
 
 import axios from 'axios';
 import server from '../../../assets/address.json';
-// @ts-ignore
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
-// @ts-ignore
 import { useAuth } from 'src/context/AuthContext';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
-// @ts-ignore
 import autoTable from 'jspdf-autotable';
 
 import Logo from 'src/assets/images/logos/logo.png';
-// @ts-ignore
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
-
-// Import components (باید به طور دستی در پروژه شما ایجاد شوند)
 import DeleteDetailsCarWarehouse from './DeleteDetailsCarWarehouse';
 
 
-// =====================================================================================
-// === COMMON HELPERS (برای استقلال کد، اینجا تعریف شدند) ===
-// =====================================================================================
-
-// --- Interfaces ---
 interface AttachmentType { fileUrl: string; }
 interface CarDetail {
     id: number;
@@ -72,9 +61,8 @@ interface CarDetail {
     fuelType: string;
     available: boolean
 }
-// interface CarWarehouseInfo { id: number; name: string; code: string; address: string; } // ⭐️ id: number تغییر به string در API جدید
-interface CarWarehouseApi { // ⭐️ اینترفیس جدید برای API لیست انبارها
-    id: string; // ⭐️ از string استفاده می‌کنیم چون از API string برمی‌گردد
+interface CarWarehouseApi {
+    id: string;
     name: string;
     code: string;
     address: string;
@@ -88,7 +76,7 @@ interface CarWarehouseApi { // ⭐️ اینترفیس جدید برای API ل�
 interface ConsignmentApiData {
     id: string;
     date: string;
-    consigned: boolean; // وضعیت امانت
+    consigned: boolean;
     kilometer: number;
     description: string;
     personnel: {
@@ -106,19 +94,15 @@ interface ConsignmentApiData {
     };
 }
 
-// داخل کامپوننت اصلی این Stateها را اضافه کنید:
 
 
 type SortableKeys = 'brand' | 'model' | 'plaque' | 'manufactureDate' | 'createAt' | 'available';
 
-// ... (Styles, Date & Sorting, File Helpers, ConsignmentFileUpload, uploadFiles, PDF/Excel Helpers - بدون تغییر)
-// ... (توابع کمکی مشترک بالا را اینجا قرار دهید) ...
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans',
     fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: { fontSize: '1rem' },
 }));
-// ... (StyledToggleButton) ...
 const blinkAnimation = keyframes`
     0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
     50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
@@ -195,7 +179,6 @@ const ConsignmentFileUpload: React.FC<{
 }> = ({ files, setFiles, error, currentAttachments, setCurrentAttachments }) => {
 
     const fileInputRef = useRef<HTMLInputElement>(null);
-    // const supportedTypes = "image/*, application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, .xlsx";
     const supportedTypes = "image/*";
     const { isTooltipGloballyEnabled } = useTooltip();
 
@@ -248,7 +231,6 @@ const ConsignmentFileUpload: React.FC<{
                 </Button>
             </Stack>
 
-            {/* Display Existing Attachments */}
             {currentAttachments.length > 0 && (
                 <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
                     <Typography variant="caption" sx={{ color: 'gray', width: '100%' }}>Mevcut Dosyalar ({currentAttachments.length}):</Typography>
@@ -272,7 +254,6 @@ const ConsignmentFileUpload: React.FC<{
                 </Stack>
             )}
 
-            {/* Display New Files to Upload */}
             {files.length > 0 && (
                 <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
                     <Typography variant="caption" sx={{ color: 'gray', width: '100%' }}>Yüklenecek Yeni Dosyalar ({files.length}):</Typography>
@@ -343,10 +324,10 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -356,7 +337,7 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
@@ -364,8 +345,6 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     doc.setFont('NotoSans', 'normal');
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -426,32 +405,17 @@ const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, colum
     });
 };
 
-
-// =====================================================================================
-// === Main Component: ListDetailsCarWarehouse ===
-// =====================================================================================
-
 const ListDetailsCarWarehouse: React.FC = () => {
     const navigate = useNavigate();
 
     const nameInputRef = useRef<HTMLInputElement>(null);
-    // const { allowedOperations } = useAuth();
     const { isTooltipGloballyEnabled } = useTooltip();
-
-    // Permissions
-    // const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
-    // const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
-    // const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
-
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -460,24 +424,19 @@ const ListDetailsCarWarehouse: React.FC = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -491,13 +450,9 @@ const ListDetailsCarWarehouse: React.FC = () => {
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
 
 
-    // ------------------------------------
-    // States Form
-    // ------------------------------------
     const [editingId, setEditingId] = useState<number | null>(null);
     const [brand, setBrand] = useState<string>('');
     const [model, setModel] = useState<string>('');
-    // const [manufactureDate, setManufactureDate] = useState<Date | null>(null);
     const [manufactureYear, setManufactureYear] = useState<number | ''>('');
     const [plaque, setPlaque] = useState<string>('');
     const [description, setDescription] = useState<string>('');
@@ -506,19 +461,16 @@ const ListDetailsCarWarehouse: React.FC = () => {
     const [currentAttachments, setCurrentAttachments] = useState<AttachmentType[]>([]);
     const [attachmentError, setAttachmentError] = useState(false);
 
-    // Form Validation States
     const [brandError, setBrandError] = useState(false);
     const [modelError, setModelError] = useState(false);
     const [plaqueError, setPlaqueError] = useState(false);
     const [dateError, setDateError] = useState(false);
 
-    // Global States
-    const [carWarehousesList, setCarWarehousesList] = useState<CarWarehouseApi[]>([]); // ⭐️ لیست انبارها
-    const [selectedCarWarehouse, setSelectedCarWarehouse] = useState<CarWarehouseApi | null>(null); // ⭐️ انبار انتخاب شده
-    const [warehouseError, setWarehouseError] = useState(false); // ⭐️ خطای انتخاب انبار
+    const [carWarehousesList, setCarWarehousesList] = useState<CarWarehouseApi[]>([]);
+    const [selectedCarWarehouse, setSelectedCarWarehouse] = useState<CarWarehouseApi | null>(null);
+    const [warehouseError, setWarehouseError] = useState(false);
 
     const [tableCarWarehouse, setTableCarWarehouse] = useState<CarWarehouseApi | null>(null);
-    // ⭐️ حذف: const [carWarehouseInfo, setCarWarehouseInfo] = useState<CarWarehouseInfo | null>(null);
 
     const [carDetails, setCarDetails] = useState<CarDetail[]>([]);
     const [loadingData, setLoadingData] = useState<boolean>(true);
@@ -532,9 +484,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
-    // ------------------------------------
-    // States Table/Filter/Modals
-    // ------------------------------------
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
@@ -566,9 +515,8 @@ const ListDetailsCarWarehouse: React.FC = () => {
     const [loadingConsignment, setLoadingConsignment] = useState(false);
 
 
-    const [activeTab, setActiveTab] = useState(0); // مدیریت تب فعال
-    const [availableCars, setAvailableCars] = useState<any[]>([]); // خودروهای آزاد
-    // const [loadingAvailable, setLoadingAvailable] = useState(false); 
+    const [activeTab, setActiveTab] = useState(0);
+    const [availableCars, setAvailableCars] = useState<any[]>([]);
 
     const years = useMemo(() => {
         const currentYear = new Date().getFullYear();
@@ -577,7 +525,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
     }, []);
 
 
-    // --- Utility Functions ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -590,7 +537,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
     }, [alertMessage]);
     useEffect(() => { const t = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(t); }, []);
 
-    // --- Data Mapping ---
     const mapApiDataToCarDetail = (r: any): CarDetail => ({
         id: Number(r.id),
         brand: r.brand,
@@ -606,7 +552,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
         createAt: r.createAt,
     });
 
-    // --- Data Fetching: Get Car Warehouses List ⭐️ ---
     const fetchCarWarehouses = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         const role = localStorage.getItem('activeUserRoleName') || '';
@@ -630,11 +575,9 @@ const ListDetailsCarWarehouse: React.FC = () => {
             if (response.data.httpStatusCode === 200 && Array.isArray(response.data.data)) {
                 const activeWarehouses = response.data.data.filter((w: CarWarehouseApi) => w.recordStatus === 0);
                 setCarWarehousesList(activeWarehouses);
-                // ⭐️ تنظیم انبار پیش‌فرض به اولین مورد
                 if (activeWarehouses.length > 0) {
                     const defaultWarehouse = activeWarehouses[0];
                     setTableCarWarehouse(defaultWarehouse);
-                    // ⭐️ اضافه شده: تنظیم انبار فرم پیش‌فرض
                     setSelectedCarWarehouse(defaultWarehouse);
                 }
             } else {
@@ -647,7 +590,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
         }
     }, [navigate, showAlert]);
 
-    // --- Data Fetching: Get Car Details ⭐️ ---
     const fetchCarDetails = useCallback(async (warehouseId: string | null) => {
         if (!warehouseId) {
             setCarDetails([]);
@@ -660,11 +602,10 @@ const ListDetailsCarWarehouse: React.FC = () => {
         if (!authToken) { navigate('/'); setLoadingData(false); return; }
 
         try {
-            // API: get-car-warehouse-details-by-warehouseId/warehouseId
             const url = `${server.baseurl}${server.warehouse}get-car-warehouse-details-by-warehouseId/${warehouseId}`;
             const res = await axios.get(url, { headers: { Authorization: `Bearer ${authToken}` } });
             if (res.data.httpStatusCode === 200) {
-                debugger
+
                 const rawRows = (res.data.data as any[]).map(mapApiDataToCarDetail);
                 setCarDetails(rawRows);
             } else {
@@ -680,13 +621,13 @@ const ListDetailsCarWarehouse: React.FC = () => {
     }, [navigate, showAlert]);
 
     const handleOpenConsignmentModal = async () => {
+
         setLoadingConsignment(true);
         setOpenConsignmentModal(true);
-        setActiveTab(0); // شروع از تب اول
+        setActiveTab(0);
         const authToken = localStorage.getItem('authToken');
 
         try {
-            // فراخوانی همزمان هر دو API برای سرعت بیشتر
             const [resConsigned, resAvailable] = await Promise.all([
                 axios.get(`${server.baseurl}${server.warehouse}get-all-consigned-cars`, {
                     headers: { Authorization: `Bearer ${authToken}` }
@@ -700,7 +641,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 setConsignedCars(resConsigned.data.data);
             }
             if (resAvailable.data.httpStatusCode === 200) {
-                debugger
+
                 setAvailableCars(resAvailable.data.data);
             }
         } catch (e) {
@@ -710,29 +651,24 @@ const ListDetailsCarWarehouse: React.FC = () => {
         }
     };
 
-    // --- Initial Load Effect ⭐️ ---
     useEffect(() => {
         fetchCarWarehouses();
     }, [fetchCarWarehouses]);
 
-    // --- Fetch Details on Warehouse Change Effect ⭐️ ---
     useEffect(() => {
         setPage(0);
-        // ⬅️ فقط بر اساس وضعیت B (tableCarWarehouse) داده‌ها را واکشی کند.
         fetchCarDetails(tableCarWarehouse ? tableCarWarehouse.id : null);
     }, [tableCarWarehouse, fetchCarDetails]);
 
 
-    // --- Form Logic ---
     const validateForm = (): boolean => {
         let ok = true;
         setBrandError(false); setModelError(false); setPlaqueError(false); setDateError(false); setWarehouseError(false); // ⭐️ خطای انبار اضافه شد
 
-        if (!selectedCarWarehouse) { setWarehouseError(true); ok = false; } // ⭐️ اعتبارسنجی انبار
+        if (!selectedCarWarehouse) { setWarehouseError(true); ok = false; }
         if (!brand.trim()) { setBrandError(true); ok = false; }
         if (!model.trim()) { setModelError(true); ok = false; }
         if (!plaque.trim()) { setPlaqueError(true); ok = false; }
-        // if (!manufactureDate) { setDateError(true); ok = false; }
         if (!fuelType) { setFuelTypeError(true); ok = false; }
         if (!manufactureYear) { setDateError(true); ok = false; }
 
@@ -744,7 +680,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
         setEditingId(null);
         setBrand('');
         setModel('');
-        // setManufactureDate(null);
         setManufactureYear('');
         setAttachmentError(false);
         setPlaque('');
@@ -757,34 +692,15 @@ const ListDetailsCarWarehouse: React.FC = () => {
         setFuelTypeError(false);
     }, []);
 
-    // const buildPayload = (id?: number, finalAttachments: AttachmentType[] = []): { id?: number; brand: string; model: string; manufactureDate: string; plaque: string; description: string; carWarehouseId: number; attachments: AttachmentType[]; recordStatus?: 0 | 1 } => {
-    //     // ⭐️ carWarehouseId از انبار انتخاب شده می‌آید
-    //     const currentWarehouseId = selectedCarWarehouse ? Number(selectedCarWarehouse.id) : 0;
-
-    //     const payload: { id?: number; brand: string; model: string; manufactureDate: string; fuelType: string; plaque: string; description: string; carWarehouseId: number; attachments: AttachmentType[]; recordStatus?: 0 | 1 } = {
-    //         brand: brand.trim(),
-    //         model: model.trim(),
-    //         manufactureDate: manufactureDate ? manufactureDate.toISOString() : '',
-    //         fuelType: fuelType,
-    //         plaque: plaque.trim(),
-    //         description: description,
-    //         carWarehouseId: currentWarehouseId, // ⭐️ استفاده از ID انبار انتخاب شده
-    //         attachments: finalAttachments,
-    //     };
-    //     if (id) payload.id = id;
-    //     return payload;
-    // };
-
     const buildPayload = (id?: number, finalAttachments: AttachmentType[] = []) => {
         const currentWarehouseId = selectedCarWarehouse ? Number(selectedCarWarehouse.id) : 0;
 
-        // تبدیل سال به تاریخ کامل (اول ژانویه آن سال)
         const fullDate = manufactureYear ? `${manufactureYear}-01-01T00:00:00.000Z` : '';
 
         const payload: any = {
             brand: brand.trim(),
             model: model.trim(),
-            manufactureDate: fullDate, // ارسال تاریخ کامل
+            manufactureDate: fullDate,
             fuelType: fuelType,
             plaque: plaque.trim(),
             description: description,
@@ -840,7 +756,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
             if (res.data.httpStatusCode === successStatus || res.data.httpStatusCode === 200) {
                 showAlert(`Araç detayı başarıyla ${isEditing ? 'güncellendi' : 'eklendi'}!`, 'success');
                 resetForm();
-                fetchCarDetails(selectedCarWarehouse!.id); // ⭐️ واکشی مجدد داده‌های انبار انتخابی
+                fetchCarDetails(selectedCarWarehouse!.id);
             } else { showAlert(res.data.message || 'İşlem sırasında bir hata oluştu.', 'error'); }
         } catch (e: any) {
             if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
@@ -853,17 +769,13 @@ const ListDetailsCarWarehouse: React.FC = () => {
     };
 
     useEffect(() => {
-        // اگر در حالت ویرایش هستیم و لیست انبارها پر شده است
         if (editingId && carWarehousesList.length > 0) {
-            // پیدا کردن رکورد فعلی که در حال ویرایش است
             const currentRecord = carDetails.find(r => r.id === editingId);
 
             if (currentRecord) {
-                // پیدا کردن شیء انبار متناظر در لیست انبارها
                 const warehouseToSelect = carWarehousesList.find(w => Number(w.id) === currentRecord.carWarehouseId);
 
                 if (warehouseToSelect) {
-                    // تنظیم انبار انتخاب شده در فرم
                     setSelectedCarWarehouse(warehouseToSelect);
                 }
             }
@@ -871,15 +783,11 @@ const ListDetailsCarWarehouse: React.FC = () => {
     }, [editingId, carWarehousesList, carDetails]);
 
     const handleEditClick = (row: CarDetail) => {
-        // const warehouseToSelect = carWarehousesList.find(w => Number(w.id) === row.carWarehouseId);
-        // if (warehouseToSelect) {
-        //     setSelectedCarWarehouse(warehouseToSelect);
-        // }
+
 
         setEditingId(row.id);
         setBrand(row.brand);
         setModel(row.model);
-        // setManufactureDate(row.manufactureDate ? new Date(row.manufactureDate) : null);
         setFuelType(row.fuelType || '');
         if (row.manufactureDate) {
             const year = new Date(row.manufactureDate).getFullYear();
@@ -916,7 +824,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
                 showAlert(`Araç detayı başarıyla ${statusText} olarak ayarlandı!`, 'success');
                 resetForm();
-                fetchCarDetails(selectedCarWarehouse!.id); // ⭐️ واکشی مجدد داده‌ها
+                fetchCarDetails(selectedCarWarehouse!.id);
             }
             else if (response.data.message == "The carwarehouse is in use and cannot be set to unavailable!") {
                 showAlert('Araç deposu kullanımda olduğu için "kullanılamaz" olarak ayarlanamıyor.', 'error');
@@ -937,7 +845,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
         }
     };
 
-    // --- Table/Filter/Sort Logic ---
     const filteredCarDetails = useMemo(() => {
         const list = stableSort(carDetails, getComparator(order, orderBy)).filter(r => {
             const matchesSearch = r.brand.toLowerCase().includes(searchTerm.toLowerCase()) || r.model.toLowerCase().includes(searchTerm.toLowerCase()) || r.plaque.toLowerCase().includes(searchTerm.toLowerCase());
@@ -972,55 +879,10 @@ const ListDetailsCarWarehouse: React.FC = () => {
     };
     const handleCloseDeleteModal = () => { setOpenDeleteModal(false); setDeleteId(null); setDeleteName(''); fetchCarDetails(selectedCarWarehouse!.id); }; // ⭐️ واکشی مجدد داده‌ها
 
-    // --- Download Handlers ---
-    // const exportDetailsToPdf = (data: CarDetail[], title: string) => {
-    //     if (!data || data.length === 0) { showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning'); return; }
-    //     setLoadingData(true); showAlert('Rapor oluşturuluyor...', 'info');
-
-    //     // @ts-ignore
-    //     const doc = new jsPDF();
-    //     const docAny = doc as any;
-
-    //     const columns = ['Marka', 'Model', 'Plaka', 'Yakıt Tipi', 'Üretim Tarihi', 'Kayıt Tarihi'];
-
-    //     const body = data.map(r => [
-    //         r.brand || '-',
-    //         r.model || '-',
-    //         r.plaque || '-',
-    //         FUEL_TYPES.find(f => f.value === r.fuelType)?.label || r.fuelType || '-',
-    //         formatDateDisplay(r.manufactureDate || null),
-    //         formatDateDisplay(r.createAt || null),
-    //     ]);
-
-    //     try {
-    //         addPdfHeader(doc, title);
-
-    //         autoTable(docAny, {
-    //             head: [columns],
-    //             body: body,
-    //             startY: 35,
-    //             theme: 'grid',
-    //             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 9, cellPadding: 2, overflow: 'linebreak' },
-    //             headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0], fontSize: 10 },
-    //             didDrawPage: (_data: any) => { addPdfFooter(doc); },
-    //             margin: { top: 30, bottom: 35, left: 10, right: 10 }
-    //         });
-
-    //         const fileName = `${title.replace(/ /g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
-    //         docAny.save(fileName);
-    //         showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
-    //     } catch (error) {
-    //         console.error("PDF dışa aktarılırken hata:", error);
-    //         showAlert('PDF dışa aktarılırken bir hata oluştu.', 'error');
-    //     } finally {
-    //         setLoadingData(false);
-    //     }
-    // };
     const exportDetailsToPdf = (data: CarDetail[], title: string) => {
         if (!data || data.length === 0) { showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning'); return; }
         setLoadingData(true); showAlert('Rapor oluşturuluyor...', 'info');
 
-        // @ts-ignore
         const doc = new jsPDF();
         const docAny = doc as any;
 
@@ -1050,7 +912,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 margin: { top: 30, bottom: 35, left: 10, right: 10 }
             });
 
-            // --- بخش خلاصه وضعیت سوخت ---
             const fuelTotals: { [key: string]: number } = {};
             data.forEach(record => {
                 const type = record.fuelType || 'Unknown';
@@ -1123,7 +984,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 ]);
             });
 
-            // تنظیم عرض خودکار ستون‌ها برای جدول اصلی
             worksheet.columns.forEach((column) => {
                 let maxLength = 0;
                 column.eachCell?.({ includeEmpty: true }, (cell) => {
@@ -1133,8 +993,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 column.width = Math.min(Math.max(maxLength + 2, 12), 50);
             });
 
-            // --- بخش خلاصه وضعیت سوخت در Excel ---
-            worksheet.addRow([]); // سطر خالی
+            worksheet.addRow([]);
             const summaryTitleRow = worksheet.addRow(['Yakıt Türüne Göre Araç Sayısı Özeti']);
             summaryTitleRow.font = { name: 'NotoSans', size: 12, bold: true };
             worksheet.mergeCells(`A${summaryTitleRow.number}:${String.fromCharCode(65 + columns.length - 1)}${summaryTitleRow.number}`);
@@ -1156,7 +1015,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 }
             });
 
-            // اضافه کردن اطلاعات شرکت در انتها
             addExcelCompanyInfo(worksheet, worksheet.lastRow!.number + 2, columns.length);
 
             const fileName = `${title.replace(/ /g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`;
@@ -1249,7 +1107,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
         const doc = new jsPDF();
         const docAny = doc as any;
 
-        // تنظیم فونت برای پشتیبانی از کاراکترهای خاص
         try {
             docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
             docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
@@ -1258,7 +1115,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
             console.error("Font loading error", e);
         }
 
-        // هدر و فوتر استاندارد پروژه شما
         addPdfHeader(doc, title);
 
         const columns = [
@@ -1301,7 +1157,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
 
-                {/* --- Header & Buttons --- */}
                 <Stack
                     direction={{ xs: 'column', md: 'row' }}
                     justifyContent="space-between"
@@ -1314,7 +1169,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
                         Yeni Araç Eklemek- ({selectedCarWarehouse?.name || 'Depo Seçilmedi'})
                     </Typography>
 
-                    {/* Action Buttons */}
                     <Stack
                         direction={{ xs: 'column', sm: 'row' }}
                         spacing={1}
@@ -1355,12 +1209,10 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 </Stack>
 
 
-                {/* --- Form Section --- */}
                 {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                         <Typography variant="h6" mb={2}>{editingId ? 'Araç Detayını Düzenle' : 'Yeni Araç Detay Kaydı'}</Typography>
                         <Grid container spacing={2}>
-                            {/* Car Warehouse Selection (Form) ⭐️ */}
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Araç Depo</CustomFormLabel>
                                 <Autocomplete
@@ -1381,11 +1233,9 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                             helperText={warehouseError ? 'Bu alan zorunludur!' : ''}
                                         />
                                     )}
-                                    // ⭐️ در حالت ویرایش، اجازه تغییر انبار داده می‌شود
                                     disabled={loadingButton}
                                 />
                             </Grid>
-                            {/* Brand & Model */}
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Marka</CustomFormLabel>
                                 <CustomTextField placeholder="Marka Adı" size="small"
@@ -1423,19 +1273,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                 <CustomFormLabel required>Model</CustomFormLabel>
                                 <CustomTextField placeholder="Model Adı" size="small" fullWidth value={model} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setModel(e.target.value); setModelError(false); }} error={modelError} helperText={modelError ? 'Zorunlu alan.' : ''} />
                             </Grid>
-                            {/* Manufacture Date & Plaque */}
-                            {/* <Grid item xs={12} sm={6} md={4}>
-                                <CustomFormLabel required>Üretim Tarihi</CustomFormLabel>
-                                <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                                    <DatePicker
-                                        label="Üretim Tarihi"
-                                        value={manufactureDate}
-                                        onChange={(v) => { setManufactureDate(v); setDateError(false); }}
-                                        inputFormat="dd/MM/yyyy"
-                                        renderInput={(params) => <TextField {...params} size="small" fullWidth error={dateError} helperText={dateError ? 'Zorunlu alan.' : params.helperText} />}
-                                    />
-                                </LocalizationProvider>
-                            </Grid> */}
+
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Üretim Yılı</CustomFormLabel>
                                 <Autocomplete
@@ -1463,12 +1301,10 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                 <CustomTextField placeholder="Plaka Numarası" size="small" fullWidth value={plaque} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setPlaque(e.target.value); setPlaqueError(false); }} error={plaqueError} helperText={plaqueError ? 'Zorunlu alan.' : ''} />
                             </Grid>
 
-                            {/* Description */}
                             <Grid item xs={12}>
                                 <CustomFormLabel>Açıklama</CustomFormLabel>
                                 <CustomTextField placeholder="Detaylı Açıklama" size="small" fullWidth value={description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)} multiline rows={2} />
                             </Grid>
-                            {/* Attachments */}
                             <Grid item xs={12}>
                                 <CustomFormLabel>Ekler (Resimler)</CustomFormLabel>
                                 <ConsignmentFileUpload
@@ -1480,7 +1316,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                 />
                             </Grid>
 
-                            {/* Form Actions */}
                             <Grid item xs={12}>
                                 <Stack direction="row" spacing={1} justifyContent="flex-end">
                                     <Button variant="contained" color={editingId ? "info" : "success"} onClick={handleSubmitForm} disabled={loadingButton || !selectedCarWarehouse} size="small">
@@ -1494,7 +1329,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 )}
             </div>
 
-            {/* --- Alert --- */}
             {alertMessage && (
                 <Stack sx={{ width: '100%', mb: 3 }} spacing={2}><Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert></Stack>
             )}
@@ -1552,10 +1386,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 </Box>
                 <Box sx={{ p: 2 }}>
                     <Grid container spacing={2} alignItems="center">
-                        {/* Warehouse Selector for Table Filtering */}
-
-
-                        {/* Search & Date Filters */}
                         <Grid item xs={12} sm={6} md={3}>
                             <TextField label="Ara (Marka / Model / Plaka)" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange} size="small" InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }} />
                         </Grid>
@@ -1583,7 +1413,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 </Box>
 
 
-                {/* --- Table --- */}
                 <TableContainer>
                     {loadingData ? (
                         <Box display="flex" justifyContent="center" alignItems="center" height="200px">
@@ -1647,21 +1476,8 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                                     />
                                                 )}
                                             </StyledTableCell>
-                                            {/* <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
-                                                <Box sx={{
-                                                    maxHeight: '5em', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                                                }}>
-                                                    <div dangerouslySetInnerHTML={{ __html: row.description }} />
-                                                </Box>
-                                                {row.description.length > 50 && (
-                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => { handleOpenDescriptionModal(row.description); }}>Açıklamanı Oku</Button>
-                                                    </CustomTooltip>
-                                                )}
-                                            </StyledTableCell> */}
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 {row.description && row.description.trim().length > 0 ? (
-                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button
                                                             variant="text"
@@ -1672,7 +1488,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (
-                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
                                                     <Typography variant="body2" align="center">
                                                         -
                                                     </Typography>
@@ -1717,7 +1532,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 <TablePagination rowsPerPageOptions={[5, 10, 25]} component="div" count={filteredCarDetails.length} rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage} labelRowsPerPage="Satır başına düşen:" labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`} />
             </BlankCard>
 
-            {/* --- Download Modals --- */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
                 <DialogTitle>Tüm Detayları İndir</DialogTitle>
                 <DialogContent><Stack direction="column" spacing={2} sx={{ mt: 2 }}><Button variant="contained" color="primary" startIcon={<IconFileText />} onClick={() => handleDownloadAll('pdf')}>PDF Olarak İndir</Button><Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />} onClick={() => handleDownloadAll('excel')}>Excel Olarak İndir</Button></Stack></DialogContent>
@@ -1734,17 +1548,15 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 <DialogActions><Button onClick={handleCloseRowDownloadModal} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* --- Delete Modal --- */}
             <DeleteDetailsCarWarehouse
                 openModal={openDeleteModal}
                 onClose={handleCloseDeleteModal}
                 idToDelete={deleteId}
                 nameToDelete={deleteName}
-                onDeleteSuccess={() => fetchCarDetails(selectedCarWarehouse!.id)} // ⭐️ به‌روزرسانی
+                onDeleteSuccess={() => fetchCarDetails(selectedCarWarehouse!.id)}
                 showAlert={showAlert}
             />
 
-            {/* --- Attachments Modal --- */}
             <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Ekler ({attachmentsToView.length} adet)</DialogTitle>
                 <DialogContent dividers>
@@ -1782,7 +1594,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* --- Description Modal --- */}
             <Dialog open={openDescriptionModal} onClose={handleCloseDescriptionModal} maxWidth="md" fullWidth>
                 <DialogTitle>Açıklamanın Tamamı</DialogTitle>
                 <DialogContent dividers>
@@ -1801,7 +1612,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
                         <Typography variant="h6">Araç Takip Paneli</Typography>
                         <IconButton onClick={() => setOpenConsignmentModal(false)} sx={{ color: 'white' }}><IconX /></IconButton>
                     </Stack>
-                    {/* نوار تب‌ها */}
                     <Tabs
                         value={activeTab}
                         onChange={(_, newValue) => setActiveTab(newValue)}
@@ -1811,7 +1621,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                         sx={{ bgcolor: 'primary.dark' }}
                     >
                         <Tab label="Zimmetli Araçlar (Emanet)" />
-                        <Tab label="Mevcut Araçlar (Serbest)" />
+                        <Tab label="Mevcut Araçlar (Boşta)" />
                     </Tabs>
                 </DialogTitle>
 
@@ -1823,7 +1633,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
                         </Box>
                     ) : (
                         <>
-                            {/* محتوای تب اول: خودروهای در امانت */}
                             {activeTab === 0 && (
                                 <Box>
                                     <Stack direction="row" justifyContent="space-between" mb={2}>
@@ -1855,12 +1664,10 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                 </Box>
                             )}
 
-                            {/* محتوای تب دوم: خودروهای آزاد */}
                             {activeTab === 1 && (
                                 <Box>
                                     <Stack direction="row" justifyContent="space-between" mb={2}>
                                         <Typography variant="h6" color="success.main">Mevcut (Boşta) Araçlar</Typography>
-                                        {/* می‌توانید یک تابع اکسپورت برای خودروهای آزاد هم اضافه کنید */}
                                     </Stack>
                                     <TableContainer component={Paper} variant="outlined">
                                         <Table size="small">
@@ -1884,7 +1691,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                                     </TableRow>
                                                 ))}
                                                 {availableCars.length === 0 && (
-                                                    <TableRow><TableCell colSpan={4} align="center">Boşta araç bulunamadی.</TableCell></TableRow>
+                                                    <TableRow><TableCell colSpan={4} align="center">Boşta araç bulunamadi.</TableCell></TableRow>
                                                 )}
                                             </TableBody>
                                         </Table>

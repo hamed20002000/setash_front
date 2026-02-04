@@ -47,11 +47,10 @@ const formatDateDisplay = (dateString: string | null): string => {
 
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-  fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-  // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-  fontSize: '0.8rem', // Varsayılan olarak küçük font
+  fontFamily: 'NotoSans',
+  fontSize: '0.8rem',
   [theme.breakpoints.up('md')]: {
-    fontSize: '1rem', // Masaüstünde daha büyük
+    fontSize: '1rem',
   },
 }));
 
@@ -69,7 +68,7 @@ interface RowType {
   id: number;
   status: string;
   name: string;
-  recordStatus?: number; // 0 = Aktif, 1 = Pasif, 2 = Silindi
+  recordStatus?: number;
   createAt: string;
 }
 
@@ -100,7 +99,6 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
 }));
 
 
-// Helper functions for sorting - placed outside the component for reusability
 const descendingComparator = <T, Key extends keyof T>(
   a: T,
   b: T,
@@ -122,7 +120,6 @@ const descendingComparator = <T, Key extends keyof T>(
   if (typeof valB === 'number' && typeof valA === 'number') {
     return valB - valA;
   }
-  // Fallback for other types or mixed types
   if (String(valB) < String(valA)) {
     return -1;
   }
@@ -198,31 +195,11 @@ const SystemRole = () => {
 
   const [loadingData, setLoadingData] = useState<boolean>(true);
 
-  // const { allowedOperations } = useAuth();
-  // const hasCreatePermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-  // }, [allowedOperations]);
-
-  // const hasEditPermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-  // }, [allowedOperations]);
-
-  // const hasDeletePermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-  // }, [allowedOperations]);
-
-  // const hasChangeOpPermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-  // }, [allowedOperations]);
-
 
   const { menuItems, allowedOperations } = useAuth();
   const findMenuByHref = (items: any[], path: string): any => {
     for (const item of items) {
-      // اگر خود آیتم تطبیق داشت
       if (item.href === path) return item;
-
-      // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
       if (item.children && item.children.length > 0) {
         const found = findMenuByHref(item.children, path);
         if (found) return found;
@@ -230,25 +207,19 @@ const SystemRole = () => {
     }
     return null;
   };
-
-  // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
   const currentMenu = useMemo(() => {
-    debugger
+
     return findMenuByHref(menuItems, location.pathname);
   }, [menuItems, location.pathname]);
 
-  // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
   const currentMenuOpIds = useMemo(() => {
-    // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
     if (!currentMenu || !currentMenu.menuOperations) return [];
 
     return currentMenu.menuOperations.map((op: any) => {
-      // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
       return String(op.id);
     });
   }, [currentMenu]);
 
-  // ۴. تابع نهایی بررسی دسترسی
   const hasPermission = (opName: string) => {
     return allowedOperations.some((op: any) =>
       op.systemOperationName === opName &&
@@ -260,7 +231,6 @@ const SystemRole = () => {
   const hasChangeOpPermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
   const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
   const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
-  // const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
 
 
   const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -275,7 +245,6 @@ const SystemRole = () => {
 
     setLoadingData(true);
     if (!authToken) {
-      console.warn("No auth token found, redirecting to login.");
       navigate("/");
       setLoadingData(false);
       return;
@@ -340,11 +309,9 @@ const SystemRole = () => {
   const handleClickCloseDeleteModal = useCallback(() => {
     setOpenDeleteModal(false);
     setRowIdToDelete(null);
-    getListRole(); // مطمئن شوید getListRole در اینجا فراخوانی می‌شود
+    getListRole();
   }, [getListRole]);
 
-
-  // useEffect برای بستن خودکار Alert (وابسته به alertMessage و clearAlert)
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (alertMessage) {
@@ -553,19 +520,19 @@ const SystemRole = () => {
     } finally {
       handleCloseMenu();
     }
-  }, [clearAlert, showAlert, navigate, getListRole, resetFormAndState, handleCloseMenu]); // اضافه شدن dependencies
+  }, [clearAlert, showAlert, navigate, getListRole, resetFormAndState, handleCloseMenu]);
 
-  const handleSetActive = useCallback(() => { // اضافه شدن useCallback
+  const handleSetActive = useCallback(() => {
     if (selectedRowForMenu) {
       sendStatusUpdate(selectedRowForMenu.name, 0);
     }
-  }, [selectedRowForMenu, sendStatusUpdate]); // وابسته به selectedRowForMenu و sendStatusUpdate
+  }, [selectedRowForMenu, sendStatusUpdate]);
 
-  const handleSetInactive = useCallback(() => { // اضافه شدن useCallback
+  const handleSetInactive = useCallback(() => {
     if (selectedRowForMenu) {
       sendStatusUpdate(selectedRowForMenu.name, 1);
     }
-  }, [selectedRowForMenu, sendStatusUpdate]); // وابسته به selectedRowForMenu و sendStatusUpdate
+  }, [selectedRowForMenu, sendStatusUpdate]);
 
 
   const handleClickOpenOperationModal = useCallback(() => {
@@ -671,7 +638,7 @@ const SystemRole = () => {
                   color="primary"
                   onClick={() => setIsFormVisible(true)}
                   isBlinking={isBlinking}
-                  fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                  fullWidth={false}
                 >
                   Yeni Rol Kaydet
                 </BlinkingButton>
@@ -683,7 +650,6 @@ const SystemRole = () => {
                   variant="contained"
                   color="error"
                   onClick={resetFormAndState}
-                  // disabled={loadingButton}
                   fullWidth={false}
                   startIcon={<IconX size={20} />}
                 >
@@ -801,31 +767,24 @@ const SystemRole = () => {
                 aria-label="Status filter"
                 fullWidth
               >
-                {/* ✅ تغییر: استفاده از StyledToggleButton به جای ToggleButton معمولی */}
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm rolleri göster" : ""}> */}
-                <StyledToggleButton // ✅ اینجا
+                <StyledToggleButton
                   value="all"
                   aria-label="all roles"
                 >
                   Tümü
                 </StyledToggleButton>
-                {/* </CustomTooltip> */}
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif rolleri göster" : ""}> */}
-                <StyledToggleButton // ✅ اینجا
+                <StyledToggleButton
                   value="active"
                   aria-label="active roles"
                 >
                   Aktif
                 </StyledToggleButton>
-                {/* </CustomTooltip> */}
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif rolleri göster" : ""}> */}
-                <StyledToggleButton // ✅ اینجا
+                <StyledToggleButton
                   value="inactive"
                   aria-label="inactive roles"
                 >
                   Pasif
                 </StyledToggleButton>
-                {/* </CustomTooltip> */}
               </ToggleButtonGroup>
             </Grid>
           </Grid>
@@ -1006,10 +965,9 @@ const SystemRole = () => {
         onClose={handleClickCloseDeleteModal}
         rowIdToDelete={rowIdToDelete}
         onDeleteSuccess={getListRole}
-        showAlert={showAlert} // showAlert به درستی به اینجا ارسال می‌شود
+        showAlert={showAlert}
       />
 
-      {/* ListSystemOperationModal که باید رفرش نشود */}
       <ListSystemOperationModal
         openOperationModal={openOperationModal}
         onClose={handleClickCloseOperationModal}

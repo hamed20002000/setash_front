@@ -291,7 +291,7 @@ const NetworkDetails = () => {
                         name: item.name,
                         type: item.type,
                     }));
-                debugger
+
                 setAllProductTypesFromAPI(formattedData);
             } else {
                 showAlert(result.data.message || 'Ürün türleri listesi alınamadı.', 'error');
@@ -351,7 +351,7 @@ const NetworkDetails = () => {
     }, [navigate, showAlert]);
 
     const getInitialData = useCallback(async () => {
-        debugger
+
         if (!workId) {
             showAlert('Network ID bulunamadı. Lütfen URL\'yi kontrol edin.', 'error');
             return;
@@ -374,7 +374,7 @@ const NetworkDetails = () => {
                     }
                 }
             );
-            debugger
+
             if (response.data.httpStatusCode === 200) {
                 const apiData = response.data.data;
                 const convertedData: WorkDetailRow[] = [];
@@ -1296,7 +1296,7 @@ const NetworkDetails = () => {
     //         showAlert('Work/Network ID bulunamadı. Lütfen URL\'yi kontrol edin.', 'error');
     //         return null;
     //     }
-    //     debugger
+    //      
     //     const apiPayload: {
     //         id: number;
     //         networkTrAdis: {
@@ -1502,7 +1502,7 @@ const NetworkDetails = () => {
         if (!payload) {
             return;
         }
-        debugger
+
         setLoadingRegisterButton(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {

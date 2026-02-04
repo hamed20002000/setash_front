@@ -58,11 +58,11 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
 }));
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
 
-    fontSize: '0.75rem', // مثلاً 12px
-    padding: '4px 8px', // برای جلوگیری از به هم ریختگی در فونت کوچک
+    fontSize: '0.75rem',
+    padding: '4px 8px',
 
     [theme.breakpoints.up('sm')]: {
-        fontSize: '0.875rem', // مثلاً 14px
+        fontSize: '0.875rem',
         padding: '6px 12px',
     },
 
@@ -81,12 +81,11 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
 }));
 const StatusToggleButton = styled(MuiToggleButton)<{ value: number, selected: boolean }>(({ theme, value, selected }) => ({
     width: '33%',
-    fontSize: '0.7rem', // مثلاً 12px
-    padding: '4px 8px', // برای جلوگیری از به هم ریختگی در فونت کوچک
+    fontSize: '0.7rem',
+    padding: '4px 8px',
 
     [theme.breakpoints.up('sm')]: {
-        // ⬅️ اندازه فونت استاندارد برای تبلت و دسکتاپ
-        fontSize: '0.875rem', // مثلاً 14px
+        fontSize: '0.875rem',
         padding: '6px 12px',
     },
     '&.Mui-selected': {
@@ -102,7 +101,6 @@ const StatusToggleButton = styled(MuiToggleButton)<{ value: number, selected: bo
     },
 }));
 
-/* =================== Constants =================== */
 const STATUS_OPTIONS = [
     { value: 0, label: 'Tamamlandı', color: 'success' as const },
     { value: 1, label: 'Mevcut', color: 'warning' as const },
@@ -114,7 +112,6 @@ interface ComboOption { id: number; name: string; }
 interface ChannelOption extends ComboOption { channelRowId: number; type?: number; }
 interface TransmissionOption extends ComboOption { transmissionRowId: number; }
 
-/* ============ API types ============ */
 interface ApiImplementItem {
     id: string;
     createAt: string;
@@ -182,8 +179,6 @@ interface ApiImplementItem {
         };
     };
 }
-
-/* ============ Table Row shape ============ */
 interface ImplementRow {
     id: number;
     projectPlanningDateId: number;
@@ -200,23 +195,6 @@ interface ImplementRow {
     transmissionName: string | null;
     cekilenKabloMiktari: number;
     description: string;
-
-    // kaziYapilanDirekDurumu: number;
-    // altMontajiYapilanDirekDurumu: number;
-    // betonAtilanDirekDurumu: number;
-    // ustMontajiOrulenDirekDurumu: number;
-    // ustMontajiKurulanDirekDurumu: number;
-    // dikilenBetonDirekDurumu: number;
-    // iletkenCekilenDirekDurumu: number;
-    // ayiriciTakilanDirekDurumu: number;
-    // dikilenAydinlatmaDirekDurumu: number;
-    // kabloKanaliDurumu: number;
-    // cekilenKabloMiktari: number;
-    // transformatorDurumu: number;
-    // dagitimPanosuDurumu: number;
-    // sahaDagTMKutusuDurumu: number;
-    // betonKoskDurumu: number;
-    // hucreDurumu: number;
     kaziYapilanDirekDurumu: number | null;
     altMontajiYapilanDirekDurumu: number | null;
     betonAtilanDirekDurumu: number | null;
@@ -234,7 +212,6 @@ interface ImplementRow {
     hucreDurumu: number | null;
 }
 
-/* ============ Fields config ============ */
 const ALL_IMPLEMENTATION_FIELDS: { key: keyof ImplementRow, label: string }[] = [
     { key: 'kaziYapilanDirekDurumu', label: 'Kazı Yapılan Direk Durumu' },
     { key: 'altMontajiYapilanDirekDurumu', label: 'Alt Montajı Yapılan Direk Durumu' },
@@ -253,7 +230,6 @@ const ALL_IMPLEMENTATION_FIELDS: { key: keyof ImplementRow, label: string }[] = 
     { key: 'hucreDurumu', label: 'Hücre Durumu' },
 ];
 
-/* ============ Helpers ============ */
 const nz = (v: number | null | undefined) => (typeof v === 'number' ? v : 0);
 
 const getChannelName = (item: ApiImplementItem) =>
@@ -284,61 +260,6 @@ const formatDateDisplay = (dateString: string | null): string => {
     }
 };
 
-
-/* ============ Mapper (API → Row) ============ */
-// const mapApiItemToRow = (item: ApiImplementItem): ImplementRow => {
-//     const proj = item.projectPlanningImplementationDate.projectPlanning.project;
-//     const plan = item.projectPlanningImplementationDate;
-
-//     const projectTitle = `${proj.title} (${proj.code})`;
-
-//     const chId = item.channelRow ? Number(item.channelRow.id) : null;
-//     const chName = getChannelName(item);
-
-//     const trId = item.transmissionRow ? Number(item.transmissionRow.id) : null;
-//     const trName = getTransmissionName(item);
-
-//     const recStatus = (item.recordStatus as 0 | 1 | 2);
-//     const statusStr = recStatus === 0 ? 'Aktif' : recStatus === 1 ? 'Pasif' : 'Silindi';
-
-//     return {
-//         id: Number(item.id),
-//         projectPlanningDateId: Number(plan.id),
-//         projectTitle,
-//         startDate: plan.startDate,
-//         endDate: plan.endDate,
-
-//         recordStatus: recStatus,
-//         status: statusStr,
-
-//         channelRowId: chId,
-//         channelName: chName,
-//         transmissionRowId: trId,
-//         transmissionName: trName,
-
-//         description: item.description || '',
-
-//         kaziYapilanDirekDurumu: nz(item.kaziYapilanDirekDurumu),
-//         altMontajiYapilanDirekDurumu: nz(item.altMontajiYapilanDirekDurumu),
-
-
-
-//         betonAtilanDirekDurumu: nz(item.betonAtilanDirekDurumu),
-//         ustMontajiOrulenDirekDurumu: nz(item.ustMontajiOrulenDirekDurumu),
-//         ustMontajiKurulanDirekDurumu: nz(item.ustMontajiKurulanDirekDurumu),
-//         dikilenBetonDirekDurumu: nz(item.dikilenBetonDirekDurumu),
-//         iletkenCekilenDirekDurumu: nz(item.iletkenCekilenDirekDurumu),
-//         ayiriciTakilanDirekDurumu: nz(item.ayiriciTakilanDirekDurumu),
-//         dikilenAydinlatmaDirekDurumu: nz(item.dikilenAydinlatmaDirekDurumu),
-//         kabloKanaliDurumu: nz((item as any).kabloKanaliDurumu ?? (item as any).kabloKanaliDurumu),
-//         cekilenKabloMiktari: nz(item.cekilenKabloMiktari),
-//         transformatorDurumu: nz(item.transformatorDurumu),
-//         dagitimPanosuDurumu: nz(item.dagitimPanosuDurumu),
-//         sahaDagTMKutusuDurumu: nz(item.sahaDagTMKutusuDurumu),
-//         betonKoskDurumu: nz(item.betonKoskDurumu),
-//         hucreDurumu: nz(item.hucreDurumu),
-//     };
-// };
 
 const mapApiItemToRow = (item: ApiImplementItem): ImplementRow => {
     const proj = item.projectPlanningImplementationDate.projectPlanning.project;
@@ -396,7 +317,6 @@ const mapApiItemToRow = (item: ApiImplementItem): ImplementRow => {
     };
 };
 
-/* ============ Sorting helpers ============ */
 type ImplementSortableKeys = keyof ImplementRow | 'projectTitle' | 'status';
 const descendingComparator = (a: ImplementRow, b: ImplementRow, orderBy: ImplementSortableKeys): number => {
     const valA = (a as any)[orderBy];
@@ -417,7 +337,6 @@ const stableSort = (array: ImplementRow[], comparator: (a: ImplementRow, b: Impl
     return stabilized.map((el) => el[0]);
 };
 
-/* ============ Combo Autocomplete ============ */
 interface AutocompleteComboProps {
     label: string;
     options: ComboOption[];
@@ -430,16 +349,7 @@ const AutocompleteCombo: React.FC<AutocompleteComboProps> = ({ label, options, v
     return (
         <FormControl fullWidth size="small" required>
             <CustomFormLabel required sx={{ mb: 1 }}>{label}</CustomFormLabel>
-            {/* <Autocomplete
-                size="small"
-                disabled={disabled}
-                options={options}
-                getOptionLabel={(o) => o.name}
-                value={selectedOption}
-                isOptionEqualToValue={(o, v) => !!v && o.id === v.id}
-                onChange={(_, nv) => onChange(nv ? nv.id : null)}
-                renderInput={(params) => <TextField {...params} variant="outlined" placeholder="Arama yapın..." />}
-            /> */}
+
             <Autocomplete
                 size="small"
                 disabled={disabled}
@@ -448,11 +358,10 @@ const AutocompleteCombo: React.FC<AutocompleteComboProps> = ({ label, options, v
                 value={selectedOption}
                 isOptionEqualToValue={(o, v) => !!v && o.id === v.id}
                 onChange={(_, nv) => onChange(nv ? nv.id : null)}
-                // ⬇️ بخش جدید برای نمایش Chip
                 renderOption={(props, option: any) => {
                     const typeLabels: Record<number, { label: string, color: any }> = {
                         0: { label: 'Trafo', color: 'secondary' },
-                        1: { label: 'Demir', color: 'default' }, // آهن
+                        1: { label: 'Demir', color: 'default' },
                         2: { label: 'Beton', color: 'primary' }
                     };
                     const typeInfo = typeLabels[option.type] || null;
@@ -479,9 +388,6 @@ const AutocompleteCombo: React.FC<AutocompleteComboProps> = ({ label, options, v
         </FormControl>
     );
 };
-
-/* =================== Component =================== */
-// ⬇⬇⬇ اضافه: پشتیبانی از prop dateId
 type Props = { dateId?: number };
 
 const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDateId }) => {
@@ -489,12 +395,10 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
     const { dateId: paramDateId } = useParams<{ dateId: string }>();
     const projectPlanningDateId = useMemo(() => Number(propDateId ?? paramDateId), [propDateId, paramDateId]);
 
-    // combos
     const [channelOptions, setChannelOptions] = useState<ChannelOption[]>([]);
     const [transmissionOptions, setTransmissionOptions] = useState<TransmissionOption[]>([]);
     const [comboLoading, setComboLoading] = useState<boolean>(false);
 
-    // table/form states
     const [implementationsList, setImplementationsList] = useState<ImplementRow[]>([]);
     const [formData, setFormData] = useState<any>({});
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -508,7 +412,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
     const [usedTransmissionIds, setUsedTransmissionIds] = useState<Set<number>>(new Set());
     const [isBlinking, setIsBlinking] = useState(true);
 
-    // table ui
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
@@ -519,7 +422,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
     const [filterEndDate, setFilterEndDate] = useState<Date | null>(null);
     const [isFilterActive, setIsFilterActive] = useState(false);
 
-    // menu/modal
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<ImplementRow | null>(null);
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -535,20 +437,13 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
 
 
     const { isTooltipGloballyEnabled } = useTooltip();
-    // const { allowedOperations } = useAuth();
-    // const hasCreatePermission = useMemo(() => allowedOperations?.some(op => op.systemOperationName === 'Eklemek') ?? false, [allowedOperations]);
-    // const hasEditPermission = useMemo(() => allowedOperations?.some(op => op.systemOperationName === 'Düzenlemek') ?? false, [allowedOperations]);
-    // const hasDeletePermission = useMemo(() => allowedOperations?.some(op => op.systemOperationName === 'Silmek') ?? false, [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => allowedOperations?.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak') ?? false, [allowedOperations]);
 
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -557,24 +452,19 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -587,7 +477,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
 
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
 
 
     const cableAmountRef = useRef<HTMLInputElement>(null);
@@ -605,7 +494,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
     const showAlert = useCallback((m: string, s: typeof alertSeverity) => { setAlertMessage(m); setAlertSeverity(s); }, []);
     const clearAlert = () => setAlertMessage(null);
 
-    /* Form helpers */
     const handleFormInputChange = (key: string, value: any) => setFormData((prev: any) => ({ ...prev, [key]: value }));
     const resetFormAndState = () => { setFormData({}); setEditingId(null); setIsFormVisible(false); setSelectedCombo(null); clearAlert(); };
 
@@ -629,7 +517,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
             setSelectedCombo(comboType);
 
             const base: any = { ...existingRow };
-            // base.kabloKanaliDurumu = Number(base.kabloKanaliDurumu) || 0;
             setFormData(base);
 
             showAlert(`Seçilen ${comboType === 'channel' ? 'Direk' : 'İletken'} daha önce kaydedilmiş. Düzenleme moduna geçildi.`, 'info');
@@ -663,7 +550,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
 
     const isCekilenKabloMiktariVisible = useMemo(() => selectedCombo === 'transmission' || selectedCombo === 'channel', [selectedCombo]);
 
-    /* Fetch implementations (LIST) + filter by projectPlanningDateId */
 
     const getListImplementations = useCallback(async () => {
         setLoadingData(true);
@@ -676,20 +562,12 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                 { headers: { Authorization: `Bearer ${authToken}` } }
             );
 
-            // const list: ApiImplementItem[] = res.data?.data || [];
-            // const filtered = list.filter(it => Number(it.projectPlanningImplementationDate?.id) === projectPlanningDateId);
-            // const rows = filtered.map(mapApiItemToRow);
-            // setImplementationsList(rows);
-            debugger
             const list: ApiImplementItem[] = res.data?.data || [];
             const filtered = list.filter(it => Number(it.projectPlanningImplementationDate?.id) === projectPlanningDateId);
             const rows = filtered.map(mapApiItemToRow);
-
-            // ⬅️ منطق جدید: جمع آوری ID های استفاده شده
             const usedChannels = new Set(rows.map(r => r.channelRowId).filter(id => id !== null) as number[]);
             const usedTransmissions = new Set(rows.map(r => r.transmissionRowId).filter(id => id !== null) as number[]);
 
-            // ⬅️ باید یک state برای نگهداری این ID ها اضافه کنیم
             setUsedChannelIds(usedChannels);
             setUsedTransmissionIds(usedTransmissions);
 
@@ -703,7 +581,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
     }, [navigate, projectPlanningDateId, showAlert]);
 
 
-    /* (Optional) fetch combos  */
     const fetchComboOptions = useCallback(async () => {
         setComboLoading(true);
         const authToken = localStorage.getItem('authToken');
@@ -713,6 +590,7 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                 `${server.baseurl}${server.warehouse}get-project-planning-implementation-dates-by-id/${projectPlanningDateId}`,
                 { headers: { "Authorization": `Bearer ${authToken}` } }
             );
+            debugger
             const workId = planningResponse.data?.data?.projectPlanning?.project?.workhouse?.work?.id;
             if (!workId) { setChannelOptions([]); setTransmissionOptions([]); setComboLoading(false); return; }
 
@@ -720,17 +598,10 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                 `${server.baseurl}${server.initialoperations}get-network-by-work-id/${workId}`,
                 { headers: { "Authorization": `Bearer ${authToken}` } }
             );
-            debugger
+
             const data = networkResponse.data?.data;
             if (!data) { setChannelOptions([]); setTransmissionOptions([]); setComboLoading(false); return; }
 
-            // const ch: ChannelOption[] = [];
-            // (data.networkTrAdis || []).forEach((trAd: any) => {
-            //     (trAd.channelRows || []).forEach((row: any) => {
-            //         if (row?.id) ch.push({ id: Number(row.id), name: row.productType?.name || row.label || `Kanal ${row.id}`, channelRowId: Number(row.id) });
-            //     });
-            // });
-            // setChannelOptions(ch);
 
             const ch: ChannelOption[] = [];
             (data.networkTrAdis || []).forEach((trAd: any) => {
@@ -766,44 +637,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
 
 
 
-    /* Payloads & CRUD */
-    // const createPayload = (isEdit = false) => {
-    //     if (!projectPlanningDateId || !selectedCombo) { showAlert('Lütfen Direkler veya İletkenler seçiniz.', 'warning'); return null; }
-
-    //     const base: any = {
-    //         projectPlanningDateId,
-    //         description: formData.description || "",
-    //         channelRowId: null,
-    //         transmissionRowId: null,
-    //         cekilenKabloMiktari: Number(formData.cekilenKabloMiktari) || 0,
-    //     };
-
-    //     // const statusFields = ALL_IMPLEMENTATION_FIELDS.reduce((acc, f) => {
-    //     //     (acc as any)[f.key] = Number(formData[f.key]) || 0;
-    //     //     return acc;
-    //     // }, {} as any);
-
-    //     const statusFields = ALL_IMPLEMENTATION_FIELDS.reduce((acc, f) => {
-    //         // اگر کاربر انتخابی نکرده بود، مقدار 0 ارسال شود (یا نمایش خطا)
-    //         const val = formData[f.key];
-    //         (acc as any)[f.key] = val === null ? null : Number(val);
-    //         return acc;
-    //     }, {} as any);
-
-    //     if (selectedCombo === 'channel') {
-    //         base.channelRowId = formData.channelRowId;
-    //         base.cekilenKabloMiktari = 0;
-    //     } else {
-    //         base.transmissionRowId = formData.transmissionRowId;
-    //         ALL_IMPLEMENTATION_FIELDS.forEach(f => { statusFields[f.key] = 0; });
-    //     }
-
-    //     const finalPayload: any = { ...statusFields, ...base };
-    //     if (isEdit) finalPayload.id = Number(editingId);
-    //     return finalPayload;
-    // };
-
-
     const createPayload = (isEdit = false) => {
         if (!projectPlanningDateId || !selectedCombo) {
             showAlert('Lütfen Direkler veya İletkenler seçiniz.', 'warning');
@@ -818,12 +651,9 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
             cekilenKabloMiktari: Number(formData.cekilenKabloMiktari) || 0,
         };
 
-        // ⬇️ منطق جدید برای ارسال Null
         const statusFields = ALL_IMPLEMENTATION_FIELDS.reduce((acc, f) => {
             const val = formData[f.key];
 
-            // اگر مقدار در formData وجود نداشت یا null بود، دقیقاً null بفرست
-            // در غیر این صورت مقدار عددی انتخاب شده (0, 1, 2) را بفرست
             (acc as any)[f.key] = (val === null || val === undefined) ? null : Number(val);
 
             return acc;
@@ -834,14 +664,13 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
             base.cekilenKabloMiktari = 0;
         } else {
             base.transmissionRowId = formData.transmissionRowId;
-            // در حالت İletkenler، تمام فیلدهای وضعیت دکل باید null باشند
             ALL_IMPLEMENTATION_FIELDS.forEach(f => { statusFields[f.key] = null; });
         }
 
         const finalPayload: any = { ...statusFields, ...base };
         if (isEdit) finalPayload.id = Number(editingId);
 
-        debugger
+
 
         return finalPayload;
     };
@@ -875,7 +704,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
         } finally { setLoadingButton(false); }
     };
 
-    /* Menu handlers */
     const openMenu = Boolean(anchorEl);
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: ImplementRow) => { setAnchorEl(event.currentTarget); setSelectedRowForMenu(row); };
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
@@ -888,7 +716,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
         setSelectedCombo(comboType);
 
         const base: any = { ...selectedRowForMenu };
-        // base.kabloKanaliDurumu = Number(base.kabloKanaliDurumu) || 0;
         setFormData(base);
 
         setTimeout(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, 100);
@@ -898,7 +725,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
     const handleClickOpenDeleteModal = () => { if (selectedRowForMenu) { setImplementationIdToDelete(selectedRowForMenu.id); setOpenDeleteModal(true); } handleCloseMenu(); };
     const handleClickCloseDeleteModal = () => { setOpenDeleteModal(false); setImplementationIdToDelete(null); getListImplementations(); };
 
-    /* downloads (PDF / Excel) */
     const handleDownloadPDF = (data: ImplementRow[], titlePrefix = 'Uygulama_Detay') => {
         if (!data || data.length === 0) { showAlert('PDF oluşturulacak veri bulunamadı.', 'warning'); return; }
         const doc = new (jsPDF as any)();
@@ -1010,7 +836,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
         const headers = ['Plan Adı', 'Başlangıç', 'Bitiş', 'Tür', 'Ad', ...dynamicHeaders, 'Çekilen Kablo Miktarı', 'Açıklama', 'Durum'];
         const headerRow = worksheet.addRow(headers);
 
-        // تایپ‌ها برای اکسل (در صورت نیاز به سکوت TS می‌تونی Partial بذاری)
         const thinBorder: Partial<Excel.Border> = { style: 'thin', color: { argb: 'FFD3D3D3' } };
         const border: Partial<Excel.Borders> = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
         const headFill: Excel.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
@@ -1059,7 +884,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
         setOpenSingleDownloadModal(false);
     };
 
-    /* filters/sort */
     const handleClearDateFilters = () => { setFilterStartDate(null); setFilterEndDate(null); };
     const handleRequestSort = (prop: ImplementSortableKeys) => {
         const isAsc = orderBy === prop && order === 'asc';
@@ -1108,7 +932,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
     };
 
 
-    /* effects */
     useEffect(() => { getListImplementations(); fetchComboOptions(); }, [getListImplementations, fetchComboOptions]);
     useEffect(() => { const t = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(t); }, []);
     useEffect(() => { let t: any; if (alertMessage) t = setTimeout(() => clearAlert(), 5000); return () => clearTimeout(t); }, [alertMessage]);
@@ -1127,7 +950,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                         {isFormVisible && (
                             <Button variant="contained" color="error" onClick={resetFormAndState} startIcon={<IconX size={20} />}>Gizle</Button>
                         )}
-                        {/* <Button variant="outlined" color="error" onClick={() => navigate(-1)} endIcon={<IconArrowRight size={20} />}>Geri Dön</Button> */}
                     </Stack>
                 </Stack>
 
@@ -1148,10 +970,7 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                                                 options={channelOptions.filter(o => editingId === null || o.id === formData.channelRowId)} // فیلتر لیست هنگام ویرایش (اگر نیاز به تغییر نوع نباشد)
                                                 value={formData.channelRowId || null}
                                                 onChange={(id) => handleComboChange('channel', id)}
-                                                // disabled={selectedCombo === 'transmission' || isFormDisabled}
                                                 disabled={
-                                                    // 1. اگر هم‌اکنون Direkler انتخاب شده
-                                                    // selectedCombo === 'channel' ||
                                                     isFormDisabled ||
                                                     editingId !== null
                                                 }
@@ -1163,9 +982,7 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                                                 options={transmissionOptions.filter(o => editingId === null || o.id === formData.transmissionRowId)} // فیلتر لیست هنگام ویرایش
                                                 value={formData.transmissionRowId || null}
                                                 onChange={(id) => handleComboChange('transmission', id)}
-                                                // disabled={selectedCombo === 'channel' || isFormDisabled}
                                                 disabled={
-                                                    // selectedCombo === 'transmission' ||
                                                     isFormDisabled ||
                                                     editingId !== null
                                                 }
@@ -1200,38 +1017,12 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                                     <Grid container >
                                         {selectedCombo === 'channel' ? (
                                             ALL_IMPLEMENTATION_FIELDS.map(field => {
-                                                // مقدار فعلی را استخراج می‌کنیم
-                                                // const currentValue = formData[field.key];
 
                                                 return (
                                                     <Grid item xs={12} sm={6} key={field.key} sx={{ p: 1, border: '1px solid #e0e0e0', borderRadius: '8px', mb: 2 }}>
                                                         <CustomFormLabel>{field.label}</CustomFormLabel>
-                                                        {/* <ToggleButtonGroup
-                                                            // 🟢 تغییر اصلی: اگر مقدار null یا undefined بود، دقیقاً null بده
-                                                            value={currentValue ?? null}
-                                                            exclusive
-                                                            onChange={(_e, v) => {
-                                                                // فقط اگر روی یک دکمه کلیک شد، مقدار را آپدیت کن
-                                                                if (v !== null) handleFormInputChange(field.key, Number(v));
-                                                            }}
-                                                            aria-label={`${field.label} durumu`}
-                                                            fullWidth
-                                                        >
-                                                            {STATUS_OPTIONS.map(opt => (
-                                                                <StatusToggleButton
-                                                                    key={opt.value}
-                                                                    value={opt.value}
-                                                                    aria-label={opt.label}
-                                                                    // 🟢 اطمینان از مقایسه دقیق
-                                                                    selected={currentValue === opt.value}
-                                                                    disabled={isFormDisabled}
-                                                                >
-                                                                    {opt.label}
-                                                                </StatusToggleButton>
-                                                            ))}
-                                                        </ToggleButtonGroup> */}
+
                                                         <ToggleButtonGroup
-                                                            // استفاده از عملگر ?? برای اینکه فقط اگر null یا undefined بود مقدار null بدهد
                                                             value={formData[field.key] ?? null}
                                                             exclusive
                                                             onChange={(_e, v) => {
@@ -1243,7 +1034,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                                                                 <StatusToggleButton
                                                                     key={opt.value}
                                                                     value={opt.value}
-                                                                    // انتخاب شدن فقط زمانی که مقدار دقیقاً برابر باشد
                                                                     selected={formData[field.key] === opt.value}
                                                                     disabled={isFormDisabled}
                                                                 >
@@ -1372,7 +1162,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                                         renderInput={(p) => <TextField {...p} size="small" fullWidth />}
                                     />
 
-                                    {/* دکمه پاک‌کردن: در موبایل زیر می‌افتد و کمی فاصله می‌گیرد */}
                                     <Box
                                         sx={{
                                             alignSelf: { xs: "flex-start", sm: "center" },
@@ -1510,7 +1299,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                 />
             </BlankCard>
 
-            {/* Delete */}
             <DeleteSetProjectPlanningImplementation
                 openModal={openDeleteModal}
                 onClose={handleClickCloseDeleteModal}
@@ -1519,7 +1307,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                 showAlert={showAlert}
             />
 
-            {/* Download (All/Filtered) */}
             <Dialog open={openDownloadModal} onClose={() => setOpenDownloadModal(false)}>
                 <DialogTitle>Tüm / Filtrelenmiş Kaydı İndir</DialogTitle>
                 <DialogContent>
@@ -1531,7 +1318,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                 <DialogActions><Button onClick={() => setOpenDownloadModal(false)} color="secondary">İptal</Button></DialogActions>
             </Dialog>
 
-            {/* Download (Single row) */}
             <Dialog open={openSingleDownloadModal} onClose={() => setOpenSingleDownloadModal(false)}>
                 <DialogTitle>Seçili Satırı İndir</DialogTitle>
                 <DialogContent>
@@ -1543,56 +1329,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                 <DialogActions><Button onClick={() => setOpenSingleDownloadModal(false)} color="secondary">İptal</Button></DialogActions>
             </Dialog>
 
-            {/* Details */}
-            {/* <Dialog open={openDetailModal} onClose={() => setOpenDetailModal(false)} fullWidth maxWidth="md">
-                <DialogTitle>Uygulama Detayları</DialogTitle>
-                <DialogContent dividers>
-                    {detailData && (
-                        <Grid container spacing={2}>
-                            <Grid item xs={12}><Typography variant="subtitle1" fontWeight="bold">Proje: {detailData.projectTitle}</Typography></Grid>
-                            <Grid item xs={12}><Typography variant="body2" sx={{ wordBreak: 'break-word' }}>Açıklama: {detailData.description || '-'}</Typography></Grid>
-
-                            {detailData.channelRowId && (
-                                <>
-                                    <Grid item xs={12}><Typography variant="subtitle2" mt={2} color="info.main" fontWeight="bold">Direkler Durumları</Typography></Grid>
-                                    {ALL_IMPLEMENTATION_FIELDS.map(field => {
-                                        const value = (detailData as any)[field.key] as number;
-                                        return (
-                                            <Grid item xs={12} sm={6} md={4} key={String(field.key)} sx={{ p: 1 }}>
-                                                <CustomFormLabel>{field.label}</CustomFormLabel>
-                                                <ToggleButtonGroup
-                                                    value={value === 0 ? null : value}
-                                                    exclusive aria-label={`${field.label} detayı`} fullWidth disabled
-                                                >
-                                                    {STATUS_OPTIONS.map(opt => (
-                                                        <StatusToggleButton key={opt.value} value={opt.value} aria-label={opt.label} selected={value === opt.value}>
-                                                            {opt.label}
-                                                        </StatusToggleButton>
-                                                    ))}
-                                                </ToggleButtonGroup>
-
-                                            </Grid>
-                                        );
-                                    })}
-                                </>
-                            )}
-
-                            {detailData.transmissionRowId && (
-                                <>
-                                    <Grid item xs={12}><Typography variant="subtitle2" mt={2} color="info.main" fontWeight="bold">İletkenler Detayı</Typography></Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <Typography variant="body2" color="primary.main">Hat: {detailData.transmissionName ?? `Hat ID: ${detailData.transmissionRowId}`}</Typography>
-                                    </Grid>
-                                    <Grid item xs={12} sm={6}>
-                                        <Typography variant="body2" color="primary.main">Çekilen Kablo Miktarı: <Chip label={`${detailData.cekilenKabloMiktari} m`} size="small" /></Typography>
-                                    </Grid>
-                                </>
-                            )}
-                        </Grid>
-                    )}
-                </DialogContent>
-                <DialogActions><Button onClick={() => setOpenDetailModal(false)} color="primary">Kapat</Button></DialogActions>
-            </Dialog> */}
             <Dialog open={openDetailModal} onClose={() => setOpenDetailModal(false)} fullWidth maxWidth="md">
                 <DialogTitle>Uygulama Detayları</DialogTitle>
                 <DialogContent dividers>
@@ -1605,14 +1341,12 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                                 <>
                                     <Grid item xs={12}><Typography variant="subtitle2" mt={2} color="info.main" fontWeight="bold">Direkler Durumları</Typography></Grid>
                                     {ALL_IMPLEMENTATION_FIELDS.map(field => {
-                                        // مقدار واقعی از دیتای سطر را می‌گیریم
                                         const statusValue = (detailData as any)[field.key];
 
                                         return (
                                             <Grid item xs={12} sm={6} md={4} key={String(field.key)} sx={{ p: 1 }}>
                                                 <CustomFormLabel>{field.label}</CustomFormLabel>
                                                 <ToggleButtonGroup
-                                                    // اگر statusValue مقدار null باشد، هیچ گزینه‌ای روشن نمی‌شود
                                                     value={statusValue}
                                                     exclusive
                                                     aria-label={`${field.label} detayı`}
@@ -1624,7 +1358,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                                                             key={opt.value}
                                                             value={opt.value}
                                                             aria-label={opt.label}
-                                                            // بررسی دقیق برای انتخاب شدن
                                                             selected={statusValue === opt.value}
                                                         >
                                                             {opt.label}

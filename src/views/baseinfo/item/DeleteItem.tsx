@@ -17,7 +17,7 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type Props = {
   openModal: boolean;
-  itemIdToDelete: number | null; // ID آیتم برای حذف
+  itemIdToDelete: number | null;
   onClose: () => void;
   onDeleteSuccess: () => void;
   showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
@@ -28,8 +28,7 @@ const DeleteItem = ({ openModal, itemIdToDelete, onClose, onDeleteSuccess, showA
   const [loading, setLoading] = useState<boolean>(false);
   const { isTooltipGloballyEnabled } = useTooltip();
 
-  // New state for the "Item In Use" modal
-  const [openItemInUseModal, setOpenItemInUseModal] = useState<boolean>(false); // 🟢 New State
+  const [openItemInUseModal, setOpenItemInUseModal] = useState<boolean>(false);
 
   const handleDeleteItem = async () => {
     if (itemIdToDelete === null) {
@@ -46,8 +45,6 @@ const DeleteItem = ({ openModal, itemIdToDelete, onClose, onDeleteSuccess, showA
 
     setLoading(true);
     try {
-      // **نکته:** آدرس API حذف آیتم و نحوه ارسال ID
-      // فرض می‌کنیم حذف با ID در URL انجام می‌شود (DELETE /delete-item/{id})
       const response = await axios.delete(
         `${server.baseurl}${server.baseinfo}delete-item/${itemIdToDelete}`,
         {
@@ -61,10 +58,10 @@ const DeleteItem = ({ openModal, itemIdToDelete, onClose, onDeleteSuccess, showA
       if (response.data.httpStatusCode === 200) {
         showAlert('Ürün başarıyla silindi!', 'success');
         onDeleteSuccess();
-        onClose(); // Close the main delete confirmation modal
+        onClose();
       } else {
         showAlert(response.data.message || 'Ürün silinirken bir hata oluştu.', 'error');
-        onClose(); // Close the modal even if it's a business error
+        onClose();
       }
     } catch (e: any) {
       console.error("Error deleting item:", e);
@@ -79,21 +76,19 @@ const DeleteItem = ({ openModal, itemIdToDelete, onClose, onDeleteSuccess, showA
       } else {
         const errorMessage = e.response?.data?.message || 'Ürün silinirken bir hata oluştu, lütfen tekrar deneyin.';
         showAlert(errorMessage, 'error');
-        onClose(); // Close the modal for general errors too
+        onClose();
       }
     } finally {
       setLoading(false);
     }
   };
 
-  // Handler to close the "Item In Use" modal
-  const handleCloseItemInUseModal = () => { // 🟢 New Handler
+  const handleCloseItemInUseModal = () => {
     setOpenItemInUseModal(false);
   };
 
   return (
     <>
-      {/* Main Delete Confirmation Dialog */}
       <Dialog
         open={openModal}
         onClose={onClose}
@@ -133,7 +128,6 @@ const DeleteItem = ({ openModal, itemIdToDelete, onClose, onDeleteSuccess, showA
         </DialogActions>
       </Dialog>
 
-      {/* 🟢 New Dialog for "Item In Use" */}
       <Dialog
         open={openItemInUseModal}
         onClose={handleCloseItemInUseModal}

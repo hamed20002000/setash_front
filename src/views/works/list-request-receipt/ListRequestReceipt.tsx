@@ -353,7 +353,7 @@ const ListRequestReceipt: React.FC = () => {
     };
 
     const submitStatusUpdate = async () => {
-        debugger
+
         if (!selectedRowForMenu || newStatus === null) return;
 
 

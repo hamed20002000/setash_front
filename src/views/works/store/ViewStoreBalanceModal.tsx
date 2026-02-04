@@ -192,7 +192,7 @@ const ViewStoreBalanceModal: React.FC<ViewStoreBalanceModalProps> = ({ open, onC
     };
 
     const handleDownloadPDFClick = () => {
-        debugger
+
         if (itemsBalance.length === 0 || !storeName) {
             // می‌توانید یک پیام هشدار به کاربر نمایش دهید
             return;

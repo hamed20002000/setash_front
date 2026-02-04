@@ -10,14 +10,13 @@ import {
     IconGasStation, IconDroplet, IconCoin, IconChevronDown,
     IconChevronUp, IconChartArea, IconLayoutGrid, IconBuildingWarehouse,
     IconDownload,
-    IconDatabaseOff // ✅ آیکون جدید
+    IconDatabaseOff
 } from '@tabler/icons-react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
 } from 'recharts';
 import server from '../../assets/address.json';
 
-// اینترفیس دیتای نهایی
 interface FuelStatType {
     workhouse_id: string;
     workhouse_code: string;
@@ -31,7 +30,6 @@ interface FuelStatType {
 const PRIMARY_COLOR = '#FA896B';
 const SECONDARY_COLOR = '#49BEFF';
 
-// ✅ 1. کامپوننت پیام "بدون دیتا" برای حالت لیست
 const NoDataView = () => (
     <Box
         display="flex"
@@ -65,7 +63,6 @@ const NoDataView = () => (
     </Box>
 );
 
-// ✅ 2. کامپوننت پیام روی نمودار خالی
 const CustomNoDataOverlay = () => (
     <div style={{
         position: 'absolute',
@@ -222,14 +219,6 @@ const WorkhouseFuelStats = () => {
                             Tutar: <span style={{ color: color, fontWeight: 600 }}>{formatTR(value)} TL</span>
                         </Typography>
                     </Box>
-                    {/* {!dataPoint.isOther && (
-                        <Box display="flex" alignItems="center" gap={1} mt={0.5}>
-                            <IconDroplet size={16} color="#666" />
-                            <Typography variant="body2" color="textSecondary">
-                                Miktar: {formatTR(dataPoint.amount)} Lt
-                            </Typography>
-                        </Box>
-                    )} */}
                 </Card>
             );
         }
@@ -314,24 +303,19 @@ const WorkhouseFuelStats = () => {
     if (loading) return <Box p={3} textAlign="center"><CircularProgress /></Box>;
     if (error) return <Alert severity="error">{error}</Alert>;
 
-    // ❌ خط زیر حذف شد تا هدر نمایش داده شود
-    // if (data.length === 0) return <Alert severity="info">Veri bulunamadı</Alert>;
 
     const isDataEmpty = data.length === 0;
     const firstThreeItems = data.slice(0, 3);
     const remainingItems = data.slice(3);
 
-    // دیتای خالی برای رسم محورهای نمودار
     const emptyChartData = Array(5).fill({ name: '', price: 0 });
 
     return (
         <Box mt={4}>
-            {/* Header + Actions */}
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
                 <Typography variant="h5" fontWeight={700}>Tüm Yakıt Harcamaları</Typography>
 
                 <Stack direction="row" spacing={2}>
-                    {/* دکمه دانلود فقط وقتی دیتا هست نمایش داده شود */}
                     {viewMode === 'chart' && !isDataEmpty && (
                         <Tooltip title="Grafiği İndir">
                             <IconButton
@@ -370,15 +354,12 @@ const WorkhouseFuelStats = () => {
 
             <Box>
                 {viewMode === 'chart' ? (
-                    // --- CHART VIEW ---
                     <Card sx={{ p: 2, boxShadow: 'none', border: '1px solid #e5eaef', position: 'relative' }}>
                         <Box height="400px" width="100%" ref={chartRef} sx={{ bgcolor: 'background.paper', position: 'relative' }}>
-                            {/* اگر دیتا خالی بود، پیام وسط نمودار نمایش داده شود */}
                             {isDataEmpty && <CustomNoDataOverlay />}
 
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart
-                                    // اگر دیتا خالی است، دیتای فیک بدهیم
                                     data={isDataEmpty ? emptyChartData : chartData}
                                     margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
                                 >
@@ -398,7 +379,6 @@ const WorkhouseFuelStats = () => {
                                         tick={{ fontSize: 12, fill: '#666' }}
                                         tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}
                                     />
-                                    {/* فقط وقتی دیتا هست، Area و Tooltip را رسم کن */}
                                     {!isDataEmpty && (
                                         <>
                                             <RechartsTooltip content={<CustomTooltip />} />
@@ -417,10 +397,8 @@ const WorkhouseFuelStats = () => {
                         </Box>
                     </Card>
                 ) : (
-                    // --- LIST VIEW ---
                     <>
                         {isDataEmpty ? (
-                            // ✅ نمایش کامپوننت "بدون دیتا"
                             <NoDataView />
                         ) : (
                             <>

@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import {
   Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
-  // CircularProgress // اگر استفاده نمی‌کنید، می‌توانید حذف کنید
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
@@ -13,9 +12,9 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type Props = {
   openModal: boolean;
-  categoryIdToDelete: string | null; // ID دسته‌بندی برای حذف
+  categoryIdToDelete: string | null;
   onClose: () => void;
-  onDeleteSuccess: () => void; // تابعی برای رفرش کردن لیست اصلی
+  onDeleteSuccess: () => void;
   showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
@@ -24,7 +23,6 @@ const DeleteCategory = ({ openModal, categoryIdToDelete, onClose, onDeleteSucces
   const [loading, setLoading] = useState<boolean>(false);
   const { isTooltipGloballyEnabled } = useTooltip();
 
-  // ✅ NEW STATE FOR CATEGORY IN USE MODAL
   const [openCategoryInUseModal, setOpenCategoryInUseModal] = useState<boolean>(false);
 
   const handleDeleteCategory = async () => {
@@ -37,7 +35,6 @@ const DeleteCategory = ({ openModal, categoryIdToDelete, onClose, onDeleteSucces
     const authToken = localStorage.getItem('authToken');
     if (!authToken) {
       showAlert('Lütfen giriş yapın.', 'warning');
-      // navigate("/"); // ممکن است بخواهید به صفحه ورود هدایت کنید
       return;
     }
 
@@ -56,16 +53,14 @@ const DeleteCategory = ({ openModal, categoryIdToDelete, onClose, onDeleteSucces
       if (response.data.httpStatusCode === 200) {
         showAlert('Kategori başarıyla silindi!', 'success');
         onDeleteSuccess();
-        onClose(); // مودال اصلی حذف بسته شود
+        onClose();
       } else {
-        // اگر API شما برای خطای بیزینسی کد 200 برگرداند ولی در Message وضعیت خطا باشد
         showAlert(response.data.message || 'Kategori silinirken bir hata oluştu.', 'error');
-        onClose(); // در این حالت هم مودال بسته شود
+        onClose();
       }
     } catch (e: any) {
       console.error("Error deleting category:", e);
 
-      // ✅ CHECK FOR 500 STATUS CODE
       if (e.response && e.response.status === 500) {
         showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
 
@@ -74,10 +69,9 @@ const DeleteCategory = ({ openModal, categoryIdToDelete, onClose, onDeleteSucces
         showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
         navigate("/");
       } else {
-        // General error handling for other network or API errors
         const errorMessage = e.response?.data?.message || 'Kategori silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
         showAlert(errorMessage, 'error');
-        onClose(); // Close the modal for general errors too
+        onClose();
       }
     } finally {
       setLoading(false);
@@ -90,7 +84,6 @@ const DeleteCategory = ({ openModal, categoryIdToDelete, onClose, onDeleteSucces
 
   return (
     <>
-      {/* Main Delete Confirmation Dialog */}
       <Dialog
         open={openModal}
         onClose={onClose}
@@ -130,7 +123,6 @@ const DeleteCategory = ({ openModal, categoryIdToDelete, onClose, onDeleteSucces
         </DialogActions>
       </Dialog>
 
-      {/* ✅ NEW Dialog for Category In Use */}
       <Dialog
         open={openCategoryInUseModal}
         onClose={handleCloseCategoryInUseModal}

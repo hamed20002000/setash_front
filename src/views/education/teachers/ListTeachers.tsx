@@ -24,44 +24,36 @@ import { format } from 'date-fns';
 import { styled, keyframes } from '@mui/material/styles';
 
 import axios from 'axios';
-// @ts-ignore
 import server from '../../../assets/address.json';
-// @ts-ignore
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
-// @ts-ignore
 import { useAuth } from 'src/context/AuthContext';
 
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
-// @ts-ignore
 import autoTable from 'jspdf-autotable';
-// @ts-ignore
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
 import CustomFormLabel from "src/components/forms/theme-elements/CustomFormLabel";
 import BlankCard from "src/components/shared/BlankCard";
 
-// 💡 فرض می‌کنیم این کامپوننت وجود دارد
-// @ts-ignore
 import DeleteTeachers from './DeleteTeachers';
 
 
-// --- Interfaces ---
-type RecordStatus = 0 | 1; // 0=Aktif, 1=Pasif
+type RecordStatus = 0 | 1;
 
 interface TeacherPayload {
     name: string;
     surname: string;
     field: string;
-    id?: number; // برای آپدیت
+    id?: number;
 }
 
 interface TeacherRecord {
     id: number;
     name: string;
     surname: string;
-    field: string; // رشته مورد تدریس
+    field: string;
     recordStatus: RecordStatus;
     createAt: string;
 }
@@ -69,8 +61,6 @@ interface TeacherRecord {
 type SortableKeys = 'id' | 'name' | 'surname' | 'field' | 'createAt';
 
 
-
-// --- Styles ---
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
     '&.Mui-selected': {
         color: 'white',
@@ -84,7 +74,6 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
         '&:hover': { backgroundColor: theme.palette.action.hover },
     },
 }));
-// --- Styles & Helpers (مشابه کدهای قبلی شما) ---
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans',
     fontSize: '0.8rem',
@@ -126,10 +115,6 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilizedThis.map((el) => el[0]);
 };
 
-
-// --- PDF/Excel Export Helpers ---
-
-
 const addPdfHeader = (doc: jsPDF, title: string) => {
 
     const docAny = doc as any;
@@ -137,10 +122,10 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -150,16 +135,13 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
     doc.text(`Rapor Tarihi:`, 15, 35);
     doc.setFont('NotoSans', 'normal');
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
-
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -199,7 +181,6 @@ const exportToPdf = (data: TeacherRecord[], title: string, showAlert: (m: string
     if (!data || data.length === 0) { showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning'); return; }
     setLoadingData(true); showAlert('Rapor oluşturuluyor...', 'info');
 
-    // @ts-ignore
     const doc = new jsPDF();
     const docAny = doc as any;
 
@@ -321,23 +302,13 @@ const handleDownloadExcel = (data: TeacherRecord[], title: string, showAlert: (m
 
 const ListTeachers: React.FC = () => {
     const navigate = useNavigate();
-    // const { allowedOperations } = useAuth();
     const nameInputRef = useRef<HTMLInputElement>(null);
-
-    // Permissions
-    // const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
-    // const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
-    // const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
-
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -346,24 +317,19 @@ const ListTeachers: React.FC = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -377,22 +343,15 @@ const ListTeachers: React.FC = () => {
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
 
 
-    // ------------------------------------
-    // Form States
-    // ------------------------------------
     const [editingId, setEditingId] = useState<number | null>(null);
     const [name, setName] = useState<string>('');
     const [surname, setSurname] = useState<string>('');
     const [field, setField] = useState<string>('');
 
-    // Validation States
     const [nameError, setNameError] = useState(false);
     const [surnameError, setSurnameError] = useState(false);
     const [fieldError, setFieldError] = useState(false);
 
-    // ------------------------------------
-    // Table States
-    // ------------------------------------
     const [teachers, setTeachers] = useState<TeacherRecord[]>([]);
     const [loadingData, setLoadingData] = useState<boolean>(true);
     const [loadingButton, setLoadingButton] = useState<boolean>(false);
@@ -425,7 +384,6 @@ const ListTeachers: React.FC = () => {
     const { isTooltipGloballyEnabled } = useTooltip();
 
 
-    // --- Utility Functions ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -435,9 +393,6 @@ const ListTeachers: React.FC = () => {
     useEffect(() => { let timer: NodeJS.Timeout; if (alertMessage) timer = setTimeout(() => clearAlert(), 5000); return () => { if (timer) clearTimeout(timer); }; }, [alertMessage]);
 
 
-    // ------------------------------------
-    // Data Fetching Logic (CRUD API)
-    // ------------------------------------
 
     const fetchTeachers = useCallback(async () => {
         setLoadingData(true);
@@ -465,7 +420,6 @@ const ListTeachers: React.FC = () => {
     useEffect(() => { fetchTeachers(); }, [fetchTeachers]);
 
 
-    // --- Form Logic ---
     const validateForm = (): boolean => {
         let ok = true;
         setNameError(false); setSurnameError(false); setFieldError(false);
@@ -513,7 +467,7 @@ const ListTeachers: React.FC = () => {
             name: name.trim(),
             surname: surname.trim(),
             field: field.trim(),
-            ...(isEditing && { id: Number(editingId) }), // ID فقط برای ویرایش
+            ...(isEditing && { id: Number(editingId) }),
         };
 
         const url = isEditing
@@ -573,23 +527,15 @@ const ListTeachers: React.FC = () => {
         }
     };
 
-
-    // ------------------------------------
-    // Table & Filter Logic
-    // ------------------------------------
-
     const filteredTeachers = useMemo(() => {
         const q = searchTerm.trim().toLowerCase();
         const list = teachers.filter(r => {
-            // 1. Search Filter (Name, Surname, Field)
             const matchesSearch = !q || (r.name.toLowerCase().includes(q) || r.surname.toLowerCase().includes(q) || r.field.toLowerCase().includes(q));
 
-            // 2. Status Filter
             const matchesStatus = statusFilter === 'all' ||
                 (statusFilter === 'active' && r.recordStatus === 0) ||
                 (statusFilter === 'inactive' && r.recordStatus === 1);
 
-            // 3. Date Filter (using createAt field)
             const cDate = r.createAt ? new Date(r.createAt) : null;
             const inRange = (!startFilter || (cDate && cDate >= startFilter)) &&
                 (!endFilter || (cDate && cDate <= endFilter));
@@ -610,7 +556,6 @@ const ListTeachers: React.FC = () => {
     const handleRequestSort = useCallback((property: SortableKeys) => { const isAsc = orderBy === property && order === 'asc'; setOrder(isAsc ? 'desc' : 'asc'); setOrderBy(property); setPage(0); }, [order, orderBy]);
     const handleClearDateFilters = () => { setStartFilter(null); setEndFilter(null); };
 
-    // Menu Handlers
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: TeacherRecord) => { setAnchorEl(event.currentTarget); setSelectedRowForMenu(row); };
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
 
@@ -624,7 +569,6 @@ const ListTeachers: React.FC = () => {
     const handleCloseDeleteModal = () => { setOpenDeleteModal(false); setDeleteId(null); setDeleteName(''); fetchTeachers(); };
 
 
-    // Download Handlers
     const handleOpenDownloadAllModal = () => setOpenDownloadAllModal(true);
     const handleDownloadAllAction = (format: 'pdf' | 'excel') => {
         const title = `Tüm Öğretmen Kayıtları`;
@@ -677,7 +621,6 @@ const ListTeachers: React.FC = () => {
                     </Stack>
                 </Stack>
 
-                {/* --- Form Section --- */}
                 {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                         <Typography variant="h6" mb={2}>{editingId ? 'Öğretmen Düzenleme Formu' : 'Yeni Öğretmen Kayıt Formu'}</Typography>
@@ -757,21 +700,18 @@ const ListTeachers: React.FC = () => {
                         </Stack>
                     </Grid>
                     <Grid container spacing={2} alignItems="center">
-                        {/* 1. Search Filter (Ad / Soyad / Alan) */}
                         <Grid item xs={12} sm={6} md={3}>
                             <TextField
                                 label="Ara (Ad / Soyad / Alan)"
                                 variant="outlined"
                                 fullWidth
                                 value={searchTerm}
-                                // 💡 استفاده از تابع قبلی (محتوای آن باید شامل setPage(0) باشد)
                                 onChange={handleSearchChange}
                                 size="small"
                                 InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
                             />
                         </Grid>
 
-                        {/* 2. Start Date Filter */}
                         <Grid item xs={12} sm={6} md={3}>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                 <DatePicker
@@ -784,7 +724,6 @@ const ListTeachers: React.FC = () => {
                             </LocalizationProvider>
                         </Grid>
 
-                        {/* 3. End Date Filter & Clear Button */}
                         <Grid item xs={12} sm={6} md={3}>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                 <Stack direction="row" spacing={1} alignItems="center">
@@ -803,7 +742,6 @@ const ListTeachers: React.FC = () => {
                             </LocalizationProvider>
                         </Grid>
 
-                        {/* 4. Status Filter Toggle Group */}
                         <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', alignItems: 'center' }}>
                             <ToggleButtonGroup
                                 value={statusFilter}
@@ -820,7 +758,6 @@ const ListTeachers: React.FC = () => {
                     </Grid>
                 </Box>
 
-                {/* --- Table --- */}
                 <TableContainer>
                     {loadingData ? (<Box display="flex" justifyContent="center" alignItems="center" height="200px">
                         <CircularProgress /><Typography variant="h6" sx={{ ml: 2 }}>Kayıtlar yükleniyor...</Typography>
@@ -875,7 +812,6 @@ const ListTeachers: React.FC = () => {
                 <TablePagination rowsPerPageOptions={[5, 10, 25]} component="div" count={filteredTeachers.length} rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage} labelRowsPerPage="Satır başına düşen:" labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`} />
             </BlankCard>
 
-            {/* --- Download Modals --- */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
                 <DialogTitle>Tüm Kayıtları İndir</DialogTitle>
                 <DialogContent><Stack direction="column" spacing={2} sx={{ mt: 2 }}><Button variant="contained" color="primary" startIcon={<IconFileText />} onClick={() => handleDownloadAllAction('pdf')}>PDF Olarak İndir</Button><Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />} onClick={() => handleDownloadAllAction('excel')}>Excel Olarak İndir</Button></Stack></DialogContent>

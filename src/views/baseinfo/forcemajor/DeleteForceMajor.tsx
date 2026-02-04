@@ -17,9 +17,9 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type Props = {
     openModal: boolean;
-    forceMajorIdToDelete: number | null; // ID فورس‌ماژور برای حذف
+    forceMajorIdToDelete: number | null;
     onClose: () => void;
-    onDeleteSuccess: () => void; // تابعی برای رفرش کردن لیست اصلی
+    onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
@@ -28,7 +28,6 @@ const DeleteForceMajor = ({ openModal, forceMajorIdToDelete, onClose, onDeleteSu
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // New state for the "Force Major In Use" modal
     const [openForceMajorInUseModal, setOpenForceMajorInUseModal] = useState<boolean>(false);
 
     const handleDeleteForceMajor = async () => {
@@ -59,11 +58,10 @@ const DeleteForceMajor = ({ openModal, forceMajorIdToDelete, onClose, onDeleteSu
             if (response.data.httpStatusCode === 200) {
                 showAlert('Forsa major belgesi başarıyla silindi!', 'success');
                 onDeleteSuccess();
-                onClose(); // Close the main delete confirmation modal
+                onClose();
             } else {
-                // If your API returns 200 but with an error message in data.message
                 showAlert(response.data.message || 'Forsa major belgesi silinirken bir hata oluştu.', 'error');
-                onClose(); // Close the modal even if it's a business error
+                onClose();
             }
         } catch (e: any) {
             console.error("Error deleting force major:", e);
@@ -76,24 +74,21 @@ const DeleteForceMajor = ({ openModal, forceMajorIdToDelete, onClose, onDeleteSu
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
             } else {
-                // General error handling for other network or API errors
                 const errorMessage = e.response?.data?.message || 'Forsa major belgesi silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
                 showAlert(errorMessage, 'error');
-                onClose(); // Close the modal for general errors too
+                onClose();
             }
         } finally {
             setLoading(false);
         }
     };
 
-    // Handler to close the "Force Major In Use" modal
     const handleCloseForceMajorInUseModal = () => {
         setOpenForceMajorInUseModal(false);
     };
 
     return (
         <>
-            {/* Main Delete Confirmation Dialog */}
             <Dialog
                 open={openModal}
                 onClose={onClose}
@@ -133,7 +128,6 @@ const DeleteForceMajor = ({ openModal, forceMajorIdToDelete, onClose, onDeleteSu
                 </DialogActions>
             </Dialog>
 
-            {/* New Dialog for "Force Major In Use" */}
             <Dialog
                 open={openForceMajorInUseModal}
                 onClose={handleCloseForceMajorInUseModal}

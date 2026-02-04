@@ -32,17 +32,12 @@ import DeletePersonnelWorkPlaces from './DeletePersonnelWorkPlaces';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
-// @ts-ignore
 import autoTable from 'jspdf-autotable';
 import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
 
-
-// ------------------------------------
-// Helper Functions & Styled Components
-// ------------------------------------
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "-";
     try {
@@ -93,12 +88,8 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: 'transform 0.3s ease-in-out',
 }));
 
-
-// ------------------------------------
-// Type Definitions
-// ------------------------------------
 interface PersonnelLite {
-    id: number; // API provides string ID
+    id: number;
     name: string;
     family: string;
     hasISG: boolean;
@@ -119,7 +110,7 @@ interface PersonnelWorkPlace {
     userRole?: { id: number; title: string } | null;
 
     placeId: number;
-    type: 1; // 💡 Hardcoded as 1 (WORKHOUSE)
+    type: 1;
 
     personnelName: string;
     startDate: string;
@@ -130,78 +121,22 @@ interface PersonnelWorkPlace {
     placeKind: 'WORKHOUSE';
     placeName: string;
 }
-// ------------------------------------
-// Main Component
-// ------------------------------------
 const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
-    // 💡 Reading workhouseId from URL
     const { workhouseId } = useParams<{ workhouseId: string }>();
     const navigate = useNavigate();
     const { allowedOperations } = useAuth();
     const { isTooltipGloballyEnabled } = useTooltip();
     const workhouseIdNum = useMemo(() => Number(workhouseId), [workhouseId]);
 
-    // Permissions (unchanged)
     const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
     const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
     const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
     const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
 
-    // const { menuItems, allowedOperations } = useAuth();
-    // const findMenuByHref = (items: any[], path: string): any => {
-    //     for (const item of items) {
-    //         // اگر خود آیتم تطبیق داشت
-    //         if (item.href === path) return item;
-
-    //         // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
-    //         if (item.children && item.children.length > 0) {
-    //             const found = findMenuByHref(item.children, path);
-    //             if (found) return found;
-    //         }
-    //     }
-    //     return null;
-    // };
-
-    // // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
-    // const currentMenu = useMemo(() => {
-    //     debugger
-    //     return findMenuByHref(menuItems, location.pathname);
-    // }, [menuItems, location.pathname]);
-
-    // // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
-    // const currentMenuOpIds = useMemo(() => {
-    //     // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
-    //     if (!currentMenu || !currentMenu.menuOperations) return [];
-
-    //     return currentMenu.menuOperations.map((op: any) => {
-    //         // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
-    //         return String(op.id);
-    //     });
-    // }, [currentMenu]);
-
-    // // ۴. تابع نهایی بررسی دسترسی
-    // const hasPermission = (opName: string) => {
-    //     return allowedOperations.some((op: any) =>
-    //         op.systemOperationName === opName &&
-    //         currentMenuOpIds.includes(String(op.menuOperationId))
-    //     );
-    // };
-
-    // const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
-    // const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
-    // const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
-    // const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
-
-
-
-    // ------------------------------------
-    // States
-    // ------------------------------------
     const [workhouseInfo, setWorkhouseInfo] = useState<WorkhouseInfo | null>(null);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [assignmentMode, setAssignmentMode] = useState<'single' | 'bulk'>('single');
 
-    // 💡 Simplified form states (Only Personnel, Date, Description remain)
     const [personnelId, setPersonnelId] = useState<number | ''>('');
     const [selectedPersonnelIds, setSelectedPersonnelIds] = useState<number[]>([]);
     const [startDate, setStartDate] = useState<Date | null>(null);
@@ -218,7 +153,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
-    // Table & Filter States 
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
@@ -228,7 +162,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
     const [startFilter, setStartFilter] = useState<Date | null>(null);
     const [endFilter, setEndFilter] = useState<Date | null>(null);
 
-    // Menu/Modals 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<PersonnelWorkPlace | null>(null);
     const openMenu = Boolean(anchorEl);
@@ -247,9 +180,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
 
-    // ------------------------------------
-    // Alert & Initialization Logic
-    // ------------------------------------
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -263,11 +193,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
     useEffect(() => { const t = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(t); }, []);
 
 
-    // ------------------------------------
-    // API Calls (Modified)
-    // ------------------------------------
-
-    // NEW: Fetch Workhouse Details (To display header info and use for static Place Name)
     const fetchWorkhouseInfo = useCallback(async () => {
         if (!workhouseIdNum) return;
         const authToken = localStorage.getItem('authToken');
@@ -299,17 +224,15 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
         }
     }, [workhouseIdNum, navigate, showAlert]);
 
-    // 💡 MODIFIED: Fetch personnel using the new API without active workplace
     const fetchPersonnels = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate('/'); return; }
         try {
-            // 🚀 NEW API: get-all-personnels-without-active-workplace
             const res = await axios.get(`${server.baseurl}${server.hr}get-all-personnels-without-active-workplace`, { headers: { Authorization: `Bearer ${authToken}` } });
             if (res.data.httpStatusCode === 200) {
                 const data = res.data.data as any[];
                 const mapped = data
-                    .filter(p => p.recordStatus === 0 && p.hasISG == true) // Only Active (recordStatus=0)
+                    .filter(p => p.recordStatus === 0 && p.hasISG == true)
                     .map(p => ({
                         id: Number(p.id),
                         name: p.name,
@@ -327,23 +250,19 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
     }, [navigate, showAlert]);
 
 
-    // MODIFIED: Fetch assignments, filtered by workhouseId and set static place data
     const fetchAssignments = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         setLoadingData(true);
         if (!authToken || !workhouseIdNum) { setLoadingData(false); return; }
 
         try {
-            // Assuming API: get-all-personnels-work-places is used, then filtered by workhouseId
             const res = await axios.get(`${server.baseurl}${server.hr}get-all-personnels-work-places`, { headers: { Authorization: `Bearer ${authToken}` } });
             if (res.data.httpStatusCode === 200) {
-                debugger
+
                 const filteredRows = (res.data.data as any[])
-                    // 💡 Filter for type=1 (WORKHOUSE) and correct placeId
                     .filter(r => Number(r.type) === 1 && Number(r.placeId) === workhouseIdNum)
                     .map((r) => {
                         const kind = 'WORKHOUSE';
-                        // 💡 Use fetched name for display
                         const placeName = workhouseInfo?.name || `Şantiye ID: ${workhouseIdNum}`;
                         const personnelName = `${r.personnel?.name ?? ''} ${r.personnel?.family ?? ''}`.trim();
 
@@ -391,9 +310,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
         }
     }, [fetchAssignments, workhouseInfo]);
 
-    // ------------------------------------
-    // Form Logic
-    // ------------------------------------
     const [personnelError, setPersonnelError] = useState(false);
     const [startError, setStartError] = useState(false);
 
@@ -416,13 +332,11 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
         setAssignmentMode('single');
         setPersonnelError(false);
         setStartError(false);
-        setIsFormVisible(false); // 💡 Hide form on successful save/reset
+        setIsFormVisible(false);
     };
 
-    // MODIFIED: Simplified Payload Builder (Hardcoded Type and PlaceId)
     const buildPayload = (isBulk: boolean) => {
         const baseItem = {
-            // 💡 Hardcoded Type 1 and PlaceId from URL
             type: 1,
             placeId: workhouseIdNum,
 
@@ -491,14 +405,12 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
         } finally { setLoadingButton(false); }
     };
 
-    // MODIFIED: Edit Assignment (Simplified Payload)
     const editAssignment = async () => {
         if (!validateForm() || !editingId || !workhouseIdNum) return;
         setLoadingButton(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { showAlert('Kimlik doğrulama hatası: Lütfen tekrar giriş yapın.', 'error'); setLoadingButton(false); return; }
         try {
-            // Need to send required fields for PUT, even if unchanged
             const payload = {
                 id: Number(editingId),
                 personnelId: Number(personnelId),
@@ -536,7 +448,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
     };
 
 
-    // MODIFIED: handleEditClick (Simplified logic)
     const handleEditClick = () => {
         if (!selectedRowForMenu) return;
         const r = selectedRowForMenu;
@@ -553,7 +464,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
         handleCloseMenu();
     };
 
-    // MODIFIED: Submit End Cooperation (Ensures all fields are sent in PUT payload)
     const submitEndCooperation = async () => {
         if (!rowForEndCooperation || !endCooperationDate || !workhouseIdNum) {
             setEndCoopError(true);
@@ -563,7 +473,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
         const authToken = localStorage.getItem('authToken');
 
         try {
-            // Need to send the full required object for a PUT request
             const payload = {
                 id: rowForEndCooperation.id,
                 personnelId: rowForEndCooperation.personnel.id,
@@ -572,7 +481,7 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
                 positionId: 2,
                 userRoleId: rowForEndCooperation.userRole?.id || null,
                 startDate: rowForEndCooperation.startDate,
-                endDate: new Date(endCooperationDate).toISOString(), // The key update
+                endDate: new Date(endCooperationDate).toISOString(),
                 description: rowForEndCooperation.description,
             };
 
@@ -657,14 +566,9 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
     };
     const handleCloseDeleteModal = () => { setOpenDeleteModal(false); setDeleteId(null); setDeleteName(''); fetchAssignments(); };
 
-
-    // ------------------------------------
-    // Export Functions (Unchanged structure, Simplified columns)
-    // ------------------------------------
     const exportToPdf = async (rows: PersonnelWorkPlace[], isFiltered: boolean) => {
         if (!rows || rows.length === 0) { showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning'); return; }
         setLoadingData(true); showAlert('Rapor oluşturuluyor...', 'info');
-        // @ts-ignore
         const doc = new jsPDF();
         const docAny = doc as any;
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -673,7 +577,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
         try { docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular); docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal'); } catch (e) { console.warn('Font dosyaları yüklenemedi. Varsayılan font kullanılacak.'); }
         docAny.setFont('NotoSans', 'normal');
 
-        // 💡 Simplified Columns
         const columns = ['Personel', 'Başlangıç', 'Bitiş', 'Açıklama'];
         const body = rows.map(r => [r.personnelName || '-', formatDateDisplay(r.startDate), formatDateDisplay(r.endDate), r.description || '-']);
 
@@ -686,7 +589,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
             headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0], font: 'NotoSans', fontStyle: 'normal', fontSize: 9 },
             didDrawPage: (_data: any) => {
-                // Header (includes Workhouse info)
                 docAny.setFont('NotoSans', 'normal');
                 docAny.setFontSize(13);
                 docAny.text(title, 100, 15, { align: 'center' });
@@ -707,7 +609,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
                 doc.setLineWidth(0.5);
                 doc.line(15, 45, pageWidth - 15, 45);
 
-                // Footer
                 docAny.setFont('NotoSans', 'normal');
                 docAny.setFontSize(8);
                 const companyInfo = ['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.', 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11', 'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'];
@@ -769,7 +670,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
                 });
             };
 
-            // Title and Date
             worksheet.addRow(['']);
             const titleText = isFiltered ? 'Filtrelenmiş Şantiye Personel Görevlendirmeleri Raporu' : `Şantiye Personel Görevlendirmeleri Raporu (${workhouseInfo?.name})`;
             const titleRow = worksheet.addRow([titleText]);
@@ -783,12 +683,10 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
             worksheet.mergeCells(`A${worksheet.lastRow!.number}:D${worksheet.lastRow!.number}`);
             worksheet.addRow([]);
 
-            // Simplified Headers
             const tableHeaders = ['Personel', 'Başlangıç', 'Bitiş', 'Açıklama'];
             const headerRow = worksheet.addRow(tableHeaders);
             headerRow.eachCell((cell) => { cell.style = fullHeaderStyle; });
 
-            // Data Rows
             rows.forEach(r => {
                 const row = worksheet.addRow([
                     r.personnelName || '-',
@@ -799,13 +697,10 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
                 row.eachCell((cell) => { cell.style = bodyStyle; });
             });
 
-            // Company Info at the end (using 4 columns max)
             addCompanyInfo(worksheet, 4);
 
-            // Set Column Widths
             worksheet.columns.forEach((column) => {
                 let maxLength = 0;
-                // @ts-ignore
                 if (column.eachCell) {
                     // @ts-ignore
                     column.eachCell({ includeEmpty: true }, (cell) => {
@@ -828,14 +723,8 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
             setLoadingData(false);
         }
     };
-
-
-    // ------------------------------------
-    // JSX Render
-    // ------------------------------------
     return (
         <>
-            {/* Header and Back Button */}
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
 
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2} mb={3} flexWrap="wrap" gap={2}>
@@ -876,7 +765,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                         <Grid container spacing={2}>
 
-                            {/* Toggle Single/Bulk Mode */}
                             <Grid item xs={12}>
                                 <CustomFormLabel>Atama Modu</CustomFormLabel>
                                 <ToggleButtonGroup
@@ -889,7 +777,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
                                 </ToggleButtonGroup>
                             </Grid>
 
-                            {/* Personnel (Single/Multi-Select) */}
                             <Grid item xs={12} sm={6}>
                                 <CustomFormLabel required>Personel {assignmentMode === 'bulk' && <>(Çoklu Seçim)</>}</CustomFormLabel>
                                 <Box sx={{ width: '100%' }} color={personnelError ? 'error.main' : 'text.primary'}>
@@ -967,14 +854,12 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
                                 </LocalizationProvider>
                             </Grid>
 
-                            {/* Description */}
                             <Grid item xs={12} sm={12}>
                                 <CustomFormLabel>Açıklama</CustomFormLabel>
                                 <CustomTextField placeholder="Açıklama" fullWidth multiline rows={4}
                                     value={description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)} />
                             </Grid>
 
-                            {/* Form Actions */}
                             <Grid item xs={12}>
                                 <Stack direction="row" spacing={1} justifyContent="flex-end">
                                     {editingId !== null ? (
@@ -1003,7 +888,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
             </div>
 
             <BlankCard>
-                {/* Alert and Download Buttons */}
                 <>
                     {alertMessage && (
                         <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
@@ -1022,7 +906,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
                     </Stack>
                 </Grid>
 
-                {/* Filters */}
                 <Box sx={{ p: 2 }}>
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} sm={6} md={3}>
@@ -1047,7 +930,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
                     </Grid>
                 </Box>
 
-                {/* Table */}
                 <TableContainer>
                     {loadingData ? (
                         <Box display="flex" justifyContent="center" alignItems="center" height="200px">
@@ -1081,7 +963,7 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
                                                 sx={{
                                                     '&:last-child td, &:last-child th': { border: 0 },
                                                     ...(row.endDate && row.endDate !== "N/A"
-                                                        ? { backgroundColor: '#ffa7a76e' } // رنگ Hex مستقیم + Opacity
+                                                        ? { backgroundColor: '#ffa7a76e' }
                                                         : {}
                                                     )
                                                 }}
@@ -1110,7 +992,7 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
                                                         <IconButton onClick={(e) => handleClickMenu(e, row)} ><IconDots width={18} /></IconButton>
                                                     </CustomTooltip>
                                                     <Menu anchorEl={anchorEl} open={openMenu && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
-                                                        {hasEditPermission && selectedRowForMenu && ( // 💡 Restrict actions if closed
+                                                        {hasEditPermission && selectedRowForMenu && (
                                                             <MuiMenuItem
                                                                 onClick={() => {
                                                                     setRowForEndCooperation(selectedRowForMenu);
@@ -1155,7 +1037,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
                 <TablePagination rowsPerPageOptions={[5, 10, 25]} component="div" count={filteredAssignments.length} rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage} labelRowsPerPage="Satır başına düşen:" labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`} />
             </BlankCard>
 
-            {/* NEW: İş Birliğini Sonlandır Modal */}
             <Dialog open={openEndCooperationModal} onClose={() => setOpenEndCooperationModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>İş Birliğini Sonlandır</DialogTitle>
                 <DialogContent>
@@ -1186,7 +1067,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Download Modals */}
             <Dialog open={openDownloadAllModal} onClose={handleCloseDownloadAllModal} maxWidth="xs">
                 <DialogTitle>Tüm Görevlendirmeleri İndir</DialogTitle>
                 <DialogContent>
@@ -1221,7 +1101,6 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
             </Dialog>
 
 
-            {/* Description Modal */}
             <Dialog open={openDescriptionModal} onClose={handleCloseDescriptionModal} maxWidth="md" fullWidth>
                 <DialogTitle>Açıklamanın Tamamı</DialogTitle>
                 <DialogContent dividers>

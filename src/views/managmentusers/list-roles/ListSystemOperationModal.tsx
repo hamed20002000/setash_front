@@ -37,9 +37,6 @@ const Transition = React.forwardRef(function Transition(
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
-// ---------------------------------------------------------
-// تعریف انواع داده‌ها (Interfaces)
-// ---------------------------------------------------------
 type Props = {
     openOperationModal: boolean;
     onClose: () => void;
@@ -54,10 +51,10 @@ interface SystemOperation {
 }
 
 interface MenuOperation {
-    id: string; // ✅ این همان ID پیوند عملیات-منو است که به API ارسال می‌شود
+    id: string;
     recordStatus: number;
     createAt: string;
-    systemOperation: SystemOperation; // اطلاعات واقعی عملیات
+    systemOperation: SystemOperation;
 }
 
 interface Menu {
@@ -77,34 +74,20 @@ interface FlattenedMenu extends Menu {
     level: number;
     parentId: string | null;
 }
-
-// ✅ ساختار داده برای نگهداری وضعیت انتخاب شده‌ها: { menuId: [menuOpId1, menuOpId2, ...], ... }
-// کلید: ID منو (string), مقدار: آرایه‌ای از IDهای MenuOperation (string)
 interface SelectedMenuOperations {
     [menuId: string]: string[];
 }
 
 const VIEW_OPERATION_ID = "35";
 
-// ---------------------------------------------------------
-// توابع کمکی
-// ---------------------------------------------------------
-
-/**
- * تابع بازگشتی برای فیلتر کردن منوها و عملیات‌های تو در تو بر اساس recordStatus = 0
- * @param menus آرایه‌ای از منوها برای فیلتر کردن
- * @returns آرایه‌ای جدید از منوهای فیلتر شده
- */
 const filterMenusByRecordStatus = (menus: Menu[]): Menu[] => {
     return menus.reduce((acc: Menu[], menu) => {
-        // ابتدا عملیات‌های این منو را فیلتر می‌کنیم
         const filteredMenuOperations = menu.menuOperations.filter(op => op.recordStatus === 0);
 
-        // سپس منوهای فرزند را به صورت بازگشتی فیلتر می‌کنیم
         const filteredChildMenus = menu.menus && menu.menus.length > 0
             ? filterMenusByRecordStatus(menu.menus)
             : [];
-        if (menu.recordStatus === 0) { // فقط منوهایی که recordStatus=0 دارند را نگه می‌داریم
+        if (menu.recordStatus === 0) {
             const newMenu = {
                 ...menu,
                 menuOperations: filteredMenuOperations,
@@ -179,50 +162,23 @@ const MenuItemRenderer: React.FC<MenuItemRendererProps> = ({
     const parentHasViewAccess = useMemo(() => {
         if (!menu.parentId) return true;
         const parentMenu = findMenuInTreePure(allMenus, menu.parentId);
-        if (!parentMenu) return true; // اگر والد پیدا نشد، فرض می‌کنیم دسترسی دارد
+        if (!parentMenu) return true;
 
         const viewOpForParent = parentMenu.menuOperations.find(op => op.systemOperation.id === VIEW_OPERATION_ID);
-        if (!viewOpForParent) return true; // اگر عملیات مشاهده برای والد وجود ندارد
+        if (!viewOpForParent) return true;
 
         return selectedMenuOperations[menu.parentId]?.includes(viewOpForParent.id) || false;
     }, [menu.parentId, allMenus, selectedMenuOperations, VIEW_OPERATION_ID]);
 
     const isMenuDisabled = !parentHasViewAccess && menu.depth > 0;
 
-    // const handleMenuSelectionClick = useCallback((event: React.MouseEvent) => {
-    //     if (hasChildren && event.target instanceof Element && (event.target.closest('.MuiIconButton-root') || event.target.closest('svg'))) {
-    //         event.stopPropagation();
-    //         onToggleExpand(menu.id);
-    //     } else {
-    //         onMenuClick(menu);
-    //         if (hasChildren && !isOpen) {
-    //             onToggleExpand(menu.id);
-    //         }
-    //     }
-    // }, [menu, hasChildren, onMenuClick, onToggleExpand, isOpen]);
-
     const handleMenuSelectionClick = useCallback((_event: React.MouseEvent) => {
-        // 1. همیشه منوی فعلی را انتخاب (Select) کن
         onMenuClick(menu);
 
-        // 2. اگر منو فرزند دارد، همیشه Collapse را Toggle کن.
         if (hasChildren) {
-            // این کار باعث می‌شود کلیک روی متن نیز Collapse را باز و بسته کند.
             onToggleExpand(menu.id);
         }
-
-        /*
-      if (hasChildren && event.target instanceof Element && (event.target.closest('.MuiIconButton-root') || event.target.closest('svg'))) {
-          event.stopPropagation();
-          onToggleExpand(menu.id); // اگر کلیک روی آیکون بود، فقط آکاردئون را باز و بسته کن
-      } else {
-          onMenuClick(menu); // منو انتخاب شود
-          if (hasChildren) {
-              onToggleExpand(menu.id); // آکاردئون باز/بسته شود
-          }
-      }
-      */
-    }, [menu, hasChildren, onMenuClick, onToggleExpand]); // isOpen از dependencies حذف شد
+    }, [menu, hasChildren, onMenuClick, onToggleExpand]);
 
     return (
         <>
@@ -247,9 +203,6 @@ const MenuItemRenderer: React.FC<MenuItemRendererProps> = ({
                     }}
                 >
                     {hasChildren ? (
-                        // <IconButton onClick={(e) => { e.stopPropagation(); onToggleExpand(menu.id); }} size="small" sx={{ p: 0, mr: 1 }}>
-                        //     {isOpen ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
-                        // </IconButton>
                         <>
 
                             <IconButton size="small" sx={{ p: 0, mr: 1 }}>
@@ -311,16 +264,14 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
 
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // ✅ اصلاح شده: تابع removeViewAccessFromChildren از getAllDescendantMenuIdsPure استفاده می کند.
     const removeViewAccessFromChildren = useCallback((
         menuId: string,
         currentSelectedOps: SelectedMenuOperations
     ): SelectedMenuOperations => {
         const newSelected = { ...currentSelectedOps };
-        const descendantMenuIds = getAllDescendantMenuIdsPure(menuId, allMenus); // allMenus اینجا باید فیلتر شده باشد
+        const descendantMenuIds = getAllDescendantMenuIdsPure(menuId, allMenus);
 
         descendantMenuIds.forEach(id => {
-            // برای هر منوی فرزند یا خودش، تمام menuOp.id های آن را حذف کن
             if (newSelected[id]) {
                 delete newSelected[id];
             }
@@ -333,21 +284,18 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
     const flattenMenus = useCallback((menus: Menu[], level: number = 0, parentId: string | null = null): FlattenedMenu[] => {
         let flattened: FlattenedMenu[] = [];
         menus.sort((a, b) => a.order - b.order).forEach(menu => {
-            // منو را فقط در صورتی اضافه می‌کنیم که recordStatus آن 0 باشد
             if (menu.recordStatus === 0) {
                 const newMenu = {
                     ...menu,
-                    // عملیات‌های منو را نیز فیلتر می‌کنیم
                     menuOperations: menu.menuOperations.filter(op => op.recordStatus === 0),
                     level,
                     parentId
                 };
                 flattened.push(newMenu);
-                // اگر منوهای فرزند داشته باشد، آن‌ها را نیز به صورت بازگشتی فیلتر و اضافه می‌کنیم
                 if (menu.menus && menu.menus.length > 0) {
                     flattened = flattened.concat(
                         flattenMenus(
-                            menu.menus.filter(child => child.recordStatus === 0), // فیلتر کردن منوهای فرزند
+                            menu.menus.filter(child => child.recordStatus === 0),
                             level + 1,
                             menu.id
                         )
@@ -357,8 +305,6 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
         });
         return flattened;
     }, []);
-
-    // ------------------------- توابع فراخوانی API (Data Fetching) -------------------------
 
     const fetchAllMenus = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
@@ -374,7 +320,6 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
                 }
             });
             if (response.data.httpStatusCode === 200) {
-                // ✅ تغییر اصلی: فیلتر کردن منوها و عملیات‌های تو در تو
                 const fetchedMenus = response.data.data as Menu[];
                 return filterMenusByRecordStatus(fetchedMenus);
             } else {
@@ -404,33 +349,28 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
             if (response.data.httpStatusCode === 200 && response.data.data && response.data.data.roleMenuOperations) {
                 const assignedOps: SelectedMenuOperations = {};
 
-                // ⭐️ تابع کمکی برای پیدا کردن Menu ID از کل درخت منوها بر اساس MenuOperation ID
                 const findMenuIdByMenuOperationId = (
                     menusToSearch: Menu[],
                     targetMenuOpId: string
                 ): string | null => {
                     for (const m of menusToSearch) {
-                        // فقط عملیات‌هایی که recordStatus = 0 هستند را در نظر بگیرید
                         if (m.menuOperations.some(op => op.id === targetMenuOpId && op.recordStatus === 0)) {
-                            return m.id; // منویی که شامل این menuOperation است را پیدا کردیم
+                            return m.id;
                         }
-                        // اگر منو فرزند دارد، در فرزندان نیز بازگشتی جستجو می‌کنیم
                         if (m.menus && m.menus.length > 0) {
                             const foundInChild = findMenuIdByMenuOperationId(m.menus, targetMenuOpId);
                             if (foundInChild) return foundInChild;
                         }
                     }
-                    return null; // پیدا نشد
+                    return null;
                 };
 
-                // ⭐️ نوع `item` را با دقت بیشتر و بر اساس API دقیق شما تعریف می‌کنیم
                 response.data.data.roleMenuOperations.forEach((item: {
-                    id: string, // ID رکورد RoleMenuOperation
+                    id: string,
                     recordStatus: number,
                     createAt: string,
-                    menuOperation: MenuOperation // شیء MenuOperation شامل ID و systemOperation
+                    menuOperation: MenuOperation
                 }) => {
-                    // فقط آیتم‌هایی را اضافه کنید که خودشان recordStatus = 0 دارند و عملیاتشان هم recordStatus = 0 است
                     if (item.recordStatus === 0 && item.menuOperation.recordStatus === 0) {
                         const menuIdForOperation = findMenuIdByMenuOperationId(menus, item.menuOperation.id);
 
@@ -438,8 +378,6 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
                             if (!assignedOps[menuIdForOperation]) {
                                 assignedOps[menuIdForOperation] = [];
                             }
-                            // ✅ ذخیره menuOperation.id (که همان item.menuOperation.id است)
-                            // توصیه: همه IDها را به string تبدیل کنید تا مشکلات type coercion نداشته باشید
                             assignedOps[menuIdForOperation].push(String(item.menuOperation.id));
                         } else {
                             console.warn(`Could not find parent menu for menuOperation ID: ${item.menuOperation.id}. This operation will not be pre-selected.`);
@@ -462,23 +400,19 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
     useEffect(() => {
         if (openOperationModal && roleId !== null) {
             setLoading(true);
-            // فراخوانی fetchAllMenus و سپس در موفقیت آن، fetchRoleMenuOperations را فراخوانی می‌کنیم
-            // این تضمین می‌کند که menus قبل از فراخوانی fetchRoleMenuOperations در دسترس است
             fetchAllMenus()
                 .then(async (menus) => {
-                    setAllMenus(menus); // لیست کامل منوهای فیلتر شده را در state ذخیره می‌کنیم
-                    // حالا که menus را داریم، می‌توانیم fetchRoleMenuOperations را با آن فراخوانی کنیم
-                    const assignedOps = await fetchRoleMenuOperations(roleId, menus); // menus اینجا فیلتر شده است
+                    setAllMenus(menus);
+                    const assignedOps = await fetchRoleMenuOperations(roleId, menus);
                     setSelectedMenuOperations(assignedOps);
 
-                    // همچنین منطق expand کردن منوهای والد
                     const initialExpanded = new Set<string>();
                     Object.keys(assignedOps).forEach(menuId => {
-                        let currentMenu = findMenuInTreePure(menus, menuId); // از menus فیلتر شده استفاده می‌کنیم
+                        let currentMenu = findMenuInTreePure(menus, menuId);
                         while (currentMenu) {
                             initialExpanded.add(currentMenu.id);
-                            if (currentMenu.parent) { // مطمئن شوید parent.id وجود دارد
-                                currentMenu = findMenuInTreePure(menus, currentMenu.parent.id); // از menus فیلتر شده استفاده می‌کنیم
+                            if (currentMenu.parent) {
+                                currentMenu = findMenuInTreePure(menus, currentMenu.parent.id);
                             } else {
                                 break;
                             }
@@ -494,7 +428,6 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
                     setLoading(false);
                 });
         } else if (!openOperationModal) {
-            // ریست کردن stateها هنگام بسته شدن مودال
             setAllMenus([]);
             setSelectedMenuOperations({});
             setLoading(false);
@@ -503,7 +436,7 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
             setActiveMenu(null);
             setExpandedMenus(new Set());
         }
-    }, [openOperationModal, roleId, fetchAllMenus, fetchRoleMenuOperations, showAlert]); // allMenus از dependencies حذف شد
+    }, [openOperationModal, roleId, fetchAllMenus, fetchRoleMenuOperations, showAlert]);
 
 
     useEffect(() => {
@@ -515,46 +448,32 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
             }
         }
     }, [openOperationModal, loading, allMenus, selectedMenuId, flattenMenus]);
-
-    // ------------------------- منطق مدیریت انتخاب‌ها و وابستگی‌ها -------------------------
-
-    // ✅ تغییر در پارامترها: اکنون آبجکت کامل MenuOperation را می‌پذییم
     const handleToggleOperation = useCallback((menuOp: MenuOperation) => {
         setSelectedMenuOperations(prev => {
             let newSelected = { ...prev };
-            let currentMenuOpsIds = newSelected[activeMenu!.id] || []; // اینها الان menuOp.id ها هستند
-
-            // برای منطق VIEW_OPERATION_ID، همچنان به systemOperation.id ها نیاز داریم.
-            // باید menuOp.id های فعلی را به systemOperation.id ها map کنیم
+            let currentMenuOpsIds = newSelected[activeMenu!.id] || [];
             const currentSystemOpIds = currentMenuOpsIds.map(moId => {
                 const foundMo = activeMenu?.menuOperations.find(m => m.id === moId);
                 return foundMo ? foundMo.systemOperation.id : null;
             }).filter(Boolean) as string[];
 
             const hasViewAccess = currentSystemOpIds.includes(VIEW_OPERATION_ID);
-            const isCurrentlyChecked = currentMenuOpsIds.includes(menuOp.id); // چک می‌کنیم خود menuOp.id وجود دارد یا نه
+            const isCurrentlyChecked = currentMenuOpsIds.includes(menuOp.id);
 
             if (isCurrentlyChecked) {
-                // اگر تیک برداشته می‌شود
                 if (menuOp.systemOperation.id === VIEW_OPERATION_ID) {
-                    // قانون 2: اگر "مشاهده" رو تیک برداشته، همه بقیه عملیات‌های این منو و زیرمنوهایش هم باید deselect بشن
                     newSelected = removeViewAccessFromChildren(activeMenu!.id, newSelected);
                     showAlert(' "Görüntülemek" erişimi kaldırıldığı için diğer tüm operasyonlar ve alt menülerin operasyonları da kaldırıldı.', 'info');
                 } else {
-                    // فقط عملیات فعلی را حذف کن (با استفاده از menuOp.id)
                     newSelected[activeMenu!.id] = currentMenuOpsIds.filter(id => id !== menuOp.id);
                 }
             } else {
-                // اگر تیک زده می‌شود
-                // قانون 1: اگر عملیات "مشاهده" انتخاب نشده و عملیات فعلی "مشاهده" نیست، اجازه انتخاب نده.
                 if (menuOp.systemOperation.id !== VIEW_OPERATION_ID && !hasViewAccess) {
                     showAlert('Bu menü için "Görüntülemek" erişimi olmadan başka operasyon seçemezsiniz.', 'warning');
                     return prev;
                 }
-                // اگر انتخاب نشده بود، آن را اضافه کن (با استفاده از menuOp.id)
                 newSelected[activeMenu!.id] = [...currentMenuOpsIds, menuOp.id];
 
-                // ✅ اگر یک عملیات در یک زیرمنو انتخاب شد، دسترسی "مشاهده" را برای تمام والدها تا ریشه فعال کن.
                 let currentTraversalMenu = findMenuInTreePure(allMenus, activeMenu!.id);
                 while (currentTraversalMenu) {
                     const viewMenuOp = currentTraversalMenu.menuOperations.find(mo => mo.systemOperation.id === VIEW_OPERATION_ID);
@@ -566,24 +485,19 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
                 }
             }
 
-            // اگر هیچ عملیاتی برای یک منو انتخاب نشده، آن کلید را از آبجکت حذف کن
             if (newSelected[activeMenu!.id] && newSelected[activeMenu!.id].length === 0) {
                 delete newSelected[activeMenu!.id];
             }
             return newSelected;
         });
-    }, [showAlert, removeViewAccessFromChildren, allMenus, activeMenu]); // activeMenu به dependencies اضافه شد
+    }, [showAlert, removeViewAccessFromChildren, allMenus, activeMenu]);
 
     const handleToggleAllActiveMenuOperations = useCallback(() => {
         if (!activeMenu) return;
 
-        // currentMenuSelectedOps الان آرایه ای از menuOp.id هاست
         const currentMenuSelectedOps = selectedMenuOperations[activeMenu.id] || [];
-        // allMenuOpIds باید آرایه ای از menuOp.id های کل عملیات های این منو باشد
-        // این قسمت فقط عملیات‌هایی که recordStatus = 0 هستند را شامل می‌شود
         const allMenuOpIdsInActiveMenu = activeMenu.menuOperations.filter(op => op.recordStatus === 0).map(op => op.id);
 
-        // برای منطق VIEW_OPERATION_ID، همچنان به systemOperation.id ها نیاز داریم.
         const currentSystemOpIds = currentMenuSelectedOps.map(moId => {
             const foundMo = activeMenu.menuOperations.find(m => m.id === moId);
             return foundMo ? foundMo.systemOperation.id : null;
@@ -594,23 +508,20 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
         setSelectedMenuOperations(prev => {
             let newSelected = { ...prev };
             if (currentMenuSelectedOps.length === allMenuOpIdsInActiveMenu.length && allMenuOpIdsInActiveMenu.length > 0) {
-                // اگر همه عملیات‌ها انتخاب شده بودند، حالا همه را deselect کن
                 newSelected = removeViewAccessFromChildren(activeMenu.id, newSelected);
             } else {
-                // اگر همه عملیات‌ها انتخاب نشده بودند، حالا همه را select کن
-                if (!hasViewAccess) { // اگر VIEW_OPERATION_ID وجود ندارد
+                if (!hasViewAccess) {
                     const viewMenuOp = activeMenu.menuOperations.find(mo => mo.systemOperation.id === VIEW_OPERATION_ID && mo.recordStatus === 0);
                     if (viewMenuOp) {
-                        newSelected[activeMenu.id] = [...new Set([...allMenuOpIdsInActiveMenu, viewMenuOp.id])]; // اضافه کردن VIEW و بقیه
+                        newSelected[activeMenu.id] = [...new Set([...allMenuOpIdsInActiveMenu, viewMenuOp.id])];
                         showAlert('Tüm operasyonları seçmek için önce "Görüntülemek" erişimi eklendi.', 'info');
                     } else {
-                        newSelected[activeMenu.id] = allMenuOpIdsInActiveMenu; // اگر VIEW_OPERATION_ID نداریم، فقط بقیه را انتخاب کن
+                        newSelected[activeMenu.id] = allMenuOpIdsInActiveMenu;
                     }
                 } else {
-                    newSelected[activeMenu.id] = allMenuOpIdsInActiveMenu; // همه را انتخاب کن
+                    newSelected[activeMenu.id] = allMenuOpIdsInActiveMenu;
                 }
 
-                // ✅ اگر "انتخاب همه" در یک منو اعمال شد، دسترسی "مشاهده" را برای تمام والدها تا ریشه فعال کن.
                 let currentTraversalMenu = findMenuInTreePure(allMenus, activeMenu.id);
                 while (currentTraversalMenu) {
                     const viewMenuOp = currentTraversalMenu.menuOperations.find(mo => mo.systemOperation.id === VIEW_OPERATION_ID && mo.recordStatus === 0);
@@ -654,7 +565,6 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
         });
     }, []);
 
-    // ------------------------- تابع ذخیره داده‌ها (Save Operations) -------------------------
 
     const handleSaveOperations = async () => {
         if (roleId === null) return;
@@ -666,26 +576,23 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
             return;
         }
 
-        // ✅ تغییر: payload حالا آرایه‌ای از menuOp.id هاست
-        const roleMenuOperationsPayload: number[] = []; // ✅ تغییر به number[]
+        const roleMenuOperationsPayload: number[] = [];
         for (const menuIdStr in selectedMenuOperations) {
-            // اطمینان حاصل کنید که فقط عملیات‌هایی که recordStatus = 0 هستند به payload اضافه شوند
-            // و همچنین اطمینان حاصل کنید که منوی والد آن‌ها نیز recordStatus = 0 داشته باشد
             const menu = findMenuInTreePure(allMenus, menuIdStr);
             if (menu && menu.recordStatus === 0) {
                 selectedMenuOperations[menuIdStr].forEach(menuOpId => {
                     const menuOp = menu.menuOperations.find(op => op.id === menuOpId);
                     if (menuOp && menuOp.recordStatus === 0) {
-                        roleMenuOperationsPayload.push(Number(menuOpId)); // ✅ اطمینان از اینکه عدد است
+                        roleMenuOperationsPayload.push(Number(menuOpId));
                     }
                 });
             }
         }
-        debugger
+
         try {
             const response = await axios.post(
                 `${server.baseurl}${server.user}assign-role-operations`,
-                { roleId: Number(roleId), menueOperationIds: roleMenuOperationsPayload }, // ⭐️ payload اصلاح شد
+                { roleId: Number(roleId), menueOperationIds: roleMenuOperationsPayload },
                 {
                     headers: {
                         "Accept": "application/json",
@@ -711,33 +618,28 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
     };
 
 
-    // ------------------------- محاسبات بهینه‌شده UI با useMemo -------------------------
-
     const activeMenuHasViewAccess = useMemo(() => {
         if (!activeMenu) return false;
-        // باید بررسی کنیم آیا menuOp.id مربوط به VIEW_OPERATION_ID در selectedMenuOperations وجود دارد
         const viewOpForActiveMenu = activeMenu.menuOperations.find(op => op.systemOperation.id === VIEW_OPERATION_ID && op.recordStatus === 0);
-        if (!viewOpForActiveMenu) return false; // اگر عملیات مشاهده برای این منو وجود ندارد
+        if (!viewOpForActiveMenu) return false;
         return selectedMenuOperations[activeMenu.id]?.includes(viewOpForActiveMenu.id) || false;
     }, [activeMenu, selectedMenuOperations, VIEW_OPERATION_ID]);
 
 
     const isAllOperationsChecked = useMemo(() => {
         if (!activeMenu) return false;
-        const currentSelectedOps = selectedMenuOperations[activeMenu.id] || []; // اینها menuOp.id ها هستند
+        const currentSelectedOps = selectedMenuOperations[activeMenu.id] || [];
         const allOpsInActiveMenu = activeMenu.menuOperations.filter(op => op.recordStatus === 0).map(op => op.id);
         return currentSelectedOps.length === allOpsInActiveMenu.length && allOpsInActiveMenu.length > 0;
     }, [activeMenu, selectedMenuOperations]);
 
     const isAllOperationsIndeterminate = useMemo(() => {
         if (!activeMenu) return false;
-        const currentSelectedOps = selectedMenuOperations[activeMenu.id] || []; // اینها menuOp.id ها هستند
+        const currentSelectedOps = selectedMenuOperations[activeMenu.id] || [];
         const availableOperations = activeMenu.menuOperations.filter(op => op.recordStatus === 0);
         return currentSelectedOps.length > 0 && currentSelectedOps.length < availableOperations.length;
     }, [activeMenu, selectedMenuOperations]);
 
-
-    // ------------------------- ساختار رندر (Render Structure) -------------------------
 
     return (
         <Dialog fullScreen open={openOperationModal} onClose={onClose} TransitionComponent={Transition}>
@@ -766,7 +668,6 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
                     </Box>
                 ) : (
                     <Grid container sx={{ height: '100%' }}>
-                        {/* کادر سمت راست: لیست منوها */}
                         <Grid item xs={12} sm={4} md={3} sx={{
                             borderRight: '1px solid rgba(0, 0, 0, 0.12)',
                             overflowY: 'auto',
@@ -779,11 +680,9 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
                                 </Typography>
                                 <List component="nav" dense disablePadding sx={{ flexGrow: 1 }}>
                                     {allMenus.length > 0 ? (
-                                        // ✅ allMenus اینجا از قبل فیلتر شده است
                                         allMenus.sort((a, b) => a.order - b.order).map((menu) => (
                                             <MenuItemRenderer
                                                 key={menu.id}
-                                                // نیازی به فیلتر کردن مجدد childMenus نیست چون filterMenusByRecordStatus این کار را انجام می‌دهد
                                                 menu={{ ...menu, menus: menu.menus, level: 0, parentId: null }}
                                                 selectedMenuId={selectedMenuId}
                                                 selectedMenuOperations={selectedMenuOperations}
@@ -803,8 +702,6 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
                                 </List>
                             </Paper>
                         </Grid>
-
-                        {/* کادر سمت چپ: عملیات‌های منوی انتخاب شده */}
                         <Grid item xs={12} sm={8} md={9} sx={{
                             overflowY: 'auto',
                             height: '100%',
@@ -837,9 +734,8 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
                                             </CustomTooltip>
                                             <Divider />
 
-                                            {/* عملیات‌های منوی فعال را فیلتر می‌کنیم */}
                                             {activeMenu.menuOperations
-                                                .filter(menuOp => menuOp.recordStatus === 0) // <--- اضافه کردن این فیلتر
+                                                .filter(menuOp => menuOp.recordStatus === 0)
                                                 .map((menuOp) => {
                                                     const isOperationDisabled = menuOp.systemOperation.id !== VIEW_OPERATION_ID && !activeMenuHasViewAccess;
                                                     return (

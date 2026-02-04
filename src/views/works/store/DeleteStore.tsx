@@ -5,15 +5,14 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
-import server from '../../../assets/address.json'; // مسیر فایل address.json را تنظیم کنید
+import server from '../../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// --- Props interface ---
 type Props = {
     openModal: boolean;
     storeIdToDelete: number | null;
-    storeNameToDelete: string; // برای نمایش نام فروشگاه در پیام تایید
+    storeNameToDelete: string;
     onClose: () => void;
     onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
@@ -24,7 +23,6 @@ const DeleteStore = ({ openModal, storeIdToDelete, storeNameToDelete, onClose, o
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // State for Store In Use modal
     const [openStoreInUseModal, setOpenStoreInUseModal] = useState<boolean>(false);
 
     const handleDeleteStore = async () => {
@@ -37,14 +35,13 @@ const DeleteStore = ({ openModal, storeIdToDelete, storeNameToDelete, onClose, o
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             showAlert('Lütfen giriş yapın.', 'warning');
-            // navigate("/"); // ممکن است بخواهید به صفحه ورود هدایت کنید
             return;
         }
 
         setLoading(true);
         try {
             const response = await axios.delete(
-                `${server.baseurl}${server.initialoperations}delete-store/${storeIdToDelete}`, // ✅ آدرس API برای حذف فروشگاه
+                `${server.baseurl}${server.initialoperations}delete-store/${storeIdToDelete}`,
                 {
                     headers: {
                         "Accept": "application/json",

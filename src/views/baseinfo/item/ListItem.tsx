@@ -47,11 +47,9 @@ import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import { TimesNewRoman } from 'src/assets/fonts/Times';
-// import { ArialFont } from 'src/assets/fonts/Arial';
 import Logo from 'src/assets/images/logos/logo.png';
 
 
-// import * as XLSX from 'xlsx';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 
@@ -94,7 +92,7 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
 interface ItemType {
   id: string;
   name: string;
-  code: string; // ✅ Added: Code field
+  code: string;
   description: string;
   abbreviation: string;
   recordStatus: number;
@@ -309,7 +307,6 @@ const CategoryTreeSelectMenuItem: React.FC<CategoryTreeSelectMenuItemProps> = ({
   );
 };
 
-// ✅ Updated: Added 'code' to SortableItemKeys
 type SortableItemKeys = keyof ItemType | 'category.name' | 'unit.title' | 'weight' | 'code';
 
 const descendingComparator = <T,>(
@@ -329,7 +326,7 @@ const descendingComparator = <T,>(
   } else if (orderBy === 'weight') {
     valA = (a as ItemType).weight;
     valB = (b as ItemType).weight;
-  } else if (orderBy === 'code') { // ✅ Added: Code sorting logic
+  } else if (orderBy === 'code') {
     valA = (a as ItemType).code;
     valB = (b as ItemType).code;
   } else {
@@ -386,7 +383,6 @@ const ListItemComponent = () => {
   const [name, setName] = useState<string>('');
   const [originalName, setOriginalName] = useState<string>('');
 
-  // ✅ Added: Code State
   const [code, setCode] = useState<string>('');
 
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
@@ -440,11 +436,9 @@ const ListItemComponent = () => {
 
   const itemNameInputRef = useRef<HTMLInputElement>(null);
 
-  // **New states for input validation errors**
   const [nameError, setNameError] = useState<boolean>(false);
   const [nameHelperText, setNameHelperText] = useState<string>('');
 
-  // ✅ Added: Code Validation State
   const [codeError, setCodeError] = useState<boolean>(false);
   const [codeHelperText, setCodeHelperText] = useState<string>('');
 
@@ -466,32 +460,11 @@ const ListItemComponent = () => {
   const [isBlinking, setIsBlinking] = useState(true);
 
 
-
-  // const { allowedOperations } = useAuth();
-  // const hasCreatePermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-  // }, [allowedOperations]);
-
-  // const hasEditPermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-  // }, [allowedOperations]);
-
-  // const hasDeletePermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-  // }, [allowedOperations]);
-
-  // const hasDownloadPermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
-  // }, [allowedOperations]);
-
-
   const { menuItems, allowedOperations } = useAuth();
   const findMenuByHref = (items: any[], path: string): any => {
     for (const item of items) {
-      // اگر خود آیتم تطبیق داشت
       if (item.href === path) return item;
 
-      // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
       if (item.children && item.children.length > 0) {
         const found = findMenuByHref(item.children, path);
         if (found) return found;
@@ -500,24 +473,19 @@ const ListItemComponent = () => {
     return null;
   };
 
-  // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
   const currentMenu = useMemo(() => {
-    debugger
+
     return findMenuByHref(menuItems, location.pathname);
   }, [menuItems, location.pathname]);
 
-  // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
   const currentMenuOpIds = useMemo(() => {
-    // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
     if (!currentMenu || !currentMenu.menuOperations) return [];
 
     return currentMenu.menuOperations.map((op: any) => {
-      // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
       return String(op.id);
     });
   }, [currentMenu]);
 
-  // ۴. تابع نهایی بررسی دسترسی
   const hasPermission = (opName: string) => {
     return allowedOperations.some((op: any) =>
       op.systemOperationName === opName &&
@@ -539,7 +507,6 @@ const ListItemComponent = () => {
   const handleToggleCategorySelection = useCallback((categoryId: string, isChecked: boolean) => {
     if (isChecked) {
       setSelectedCategoryId(categoryId);
-      // Clear error when a category is selected
       setCategoryIdError(false);
       setCategoryIdHelperText('');
     } else {
@@ -600,16 +567,15 @@ const ListItemComponent = () => {
     if (alertMessage) {
       timer = setTimeout(() => {
         clearAlert();
-      }, 5000); // 5000 milliseconds = 5 seconds
+      }, 5000);
     }
     return () => {
-      clearTimeout(timer); // Clear the timer if the component unmounts or alertMessage changes
+      clearTimeout(timer);
     };
   }, [alertMessage]);
 
   const resetFormAndState = () => {
     setName('');
-    // ✅ Reset Code
     setCode('');
     setCodeError(false);
     setCodeHelperText('');
@@ -625,7 +591,6 @@ const ListItemComponent = () => {
     setIsFormVisible(false);
     clearAlert();
 
-    // **Clear all validation error states**
     setNameError(false);
     setNameHelperText('');
     setUnitIdError(false);
@@ -644,7 +609,6 @@ const ListItemComponent = () => {
     if (selectedRowForMenu) {
       setName(selectedRowForMenu.name);
       setOriginalName(selectedRowForMenu.name);
-      // ✅ Load Code for editing
       setCode(selectedRowForMenu.code || '');
 
       setSelectedUnitId(selectedRowForMenu.unit.id);
@@ -654,10 +618,8 @@ const ListItemComponent = () => {
       setWeight(selectedRowForMenu.weight || '');
       setEditingId(selectedRowForMenu.id);
 
-      // **Clear all validation error states when editing**
       setNameError(false);
       setNameHelperText('');
-      // ✅ Clear Code Error
       setCodeError(false);
       setCodeHelperText('');
 
@@ -691,7 +653,6 @@ const ListItemComponent = () => {
   const insertItem = async () => {
     let hasError = false;
 
-    // Validate Name
     if (!name.trim()) {
       setNameError(true);
       setNameHelperText('Ürün adı boş bırakılamaz!');
@@ -701,7 +662,6 @@ const ListItemComponent = () => {
       setNameHelperText('');
     }
 
-    // ✅ Validate Code (Required)
     if (!code.trim()) {
       setCodeError(true);
       setCodeHelperText('Ürün kodu boş bırakılamaz!');
@@ -711,7 +671,6 @@ const ListItemComponent = () => {
       setCodeHelperText('');
     }
 
-    // Validate Unit
     if (selectedUnitId === null) {
       setUnitIdError(true);
       setUnitIdHelperText('Ölçü seçilmelidir!');
@@ -721,7 +680,6 @@ const ListItemComponent = () => {
       setUnitIdHelperText('');
     }
 
-    // Validate Category
     if (selectedCategoryId === null) {
       setCategoryIdError(true);
       setCategoryIdHelperText('Kategori seçilmelidir!');
@@ -761,7 +719,7 @@ const ListItemComponent = () => {
       const response = await axios.post(server.baseurl + server.baseinfo + "create-item",
         {
           name,
-          code, // ✅ Added Code
+          code,
           description,
           abbreviation: abbreviation === "" ? null : abbreviation,
           categoryId: Number(selectedCategoryId),
@@ -801,7 +759,6 @@ const ListItemComponent = () => {
   const editItem = async () => {
     let hasError = false;
 
-    // Validate Name
     if (!name.trim()) {
       setNameError(true);
       setNameHelperText('Ürün adı boş bırakılamaz!');
@@ -811,7 +768,6 @@ const ListItemComponent = () => {
       setNameHelperText('');
     }
 
-    // ✅ Validate Code (Required)
     if (!code.trim()) {
       setCodeError(true);
       setCodeHelperText('Ürün kodu boş bırakılamaz!');
@@ -821,7 +777,6 @@ const ListItemComponent = () => {
       setCodeHelperText('');
     }
 
-    // Validate Unit
     if (selectedUnitId === null) {
       setUnitIdError(true);
       setUnitIdHelperText('Ölçü seçilmelidir!');
@@ -831,7 +786,6 @@ const ListItemComponent = () => {
       setUnitIdHelperText('');
     }
 
-    // Validate Category
     if (selectedCategoryId === null) {
       setCategoryIdError(true);
       setCategoryIdHelperText('Kategori seçilmelidir!');
@@ -840,14 +794,6 @@ const ListItemComponent = () => {
       setCategoryIdError(false);
       setCategoryIdHelperText('');
     }
-    // if (abbreviation.trim() !== '' && abbreviation.trim().length !== 4) {
-    //   setAbbreviationError(true);
-    //   setAbbreviationHelperText('Kısaltma 4 karakter olmalıdır.');
-    //   hasError = true;
-    // } else {
-    //   setAbbreviationError(false);
-    //   setAbbreviationHelperText('');
-    // }
     if (hasError) {
       showAlert('Lütfen tüm zorunlu alanları doğru şekilde doldurun!', 'warning');
       return;
@@ -857,7 +803,7 @@ const ListItemComponent = () => {
       && selectedCategoryId === selectedRowForMenu?.category.id
       && abbreviation === selectedRowForMenu?.abbreviation && description === selectedRowForMenu?.description
       && weight === selectedRowForMenu?.weight
-      && code === selectedRowForMenu?.code // ✅ Check for code changes
+      && code === selectedRowForMenu?.code
     ) {
       showAlert('Herhangi bir değişiklik yapmadınız.', 'info');
       resetFormAndState();
@@ -881,7 +827,7 @@ const ListItemComponent = () => {
         {
           id: Number(editingId),
           newName: name,
-          code, // ✅ Added Code
+          code,
           description,
           abbreviation: abbreviation === "" ? null : abbreviation,
           categoryId: Number(selectedCategoryId),
@@ -934,8 +880,7 @@ const ListItemComponent = () => {
     }
 
     try {
-      // Replace with actual API call to update item status
-      const response = await axios.put(server.baseurl + server.baseinfo + "update-item", // Assuming update status endpoint
+      const response = await axios.put(server.baseurl + server.baseinfo + "update-item",
         {
           id: Number(id),
           recordStatus: statusValue
@@ -1105,7 +1050,7 @@ const ListItemComponent = () => {
         const processedData = response.data.data.map((item: any) => ({
           id: item.id,
           name: item.name,
-          code: item.code, // ✅ Added: Map Code from API
+          code: item.code,
           description: item.description,
           abbreviation: item.abbreviation,
           recordStatus: item.recordStatus !== undefined && item.recordStatus !== null ? item.recordStatus : 0,
@@ -1116,14 +1061,12 @@ const ListItemComponent = () => {
             name: item.category.name,
             depth: item.category.depth,
             createAt: item.category.createAt,
-            // recordStatus: item.category.recordStatus,
             recordStatus: item.category.recordStatus !== undefined && item.category.recordStatus !== null ? item.category.recordStatus : 0,
 
           },
           unit: {
             id: item.unit.id,
             title: item.unit.title,
-            // recordStatus: item.unit.recordStatus,
             recordStatus: item.unit.recordStatus !== undefined && item.unit.recordStatus !== null ? item.unit.recordStatus : 0,
 
             createAt: item.unit.createAt,
@@ -1199,7 +1142,6 @@ const ListItemComponent = () => {
     setCategorySearchTerm(event.target.value);
   };
 
-  // ✅ Added: Handler for changing sort order
   const handleRequestSort = (property: keyof ItemType | 'category.name' | 'unit.title' | 'weight' | 'code') => {
     const isAsc = orderBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
@@ -1210,7 +1152,7 @@ const ListItemComponent = () => {
   const filteredItems = itemsList.filter(item => {
 
     const itemName = item.name ?? "";
-    const itemCode = item.code ?? ""; // ✅ Added Code for filtering
+    const itemCode = item.code ?? "";
     const itemAbbreviation = item.abbreviation ?? "";
     const unitTitle = item.unit?.title ?? "";
     const categoryName = item.category?.name ?? "";
@@ -1219,7 +1161,7 @@ const ListItemComponent = () => {
 
     const matchesSearch =
       itemName.toLowerCase().includes(searchLower) ||
-      itemCode.toLowerCase().includes(searchLower) || // ✅ Search by code
+      itemCode.toLowerCase().includes(searchLower) ||
       itemAbbreviation.toLowerCase().includes(searchLower) ||
       unitTitle.toLowerCase().includes(searchLower) ||
       categoryName.toLowerCase().includes(searchLower) ||
@@ -1249,188 +1191,24 @@ const ListItemComponent = () => {
   };
 
 
-  // const handlePrintAllItems = () => {
-  //   if (!sortedAndFilteredItems || sortedAndFilteredItems.length === 0) {
-  //     showAlert('PDF oluşturulacak ürün bulunamadı.', 'warning');
-  //     return;
-  //   }
-
-  //   const doc = new jsPDF();
-  //   const pageWidth = doc.internal.pageSize.getWidth();
-  //   const pageHeight = doc.internal.pageSize.getHeight();
-
-  //   const stripHtml = (htmlString: string) => {
-  //     const doc = new DOMParser().parseFromString(htmlString, 'text/html');
-  //     return doc.body.textContent || "";
-  //   };
-
-  //   try {
-
-  //     doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-  //     doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-
-
-  //     doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
-  //     doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
-
-  //     doc.addFileToVFS('Arial.ttf', ArialFont);
-  //     doc.addFont('Arial.ttf', 'Arial', 'normal');
-
-  //     const rowsWithoutHtml = sortedAndFilteredItems.map(item => {
-  //       const descriptionWithoutHtml = item.description ? stripHtml(item.description) : '-';
-  //       return [
-  //         item.name || '-',
-  //         item.code || '-', // ✅ Added Code to PDF
-  //         item.unit?.title || '-',
-  //         item.category?.name || '-',
-  //         item.abbreviation || '-',
-  //         item.weight !== null ? String(item.weight) : '-',
-  //         descriptionWithoutHtml.length > 50 ? `${descriptionWithoutHtml.substring(0, 50)}...` : descriptionWithoutHtml,
-  //         formatDateDisplay(item.createAt) || '-',
-  //         item.status || '-',
-  //       ];
-  //     });
-
-  //     autoTable(doc, {
-  //       startY: 65,
-  //       // ✅ Added "Ürün Kodu" to header
-  //       head: [['Ürün Adı', 'Ürün Kodu', 'Ölçü', 'Kategori', 'Kısaltma', 'Ağırlık', 'Açıklama', 'Oluşturulma Tarihi', 'Durum']],
-  //       body: rowsWithoutHtml,
-  //       theme: 'grid',
-  //       styles: {
-  //         font: 'Arial',
-  //         fontStyle: 'normal',
-  //         fontSize: 8,
-  //         cellPadding: 2,
-  //         overflow: 'linebreak'
-  //       },
-  //       headStyles: {
-  //         fillColor: [242, 242, 242],
-  //         textColor: [0, 0, 0],
-  //         font: 'Arial',
-  //         fontSize: 9,
-  //       },
-  //       didDrawPage: () => {
-  //         // --- بخش جدید هدر ---
-  //         // 1. عنوان در سطر اول و وسط
-  //         doc.setFont('Arial', 'bold');
-  //         doc.setFontSize(14);
-  //         doc.text('Tüm Ürünler Raporu', pageWidth / 2, 15, { align: 'center' });
-
-  //         // 2. تاریخ در سطر دوم و سمت چپ
-  //         doc.setFontSize(10);
-  //         doc.setFont('Times', 'bold');
-  //         doc.text(`Tarih:`, 15, 25);
-
-  //         doc.setFont('Times', 'normal');
-  //         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
-
-  //         // 3. لوگو در سطر دوم و سمت راست
-  //         doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
-
-  //         // --- پایان بخش جدید هدر ---
-
-  //         // --- بخش جدید فوتر ---
-  //         // 1. اطلاعات شرکت در مرکز و با فونت 8
-  //         doc.setFont('NotoSans', 'normal');
-  //         doc.setFontSize(8);
-  //         doc.setTextColor(0);
-  //         const companyInfo = [
-  //           'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-  //           'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx  Fax: +90 (232) 347 77 11',
-  //           'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
-  //         ];
-
-  //         let footerY = pageHeight - 30;
-  //         companyInfo.forEach(line => {
-  //           doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-  //           footerY += 4;
-  //         });
-
-  //         // 2. شماره صفحه در سمت چپ
-  //         const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
-  //         const pageCount = (doc as any).internal.getNumberOfPages();
-  //         doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-
-  //         // 3. امضا در سمت راست
-  //         doc.setFont('NotoSans', 'normal');
-  //         doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-  //         doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-
-  //       },
-  //       margin: { top: 50, bottom: 45 },
-  //     });
-
-
-  //     const totalWeightMap = new Map<string, number>();
-  //     sortedAndFilteredItems.forEach(item => {
-  //       if (item.weight !== null && !isNaN(Number(item.weight))) {
-  //         const unitTitle = item.unit?.title || 'Bilinmeyen Birim';
-  //         const currentWeight = totalWeightMap.get(unitTitle) || 0;
-  //         const totalWeight = currentWeight + Number(item.weight);
-  //         totalWeightMap.set(unitTitle, totalWeight);
-  //       }
-  //     });
-
-  //     if (totalWeightMap.size > 0) {
-  //       doc.addPage();
-  //       doc.setFont('NotoSans');
-  //       doc.setFontSize(14);
-  //       doc.text('Ağırlık Toplamları', 15, 20);
-
-  //       const summaryRows = Array.from(totalWeightMap.entries()).map(([unit, totalWeight]) => [
-  //         unit,
-  //         totalWeight.toFixed(2)
-  //       ]);
-
-  //       autoTable(doc, {
-  //         startY: 30,
-  //         head: [['Ölçü', 'Toplam Ağırlık']],
-  //         body: summaryRows,
-  //         theme: 'grid',
-  //         styles: {
-  //           font: 'NotoSans',
-  //           fontSize: 8,
-  //         },
-  //         headStyles: {
-  //           fillColor: [242, 242, 242],
-  //           textColor: [0, 0, 0],
-  //           font: 'NotoSans',
-  //           fontSize: 9,
-  //         },
-  //       });
-  //     }
-
-  //     doc.save('Tüm_Ürünler_Raporu.pdf');
-  //     showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
-
-  //   } catch (error) {
-  //     console.error('PDF oluşturulurken hata:', error);
-  //     showAlert('PDF oluşturulurken bir hata oluştu.', 'error');
-  //   }
-  // };
-
-
   const handlePrintAllItems = () => {
     if (!sortedAndFilteredItems || sortedAndFilteredItems.length === 0) {
       showAlert('PDF oluşturulacak ürün bulunamadı.', 'warning');
       return;
     }
 
-    const doc = new jsPDF('l', 'mm', 'a4'); // حالت Landscape (افقی) به دلیل تعداد زیاد ستون‌ها
+    const doc = new jsPDF('l', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const reportTitle = 'Tüm Ürünler Raporu';
 
     try {
-      // ۱. بارگذاری فونت‌ها
       doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
       doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
       doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
       doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
       doc.setFont('NotoSans');
 
-      // ۲. تابع هدر (استایل شیک و رسمی)
       const addPdfHeader = (pdfDoc: jsPDF, title: string) => {
         try {
           pdfDoc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
@@ -1448,12 +1226,10 @@ const ListItemComponent = () => {
         pdfDoc.setFont('NotoSans', 'normal');
         pdfDoc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
 
-        // pdfDoc.setDrawColor(200, 200, 200);
         pdfDoc.setLineWidth(0.5);
         pdfDoc.line(15, 45, pageWidth - 15, 45);
       };
 
-      // ۳. تابع فوتر (اطلاعات رسمی شرکت)
       const addPdfFooter = (pdfDoc: jsPDF) => {
         pdfDoc.setFontSize(8);
         pdfDoc.setFont('NotoSans', 'normal');
@@ -1481,7 +1257,6 @@ const ListItemComponent = () => {
         pdfDoc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
       };
 
-      // ۴. آماده‌سازی ردیف‌ها (بدون HTML)
       const rows = sortedAndFilteredItems.map(item => [
         item.name || '-',
         item.code || '-',
@@ -1494,7 +1269,6 @@ const ListItemComponent = () => {
         item.status || '-'
       ]);
 
-      // ۵. رسم جدول با تم تیره (Landscape)
       autoTable(doc, {
         startY: 55,
         head: [['Ürün Adı', 'Kod', 'Ölçü', 'Kategori', 'Kıs.', 'Ağırlık', 'Açıklama', 'Tarih', 'Durum']],
@@ -1507,16 +1281,16 @@ const ListItemComponent = () => {
           valign: 'middle'
         },
         headStyles: {
-          fillColor: [66, 66, 66], // خاکستری تیره مشابه کدهای قبلی
+          fillColor: [66, 66, 66],
           textColor: [255, 255, 255],
           fontStyle: 'normal',
           halign: 'left'
         },
         columnStyles: {
-          0: { cellWidth: 'auto' }, // Name
-          1: { halign: 'left', cellWidth: 20 }, // Code
-          5: { halign: 'left', cellWidth: 15 }, // Weight
-          8: { halign: 'left', cellWidth: 15 }  // Status
+          0: { cellWidth: 'auto' },
+          1: { halign: 'left', cellWidth: 20 },
+          5: { halign: 'left', cellWidth: 15 },
+          8: { halign: 'left', cellWidth: 15 }
         },
         margin: { top: 55, bottom: 30 },
         didDrawPage: () => {
@@ -1565,7 +1339,6 @@ const ListItemComponent = () => {
         views: [{ rightToLeft: false }]
       });
 
-      // --- استایل‌های مشترک (می‌توانید از نمونه کد خود کپی کنید) ---
       const thinBorder: Partial<Excel.Border> = {
         style: 'thin',
         color: { argb: 'FFD3D3D3' }
@@ -1612,7 +1385,6 @@ const ListItemComponent = () => {
       };
 
 
-      // تعریف fullHeaderStyle با Type Assertion
       const fullHeaderStyle = {
         border: border,
         alignment: centerAlignment,
@@ -1621,15 +1393,11 @@ const ListItemComponent = () => {
       } as Partial<Excel.Style>;
 
 
-      // تعریف bodyStyle
       const bodyStyle = {
         border: border,
         alignment: leftAlignment,
         font: font
       } as Partial<Excel.Style>;
-      // --------------------------------------------------------
-
-      // --- هدر گزارش (اطلاعات کلی) ---
       worksheet.addRow(['', '', '']);
       worksheet.addRow(['Tüm Ürünler Raporu']).font = { name: 'Times New Roman', size: 12, bold: true };
       const lastRow = worksheet.lastRow;
@@ -1639,7 +1407,6 @@ const ListItemComponent = () => {
       worksheet.mergeCells('A2:H2');
 
       worksheet.addRow([`Tarih: ${formatDateDisplay(new Date().toISOString())}`]);
-      // worksheet.lastRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: false };
 
       const dateRow = worksheet.lastRow;
       if (dateRow) {
@@ -1649,20 +1416,17 @@ const ListItemComponent = () => {
 
       worksheet.addRow([]);
 
-      // --- هدر جدول اصلی ---
-      // ✅ Added "Ürün Kodu" to Excel Header
       const tableHeaders = ['Ürün Adı', 'Ürün Kodu', 'Ölçü', 'Kategori', 'Kısaltma', 'Ağırlık', 'Açıklama', 'Oluşturulma Tarihi', 'Durum'];
       const headerRow = worksheet.addRow(tableHeaders);
       headerRow.eachCell((cell) => {
         cell.style = fullHeaderStyle;
       });
 
-      // --- اضافه کردن داده‌ها ---
       sortedAndFilteredItems.forEach(item => {
         const descriptionWithoutHtml = item.description ? stripHtml(item.description) : '-';
         const row = worksheet.addRow([
           item.name || '-',
-          item.code || '-', // ✅ Added Code to Excel Row
+          item.code || '-',
           item.unit?.title || '-',
           item.category?.name || '-',
           item.abbreviation || '-',
@@ -1676,7 +1440,6 @@ const ListItemComponent = () => {
         });
       });
 
-      // --- اضافه کردن جدول جمع کل وزن ---
       const totalWeightMap = new Map<string, number>();
       sortedAndFilteredItems.forEach(item => {
         if (item.weight !== null && !isNaN(Number(item.weight))) {
@@ -1690,7 +1453,6 @@ const ListItemComponent = () => {
       if (totalWeightMap.size > 0) {
         worksheet.addRow([]);
         worksheet.addRow(['Ağırlık Toplamları']);
-        // worksheet.lastRow.getCell(1).font = { name: 'Times New Roman', size: 12, bold: true };
 
         if (lastRow) {
           lastRow.getCell(1).font = { name: 'Times New Roman', size: 12, bold: true };
@@ -1710,7 +1472,6 @@ const ListItemComponent = () => {
         });
       }
       addCompanyInfo(worksheet);
-      // --- تنظیم عرض ستون‌ها ---
       worksheet.columns.forEach((column) => {
         let maxLength = 0;
         if (column.eachCell) {
@@ -1724,7 +1485,6 @@ const ListItemComponent = () => {
         column.width = Math.min(Math.max(maxLength + 2, 12), 50);
       });
 
-      // --- ذخیره فایل ---
       const buffer = await workbook.xlsx.writeBuffer();
       const fileName = `Tüm_Ürünler_Raporu_${new Date().toLocaleDateString('tr-TR')}.xlsx`;
       saveAs(new Blob([buffer]), fileName);
@@ -1780,7 +1540,6 @@ const ListItemComponent = () => {
                   color="error"
                   onClick={resetFormAndState}
 
-                  // disabled={loadingButton}
                   fullWidth={false}
                   startIcon={<IconX size={20} />}
                 >
@@ -1793,7 +1552,6 @@ const ListItemComponent = () => {
 
         {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
           <Grid container spacing={2}>
-            {/* Item Name */}
             <Grid item xs={12} md={4}>
               <CustomFormLabel htmlFor="item-name" required>Ürün Adı</CustomFormLabel>
               <CustomTextField
@@ -1813,7 +1571,6 @@ const ListItemComponent = () => {
                 helperText={nameHelperText}
               />
             </Grid>
-            {/* ✅ Added: Item Code Input (Required) */}
             <Grid item xs={12} md={4}>
               <CustomFormLabel htmlFor="item-code" required>Ürün Kodu</CustomFormLabel>
               <CustomTextField
@@ -1833,10 +1590,8 @@ const ListItemComponent = () => {
               />
             </Grid>
 
-            {/* Unit Selection (with search) */}
             <Grid item xs={12} md={4}>
               <CustomFormLabel htmlFor="select-unit" required>Ölçü</CustomFormLabel>
-              {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Ürün birimini seçin" : ""}> */}
               <FormControl fullWidth error={unitIdError}>
                 <InputLabel id="select-unit-label">Ölçü Seçin</InputLabel>
                 <Select
@@ -1893,13 +1648,10 @@ const ListItemComponent = () => {
                 </Select>
                 {unitIdHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{unitIdHelperText}</Typography>} {/* **Display helper text** */}
               </FormControl>
-              {/* </CustomTooltip> */}
             </Grid>
-            {/* Category Selection (single-select tree) */}
             <Grid item xs={12} md={4}>
               <CustomFormLabel htmlFor="select-category" required>Kategori</CustomFormLabel>
-              {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Kategorileri seçmek için tıklayın" : ""}> */}
-              <FormControl fullWidth error={categoryIdError}> {/* **Added error prop to FormControl** */}
+              <FormControl fullWidth error={categoryIdError}>
                 <InputLabel id="select-category-label">Kategori Seçin</InputLabel>
                 <Select
                   labelId="select-category-label"
@@ -1911,7 +1663,6 @@ const ListItemComponent = () => {
                   onChange={(event) => {
                     const newValue = event.target.value as string;
                     handleToggleCategorySelection(newValue, true);
-                    // Error clearing for category is handled inside handleToggleCategorySelection via useCallback
                   }}
                   renderValue={(selected: any) => {
                     const category = allCategoriesFlat.find(cat => cat.id === selected);
@@ -1925,7 +1676,6 @@ const ListItemComponent = () => {
                     },
                   }}
                 >
-                  {/* Search field for categories */}
                   <TextField
                     autoFocus
                     fullWidth
@@ -1944,7 +1694,6 @@ const ListItemComponent = () => {
                     }}
                   />
 
-                  {/* Display category tree */}
                   {loadingCategories ? (
                     <MuiMenuItem disabled>
                       <CircularProgress size={20} /> Yükleniyor...
@@ -1965,9 +1714,7 @@ const ListItemComponent = () => {
                 </Select>
                 {categoryIdHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{categoryIdHelperText}</Typography>} {/* **Display helper text** */}
               </FormControl>
-              {/* </CustomTooltip> */}
             </Grid>
-            {/* Abbreviation */}
             <Grid item xs={12} md={4}>
               <CustomFormLabel htmlFor="abbreviation">Kısaltma (4 Karakter)</CustomFormLabel>
               <CustomTooltip title={isTooltipGloballyEnabled ? "Ürünün 4 karakterlik kısaltmasını girin" : ""}>
@@ -1989,7 +1736,6 @@ const ListItemComponent = () => {
                 />
               </CustomTooltip>
             </Grid>
-            {/* Weight */}
             <Grid item xs={12} md={4}>
               <CustomFormLabel htmlFor="weight">Ürün Birim Ağırlığı</CustomFormLabel>
               <CustomTextField
@@ -2013,7 +1759,6 @@ const ListItemComponent = () => {
                 helperText={weightHelperText}
               />
             </Grid>
-            {/* Description (text editor) */}
             <Grid item xs={12}>
               <CustomFormLabel htmlFor="description">Açıklama</CustomFormLabel>
               <ReactQuill
@@ -2046,7 +1791,6 @@ const ListItemComponent = () => {
 
             </Grid>
 
-            {/* Form Buttons */}
             <Grid item xs={12}>
               <Stack direction="row" spacing={1} justifyContent="flex-end" mt={2}>
                 {editingId !== null ? (
@@ -2108,14 +1852,6 @@ const ListItemComponent = () => {
           <Stack direction="row" spacing={2} justifyContent="flex-end">
             {hasDownloadPermission && (
               <Grid item xs={12} sm={6} md={4} sx={{ textAlign: 'right' }}>
-                {/* <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handlePrintAllItems}
-                  startIcon={<IconFileDownload />}
-                >
-                  Tümünü İndir (PDF)
-                </Button> */}
                 <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm verileri farklı formatlarda indir" : ""}>
                   <Button
                     variant="contained"
@@ -2149,7 +1885,6 @@ const ListItemComponent = () => {
                 }}
               />
             </Grid>
-            {/* Status Filter */}
             <Grid item xs={12} sm={6} md={4}>
               <ToggleButtonGroup
                 value={statusFilter}
@@ -2158,30 +1893,24 @@ const ListItemComponent = () => {
                 aria-label="Status filter"
                 fullWidth
               >
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm ürünleri göster" : ""}> */}
                 <StyledToggleButton
                   value="all"
                   aria-label="all items"
                 >
                   Tümü
                 </StyledToggleButton>
-                {/* </CustomTooltip> */}
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif ürünleri göster" : ""}> */}
                 <StyledToggleButton
                   value="active"
                   aria-label="active items"
                 >
                   Aktif
                 </StyledToggleButton>
-                {/* </CustomTooltip> */}
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif ürünleri göster" : ""}> */}
                 <StyledToggleButton
                   value="inactive"
                   aria-label="inactive items"
                 >
                   Pasif
                 </StyledToggleButton>
-                {/* </CustomTooltip> */}
               </ToggleButtonGroup>
             </Grid>
           </Grid>
@@ -2190,7 +1919,6 @@ const ListItemComponent = () => {
           <Table aria-label="item table">
             <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
               <TableRow>
-                {/* Başlık hücrelerinde Typography'i koruyoruz ve StyledTableCell kullanıyoruz */}
                 <StyledTableCell>
                   <TableSortLabel
                     active={orderBy === 'name'}
@@ -2201,7 +1929,6 @@ const ListItemComponent = () => {
                     <Typography variant="h6">Ürün Adı</Typography>
                   </TableSortLabel>
                 </StyledTableCell>
-                {/* ✅ Added: Code Column Header */}
                 <StyledTableCell>
                   <TableSortLabel
                     active={orderBy === 'code'}
@@ -2233,16 +1960,6 @@ const ListItemComponent = () => {
                     <Typography variant="h6">Kategori</Typography>
                   </TableSortLabel>
                 </StyledTableCell>
-                {/* <StyledTableCell>
-                  <TableSortLabel
-                    active={orderBy === 'abbreviation'}
-                    direction={orderBy === 'abbreviation' ? order : 'asc'}
-                    onClick={() => handleRequestSort('abbreviation')}
-                    style={{ color: "#171c23" }}
-                  >
-                    <Typography variant="h6">Kısaltma</Typography>
-                  </TableSortLabel>
-                </StyledTableCell> */}
                 <StyledTableCell>
                   <TableSortLabel
                     active={orderBy === 'weight'}
@@ -2293,38 +2010,14 @@ const ListItemComponent = () => {
                 paginatedItems.map((row) => (
                   <TableRow key={row.id} sx={{ '&:last-child td': { border: 0 } }}>
                     <StyledTableCell><Typography variant="body1">{row.name}</Typography></StyledTableCell>
-                    {/* ✅ Added: Code Column Body */}
                     <StyledTableCell><Typography variant="body1">{row.code || '-'}</Typography></StyledTableCell>
                     <StyledTableCell><Typography variant="body1">{row.unit.title}</Typography></StyledTableCell>
                     <StyledTableCell><Typography variant="body1">{row.category.name}</Typography></StyledTableCell>
-                    {/* <StyledTableCell><Typography variant="body1">{row.abbreviation}</Typography></StyledTableCell> */}
                     <StyledTableCell><Typography variant="body1">{row.weight || ''}</Typography></StyledTableCell>
 
-                    {/* <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
-                      <Box sx={{
-                        maxHeight: '5em',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                      }}>
-                        <div dangerouslySetInnerHTML={{ __html: row.description }} />
-                      </Box>
-                      {row.description.length > 50 && (
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                          <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
-                            handleOpenDescriptionModal(row.description);
-                          }}>
-                            Açıklamanı Oku
-                          </Button>
-                        </CustomTooltip>
-                      )}
-                    </StyledTableCell> */}
 
                     <StyledTableCell sx={{ maxWidth: 150 }}>
                       {row.description && row.description.trim().length > 0 ? (
-                        // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                         <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                           <Button
 
@@ -2336,7 +2029,6 @@ const ListItemComponent = () => {
                           </Button>
                         </CustomTooltip>
                       ) : (
-                        // حالت دوم: اگر توضیحات نال یا خالی بود
                         <Typography variant="body2" align="center">
                           -
                         </Typography>
@@ -2363,7 +2055,6 @@ const ListItemComponent = () => {
                         }}
                       />
                     </StyledTableCell>
-                    {/* Menü kodu burada bitiyor */}
                     <StyledTableCell>
                       <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
                         <IconButton
@@ -2468,7 +2159,6 @@ const ListItemComponent = () => {
         showAlert={showAlert}
       />
 
-      {/* Full Description Modal */}
       <Dialog
         open={openDescriptionModal}
         onClose={handleCloseDescriptionModal}

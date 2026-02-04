@@ -31,7 +31,6 @@ const ComparisonModal: React.FC<ComparisonModalProps> = ({ open, onClose, onConf
 
     React.useEffect(() => {
         if (open) {
-            // Select all items by default when the modal opens
             setSelectedItems(comparisonData);
         }
     }, [open, comparisonData]);
@@ -43,33 +42,16 @@ const ComparisonModal: React.FC<ComparisonModalProps> = ({ open, onClose, onConf
                 : [...prev, item]
         );
     };
-
-    // const handleConfirm = () => {
-    //     const confirmedOrderItems = selectedItems.map(item => ({
-    //         id: Date.now() + Math.random(), // Unique ID
-    //         item: item.tenderItemId,
-    //         quantity: item.tenderItemQuantity,
-    //         description: '',
-    //         isEditing: true,
-    //         unit: { id: '', title: item.tenderItemUnit, createAt: '', recordStatus: 0 },
-    //         isRegistered: true,
-    //         price: 0,
-    //     }));
-    //     onConfirm(confirmedOrderItems);
-    // };
-
     const handleConfirm = () => {
-        // 1. Filter and calculate the needed quantity only for selected items
         const neededItems = selectedItems
             .map(item => {
                 const neededQuantity = item.tenderItemQuantity - item.warehouseBalance;
 
-                // 2. Check if there is a deficit
                 if (neededQuantity > 0) {
                     return {
-                        id: Date.now() + Math.random(), // Unique ID
+                        id: Date.now() + Math.random(),
                         item: item.tenderItemId,
-                        quantity: neededQuantity, // Set quantity to the calculated needed amount
+                        quantity: neededQuantity,
                         description: '',
                         isEditing: true,
                         unit: { id: '', title: item.tenderItemUnit, createAt: '', recordStatus: 0 },
@@ -77,11 +59,9 @@ const ComparisonModal: React.FC<ComparisonModalProps> = ({ open, onClose, onConf
                         price: 0,
                     };
                 }
-                return null; // Return null if there is no deficit
+                return null;
             })
-            .filter(item => item !== null); // 3. Remove null items from the list
-
-        // 4. Pass the filtered list to the parent component
+            .filter(item => item !== null);
         onConfirm(neededItems);
     };
 

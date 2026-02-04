@@ -337,7 +337,7 @@ const ListConcreteReport = () => {
             );
 
             if (response.data.httpStatusCode === 200 && response.data.data) {
-                debugger
+
                 setReportData(response.data.data as ConcreteReportResponseType);
             } else {
                 setReportData(null);
@@ -872,26 +872,7 @@ const ListConcreteReport = () => {
                             />
                         </LocalizationProvider>
                     </Grid>
-                    {/* <Grid item xs={12} sm={6} md={3}>
-                        <CustomTextField
-                            label="Min. Miktar"
-                            size="small"
-                            type="number"
-                            fullWidth
-                            value={filterParams.minQuantity || ''}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFilterChange('minQuantity', Number(e.target.value) || null)}
-                        />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <CustomTextField
-                            label="Max. Miktar"
-                            size="small"
-                            type="number"
-                            fullWidth
-                            value={filterParams.maxQuantity || ''}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFilterChange('maxQuantity', Number(e.target.value) || null)}
-                        />
-                    </Grid> */}
+
                 </Grid>
 
                 <Box sx={{ p: 2 }}>

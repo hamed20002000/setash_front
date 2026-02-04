@@ -17,7 +17,7 @@ export interface MapNode extends d3.SimulationNodeDatum {
     groupId?: string;
     status?: number;
 }
-export type NodeStatus = 0 | 1 | 2; // اگر نداری اضافه کن (0=YENİ, 1=DMM, 2=MEVCUT)
+export type NodeStatus = 0 | 1 | 2;
 
 export interface SelectOption {
     id: string;
@@ -126,7 +126,6 @@ export interface MapEdge {
 }
 
 
-// Corrected ProductTypesType interface
 export interface ProductTypesType {
     id: string;
     name: string;
@@ -134,7 +133,6 @@ export interface ProductTypesType {
     createAt: string;
     type: number;
     status?: string;
-    // The missing property is added here
     parentProductType?: {
         id: string;
         name: string;

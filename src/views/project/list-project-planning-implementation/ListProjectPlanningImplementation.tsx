@@ -7,7 +7,8 @@ import {
     IconButton
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
-import { IconCheck, IconX, IconReportAnalytics, IconFileText, IconFileSpreadsheet, IconRefresh } from "@tabler/icons-react";
+import { IconCheck, IconX, IconReportAnalytics, IconFileText, IconFileSpreadsheet, IconRefresh }
+    from "@tabler/icons-react";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { tr } from "date-fns/locale";
@@ -62,7 +63,6 @@ interface ApiResponse<T> {
     data: T;
 }
 
-/* ====== Utils ====== */
 const toDateOnly = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const parseISO = (s: string) => new Date(s);
 const fmt = (d: Date | string) => {
@@ -78,7 +78,6 @@ const dayRangeInclusive = (startISO: string, endISO: string): Date[] => {
     return days;
 };
 
-/* ====== PDF/Excel helpers ====== */
 const addPdfHeader = (doc: jsPDF, title: string) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const docAny = doc as any;
@@ -176,16 +175,15 @@ const exportPlanReportExcel = async (
     saveAs(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Proje_${project?.code || "Rapor"}_Plan.xlsx`);
 };
 
-/* ====== Styles ====== */
 const LeftTabs = styled(Tabs)(() => ({
     borderRight: 'none',
     minWidth: 120,
     paddingRight: 0,
     position: 'relative',
     '& .MuiTabs-indicator': {
-        right: 0,          // اندیکاتور سمت راست
+        right: 0,
         left: 'auto',
-        width: 3,          // ضخامت خط
+        width: 3,
         borderRadius: 0,
     },
 }));
@@ -195,7 +193,6 @@ const DateChip = styled(Chip)(({ theme }) => ({
     marginBottom: theme.spacing(1)
 }));
 
-/* ====== Component ====== */
 type DayStatus = "none" | "normal" | "force";
 type DayRow = { date: Date; status: DayStatus; id?: number | null };
 
@@ -217,24 +214,14 @@ const ListProjectPlanningImplementation = () => {
         (idsFromSingleParam.length ? idsFromSingleParam : idsFromRepeatedParams))
         .map(id => Number(id))
         .filter(id => Number.isFinite(id));
-    // const hasIdsFilter = notifIds.length > 0;
-    // const idsSet = new Set<number>(notifIds);
 
 
     const { isTooltipGloballyEnabled } = useTooltip();
-    // const { allowedOperations } = useAuth();
-    // const hasCreatePermission = useMemo(() => allowedOperations?.some(op => op.systemOperationName === "Eklemek") ?? false, [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => allowedOperations?.some(op => op.systemOperationName === "İndirmek ve Yazdırmak") ?? false, [allowedOperations]);
-
-
-
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -243,24 +230,19 @@ const ListProjectPlanningImplementation = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -269,11 +251,7 @@ const ListProjectPlanningImplementation = () => {
     };
 
     const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
-    //   const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
-    //   const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
-
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
 
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<"success" | "error" | "warning" | "info">("info");
@@ -401,11 +379,10 @@ const ListProjectPlanningImplementation = () => {
         } finally { setLoading(false); }
     }, [authToken, navigate, showAlert, selectedProject]);
 
-    // دریافت وضعیت ثبت روزهای یک پلنینگ (با id هر روز)
     const fetchImplementationByPlanning = useCallback(async (planningId: string, startISO: string, endISO: string) => {
         if (!authToken) { navigate("/"); return; }
         setLoading(true);
-        debugger
+
         try {
             const url = server.baseurl + server.warehouse + `get-project-planning-implementation-dates-by-project-planning-id/${planningId}`;
             const res = await axios.get<ApiResponse<any>>(url, { headers: { Authorization: `Bearer ${authToken}` } });
@@ -430,11 +407,9 @@ const ListProjectPlanningImplementation = () => {
 
             setDayRows(rows);
 
-            // پیشنهاد تاریخ باز
             const firstOpen = rows.find((r, idx) => r.status !== "normal" && rows.slice(0, idx).every(x => x.status === "normal"));
             setSelectedDay(firstOpen?.date ?? null);
 
-            // نمایش خودکار آخرین روز normal هنگام بازشدن تب
             const lastNormal = [...rows].filter(r => r.status === "normal" && r.id).pop();
             setDetailDateId(lastNormal?.id ?? null);
 
@@ -446,24 +421,18 @@ const ListProjectPlanningImplementation = () => {
         } finally { setLoading(false); }
     }, [authToken, navigate]);
 
-    /* ====== Effects ====== */
     useEffect(() => { fetchProjects(); fetchForceMajors(); }, [fetchProjects, fetchForceMajors]);
 
-    // 1) projectId از query
     const projectIdFromQuery = searchParams.get('projectId') || null;
 
-    // 2) گزینه‌های کمبو
     const projectOptions = useMemo(() => {
         if (!projects || projects.length === 0) return [];
         if (projectIdFromQuery) {
-            // فقط همان پروژه‌ای که از نوتیف آمده
             return projects.filter(p => String(p.id) === String(projectIdFromQuery));
         }
-        // در غیر این صورت، همه پروژه‌ها
         return projects;
     }, [projects, projectIdFromQuery]);
 
-    // 3) انتخاب خودکار وقتی فقط یک گزینه داریم یا وقتی projectId آمده
     useEffect(() => {
         if (!projects.length) return;
 
@@ -475,13 +444,11 @@ const ListProjectPlanningImplementation = () => {
             }
         }
 
-        // اگر هنوز انتخابی نداری و دقیقاً یک گزینه در کمبوست، همان را انتخاب کن (کیفی/اختیاری)
         if (!selectedProject && projectOptions.length === 1) {
             setSelectedProject(projectOptions[0]);
         }
     }, [projects, projectIdFromQuery, projectOptions, selectedProject]);
 
-    // 4) اگر انتخاب فعلی دیگر در گزینه‌ها نیست (به‌خاطر فیلتر)، خالی‌اش کن
     useEffect(() => {
         if (selectedProject && !projectOptions.some(p => p.id === selectedProject.id)) {
             setSelectedProject(null);
@@ -489,11 +456,6 @@ const ListProjectPlanningImplementation = () => {
     }, [projectOptions, selectedProject]);
 
 
-
-
-
-
-    // وقتی پروژه انتخاب شد، پلنینگ‌ها را بیاور
     useEffect(() => {
         if (selectedProject) {
             fetchPlanningsByProject(String(selectedProject.id));
@@ -505,7 +467,6 @@ const ListProjectPlanningImplementation = () => {
         }
     }, [selectedProject, fetchPlanningsByProject]);
 
-    // وقتی تب پلنینگ عوض شد، وضعیت روزها را بیاور
     useEffect(() => {
         if (activePlanning) {
             fetchImplementationByPlanning(activePlanning.id, activePlanning.startDate, activePlanning.endDate);
@@ -514,36 +475,27 @@ const ListProjectPlanningImplementation = () => {
             setSelectedDay(null);
             setDetailDateId(null);
         }
-        // reset force
         setIsForceMajor(false);
         setForceMajorId(null);
     }, [activePlanning, fetchImplementationByPlanning]);
 
 
-
-    /* ====== Actions ====== */
     const canSubmitForDate = (d: Date) => {
-        // تا همه روزهای قبلی "normal" نشوند، نمی‌توان ثبت کرد
         const idx = dayRows.findIndex(r => isSameDay(r.date, d));
         if (idx < 0) return false;
         const prevAllNormal = dayRows.slice(0, idx).every(r => r.status === "normal");
         return prevAllNormal;
     };
 
-    // در بالای کامپوننت ListProjectPlanningImplementation
     const selectedRow = useMemo(() => {
         if (!selectedDay) return null;
         return dayRows.find(r => isSameDay(r.date, selectedDay)) || null;
     }, [selectedDay, dayRows]);
 
     const isForceCheckboxDisabled = useMemo(() => {
-        // وقتی پلن نداریم یا تاریخ انتخاب نشده ⇒ غیرفعال
         if (!activePlanning || !selectedDay) return true;
-        // اگر تاریخ انتخابی قبلاً normal شده ⇒ کلاً غیرفعال
         if (selectedRow?.status === "normal") return true;
-        // اگر هنوز اجازه‌ی ثبت برای این تاریخ رو نداریم (روزهای قبل normal نیستند)
         if (!canSubmitForDate(selectedDay)) return true;
-        // در بقیه حالت‌ها فعال
         return false;
     }, [activePlanning, selectedDay, selectedRow, canSubmitForDate]);
 
@@ -577,7 +529,6 @@ const ListProjectPlanningImplementation = () => {
         }
 
         try {
-            // ارسال روز به صورت ISO از نیمه‌شب کلاینت (فعلاً بر اساس قرارداد فعلی)
             const start = toDateOnly(selectedDay);
             const payload = {
                 projectPlanningId: Number(activePlanning.id),
@@ -591,15 +542,11 @@ const ListProjectPlanningImplementation = () => {
             );
             if (res.data?.httpStatusCode === 201) {
                 showAlert("Kayıt oluşturuldu.", "success");
-                // تازه‌سازی
                 await fetchImplementationByPlanning(activePlanning.id, activePlanning.startDate, activePlanning.endDate);
 
-                // اگر normal ثبت شد ⇒ جزئیات را همین‌جا نشان بده
                 if (mode === "normal") {
                     setIsForceMajor(false);
                     setForceMajorId(null);
-                    // const newDateId = res.data?.data?.id || res.data?.data?.projectPlanningDateId || null;
-                    // if (newDateId) setDetailDateId(Number(newDateId));
                 }
             } else {
                 showAlert(res.data?.message || "Kayıt oluşturulamadı.", "error");
@@ -614,7 +561,6 @@ const ListProjectPlanningImplementation = () => {
         }
     };
 
-    /* ====== Derived ====== */
     const filteredRows = useMemo(() => {
         if (!filterFrom && !filterTo) return dayRows;
         return dayRows.filter(r => {
@@ -633,7 +579,7 @@ const ListProjectPlanningImplementation = () => {
     const clearNotifFilter = () => {
         const next = new URLSearchParams(searchParams);
         next.delete('ids');
-        next.delete('projectId');       // مهم
+        next.delete('projectId');
         setSearchParams(next, { replace: true });
 
         navigate(location.pathname, {
@@ -645,7 +591,6 @@ const ListProjectPlanningImplementation = () => {
     };
 
 
-    /* ====== UI ====== */
     return (
         <>
             <Box sx={{ p: 3 }}>
@@ -675,7 +620,6 @@ const ListProjectPlanningImplementation = () => {
 
                     </Stack>
 
-                    {/* Project + filters + report */}
                     <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems="stretch" flexGrow={1} justifyContent="flex-start">
                         <Autocomplete<Project>
                             options={projectOptions}
@@ -736,7 +680,6 @@ const ListProjectPlanningImplementation = () => {
                 <BlankCard>
                     <Box sx={{ p: 2 }}>
                         <Grid container spacing={2}>
-                            {/* Left: vertical tabs (plannings) */}
                             <Grid item xs={12} md={2}>
                                 <Paper variant="outlined" sx={{ height: "100%", minHeight: "80vh" }}>
                                     <Typography variant="subtitle2" sx={{ px: 2, py: 1.5, borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
@@ -773,7 +716,6 @@ const ListProjectPlanningImplementation = () => {
                                 </Paper>
                             </Grid>
 
-                            {/* Right: dates column and actions */}
                             <Grid item xs={12} md={10}>
                                 <Paper variant="outlined" sx={{ p: 2 }}>
                                     <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2} flexWrap="wrap" gap={2}>
@@ -794,7 +736,6 @@ const ListProjectPlanningImplementation = () => {
                                             </Typography>
                                         </Box>
 
-                                        {/* Force major controls */}
                                         <Stack direction="row" alignItems="center" flexWrap="wrap">
                                             <Checkbox
                                                 checked={isForceMajor}
@@ -839,7 +780,6 @@ const ListProjectPlanningImplementation = () => {
                                         </Stack>
                                     </Stack>
 
-                                    {/* Dates list */}
                                     <Paper
                                         variant="outlined"
                                         sx={{
@@ -865,7 +805,6 @@ const ListProjectPlanningImplementation = () => {
                                                                 cursor: disabled ? "not-allowed" : "pointer",
                                                                 bgcolor: selected ? "action.hover" : "transparent",
                                                                 borderRadius: 1,
-                                                                // فضا برای اکشن‌های absolute در ≥sm
                                                                 pr: { xs: 0, sm: 14 },
                                                                 alignItems: "flex-start",
                                                             }}
@@ -893,11 +832,10 @@ const ListProjectPlanningImplementation = () => {
                                                                     </Stack>
                                                                 }
                                                                 secondary={disabled && r.status !== "normal" ? "Önceki günler kaydedilmelidir." : ""}
-                                                                // کمی فاصله از اکشن‌ها در ≥sm
+
                                                                 sx={{ mr: { sm: 2 } }}
                                                             />
 
-                                                            {/* اکشن‌ها: موبایل زیر آیتم، دسکتاپ سمت راست */}
                                                             <ListItemSecondaryAction
                                                                 sx={{
                                                                     position: { xs: "static", sm: "absolute" },
@@ -924,17 +862,6 @@ const ListProjectPlanningImplementation = () => {
                                                                     >
                                                                         Kaydet
                                                                     </Button>
-                                                                    {/* <Button
-                                                                        size="small"
-                                                                        variant="outlined"
-                                                                        color="error"
-                                                                        disabled={disabled || r.status === "normal"}
-                                                                        onClick={() => { setSelectedDay(r.date); setIsForceMajor(true); }}
-                                                                        fullWidth
-                                                                        sx={{ width: { xs: "100%", sm: "auto" } }}
-                                                                    >
-                                                                        Mücbir Sebep
-                                                                    </Button> */}
                                                                 </Stack>
                                                             </ListItemSecondaryAction>
                                                         </ListItem>
@@ -949,7 +876,6 @@ const ListProjectPlanningImplementation = () => {
                                     </Paper>
 
 
-                                    {/* جزئیات زیر همین صفحه */}
                                     {detailDateId && (
                                         <Box mt={2}>
                                             <BlankCard>
@@ -966,7 +892,6 @@ const ListProjectPlanningImplementation = () => {
                 </BlankCard>
             </Box>
 
-            {/* Download Modal */}
             <Dialog open={openDownloadModal} onClose={() => setOpenDownloadModal(false)} maxWidth="xs">
                 <DialogTitle>Rapor İndir</DialogTitle>
                 <DialogContent>

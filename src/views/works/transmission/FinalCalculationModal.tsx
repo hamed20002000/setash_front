@@ -7,7 +7,6 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import {
-    // IconDeviceFloppy,
     IconCalculator, IconPlus, IconMinus, IconTrash
 } from '@tabler/icons-react';
 import axios from 'axios';
@@ -27,12 +26,6 @@ interface AddedItem {
         createAt: string;
     };
 }
-
-// interface ItemInput {
-//     id: string;
-//     miktarTipi: 'Yeni YG' | 'Yeni AG' | 'DMM YG' | 'DMM AG';
-//     percentage: string;
-// }
 
 interface FinalCalculationModalProps {
     open: boolean;
@@ -132,7 +125,7 @@ const FinalCalculationModal: React.FC<FinalCalculationModalProps> = ({ open, onC
             setLoading(false);
             return;
         }
-        debugger
+
 
         try {
             if (transmissionSummary.length === 0) {
@@ -261,7 +254,6 @@ const FinalCalculationModal: React.FC<FinalCalculationModalProps> = ({ open, onC
                                             <TableCell>
                                                 <Box sx={{ width: 100 }}>
                                                     <Typography variant="body1">
-                                                        {/* ✅ اگر item.weight مقدار نداشت، "-" نمایش داده شود */}
                                                         {item.weight !== null && item.weight !== undefined
                                                             ? parseFloat(String(item.weight)).toFixed(2)
                                                             : '-'}

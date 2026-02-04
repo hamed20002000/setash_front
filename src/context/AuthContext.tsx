@@ -15,7 +15,8 @@ import {
   IconFileOff, IconReportAnalytics, IconUsersGroup, IconCalendarTime, IconQuestionMark,
   IconInbox, IconClockHour3, IconTag, IconUserX, IconBarcode, IconTruck, IconParking, IconHandGrab,
   IconSchool, IconNotebook, IconBooks, IconFileCertificate, IconFileImport, IconCrown, IconFileReport,
-  IconFileText, IconListDetails, IconCarOff, IconFileSpreadsheet, IconClipboardData, IconCurrencyTaka
+  IconFileText, IconListDetails, IconCarOff, IconFileSpreadsheet, IconClipboardData, IconCurrencyTaka,
+  IconLayoutDashboard
 } from '@tabler/icons-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 // === Type Definitions
@@ -119,7 +120,7 @@ const decodeJwtToken = (token: string): JwtPayload | null => {
         })
         .join(''),
     );
-    debugger
+
     return JSON.parse(jsonPayload);
   } catch (e) {
     // console.error("Error decoding JWT token:", e);
@@ -139,7 +140,8 @@ const IconComponents: { [key: string]: React.ElementType } = {
   IconFileOff, IconReportAnalytics, IconUsersGroup, IconCalendarTime, IconQuestionMark,
   IconInbox, IconClockHour3, IconTag, IconUserX, IconBarcode, IconTruck, IconParking, IconHandGrab,
   IconSchool, IconNotebook, IconBooks, IconFileCertificate, IconFileImport, IconCrown, IconFileReport,
-  IconFileText, IconListDetails, IconCarOff, IconFileSpreadsheet, IconClipboardData, IconCurrencyTaka
+  IconFileText, IconListDetails, IconCarOff, IconFileSpreadsheet, IconClipboardData, IconCurrencyTaka,
+  IconLayoutDashboard
 };
 
 const getIconComponent = (iconName: string): React.ElementType => IconComponents[iconName.trim()] || IconPlus;
@@ -208,9 +210,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const getRawMenusFromApi = useCallback(async (): Promise<any[]> => {
     const authToken = localStorage.getItem('authToken');
-    debugger
+
     if (!authToken) return [];
-    debugger
+
     try {
       const response = await axios.get(`${server.baseurl}${server.baseinfo}get-menus`, {
         headers: { "Authorization": `Bearer ${authToken}` }
@@ -269,7 +271,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // }, [getRawMenusFromApi, mapApiDataToMenuItems]);
 
   const updateMenuAndOperations = useCallback(async (roleId: string) => {
-    debugger
+
     setIsAuthDataLoading(true);
     setAllowedOperations([]);
     setMenuItems([]);
@@ -282,7 +284,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsAuthDataLoading(false);
       return { ops: [], rawMenus: [] };
     }
-    debugger
+
     try {
       // ۱. اجرای همزمان هر دو API برای سرعت بیشتر
       const [roleOpsRes, userOpsRes, rawMenus] = await Promise.all([
@@ -355,7 +357,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
 
   function pickAndPersistActiveRole(roles: UserRole[], savedName?: string | null) {
-    debugger
+
     // اگر قبلاً چیزی ذخیره شده و هنوز معتبره
     const saved = savedName ? roles.find(r => r.name === savedName) : undefined;
     if (saved) {
@@ -376,7 +378,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const loadAuthData = useCallback(async () => {
     setIsAuthDataLoading(true); // ✅ شروع حالت بارگذاری
     const authToken = localStorage.getItem('authToken');
-    debugger
+
     if (!authToken) {
       // اگر توکن نیست، بلافاصله وضعیت را به حالت غیرمجاز برگردانید
       setUsername('Guest');
@@ -425,7 +427,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (rolesFromToken.length === 0) throw new Error('No roles resolved for user');
 
       const roleToActivate = pickAndPersistActiveRole(rolesFromToken, savedActiveRoleName);
-      debugger
+
       let ops: AllowedOperation[] = [];
       if (roleToActivate) {
         const userId = decodedToken?.userid; // مطمئن شوید نام فیلد در توکن درست است

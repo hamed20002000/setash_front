@@ -36,18 +36,16 @@ import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import { TimesNewRoman } from 'src/assets/fonts/Times';
-// import { ArialFont } from 'src/assets/fonts/Arial';
 import Logo from 'src/assets/images/logos/logo.png';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    fontFamily: 'NotoSans',
+    fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: {
-        fontSize: '1rem', // Masaüstünde daha büyük
+        fontSize: '1rem',
     },
 }));
 
@@ -180,31 +178,12 @@ const ListProductTypes = () => {
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
 
-    // const { allowedOperations } = useAuth();
-    // const hasCreatePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-    // }, [allowedOperations]);
-
-    // const hasEditPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-    // }, [allowedOperations]);
-
-    // const hasDeletePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-    // }, [allowedOperations]);
-
-    // const hasDownloadPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
-    // }, [allowedOperations]);
-
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -213,24 +192,19 @@ const ListProductTypes = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -587,97 +561,6 @@ const ListProductTypes = () => {
         setPage(0);
     };
 
-
-    // const handleDownloadAllProductTypesPDF = () => {
-    //     if (!sortedAndFilteredProductTypes || sortedAndFilteredProductTypes.length === 0) {
-    //         showAlert('PDF oluşturulacak ürün tipi bulunamadı.', 'warning');
-    //         return;
-    //     }
-
-    //     const doc = new jsPDF();
-    //     const pageWidth = doc.internal.pageSize.getWidth();
-    //     const pageHeight = doc.internal.pageSize.getHeight();
-
-    //     try {
-    //         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-    //         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-    //         doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
-    //         doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
-    //         doc.addFileToVFS('Arial.ttf', ArialFont);
-    //         doc.addFont('Arial.ttf', 'Arial', 'normal');
-
-    //         const rows = sortedAndFilteredProductTypes.map(type => [
-    //             type.name,
-    //             type.type === 0 ? 'Trafo' : type.type === 1 ? 'Direk (Beton)' : 'Direk (Demir)',
-    //             formatDateDisplay(type.createAt),
-    //             type.status
-    //         ]);
-
-    //         autoTable(doc, {
-    //             startY: 65,
-    //             head: [['İsim', 'Tür', 'Oluşturulma Tarihi', 'Durum']],
-    //             body: rows,
-    //             theme: 'grid',
-    //             styles: {
-    //                 font: 'Arial',
-    //                 fontStyle: 'normal',
-    //                 fontSize: 8,
-    //                 cellPadding: 2,
-    //                 overflow: 'linebreak'
-    //             },
-    //             headStyles: {
-    //                 fillColor: [242, 242, 242],
-    //                 textColor: [0, 0, 0],
-    //                 font: 'Arial',
-    //                 fontSize: 9,
-    //             },
-    //             didDrawPage: () => {
-    //                 const docAny = doc as any;
-    //                 // --- Header Section ---
-    //                 doc.setFont('Arial', 'bold');
-    //                 doc.setFontSize(14);
-    //                 doc.text('Tüm Ürün Tipleri Raporu', pageWidth / 2, 15, { align: 'center' });
-    //                 doc.setFontSize(10);
-    //                 doc.setFont('Times', 'bold');
-    //                 doc.text(`Tarih:`, 15, 25);
-    //                 doc.setFont('Times', 'normal');
-    //                 doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
-    //                 doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
-
-    //                 // --- Footer Section ---
-    //                 doc.setFont('NotoSans', 'normal');
-    //                 doc.setFontSize(8);
-    //                 doc.setTextColor(0);
-    //                 const companyInfo = [
-    //                     'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-    //                     'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-    //                     'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
-    //                 ];
-    //                 let footerY = pageHeight - 30;
-    //                 companyInfo.forEach(line => {
-    //                     doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-    //                     footerY += 4;
-    //                 });
-    //                 const pageNumber = docAny.internal.getCurrentPageInfo().pageNumber;
-    //                 const pageCount = docAny.internal.getNumberOfPages();
-    //                 doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-    //                 doc.setFont('NotoSans', 'normal');
-    //                 doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-    //                 doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-    //             },
-    //             showHead: 'everyPage',
-    //             margin: { top: 50, bottom: 45 },
-    //         });
-
-    //         doc.save('Tüm_Urun_Tipleri_Raporu.pdf');
-    //         showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
-    //     } catch (error: any) {
-    //         console.error('PDF oluşturulurken hata:', error);
-    //         showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
-    //     }
-    // };
-
-
     const handleDownloadAllProductTypesPDF = () => {
         if (!sortedAndFilteredProductTypes || sortedAndFilteredProductTypes.length === 0) {
             showAlert('PDF oluşturulacak ürün tipi bulunamadı.', 'warning');
@@ -690,14 +573,12 @@ const ListProductTypes = () => {
         const reportTitle = 'Tüm Ürün Tipleri Raporu';
 
         try {
-            // ۱. بارگذاری فونت‌ها
             doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
             doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
             doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
             doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
             doc.setFont('NotoSans');
 
-            // ۲. تعریف تابع هدر استاندارد
             const addPdfHeader = (pdfDoc: jsPDF, title: string) => {
                 try {
                     pdfDoc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
@@ -715,13 +596,10 @@ const ListProductTypes = () => {
                 pdfDoc.setFont('NotoSans', 'normal');
                 pdfDoc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
 
-                // خط جداکننده خاکستری زیر هدر
-                // pdfDoc.setDrawColor(200, 200, 200);
                 pdfDoc.setLineWidth(0.5);
                 pdfDoc.line(15, 45, pageWidth - 15, 45);
             };
 
-            // ۳. تعریف تابع فوتر با اطلاعات SETAŞ
             const addPdfFooter = (pdfDoc: jsPDF) => {
                 pdfDoc.setFontSize(8);
                 pdfDoc.setFont('NotoSans', 'normal');
@@ -739,7 +617,6 @@ const ListProductTypes = () => {
                     footerY += 4;
                 });
 
-                // بخش امضا و شماره صفحه
                 pdfDoc.setTextColor(0);
                 pdfDoc.setFontSize(10);
                 pdfDoc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
@@ -750,7 +627,6 @@ const ListProductTypes = () => {
                 pdfDoc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
             };
 
-            // ۴. آماده‌سازی داده‌ها
             const rows = sortedAndFilteredProductTypes.map(type => [
                 type.name,
                 type.type === 0 ? 'Trafo' : type.type === 1 ? 'Direk (Beton)' : 'Direk (Demir)',
@@ -758,7 +634,6 @@ const ListProductTypes = () => {
                 type.status
             ]);
 
-            // ۵. رسم جدول با تم رنگی [66, 66, 66]
             autoTable(doc, {
                 startY: 55,
                 head: [['İsim', 'Tür', 'Oluşturulma Tarihi', 'Durum']],
@@ -771,7 +646,7 @@ const ListProductTypes = () => {
                     valign: 'middle'
                 },
                 headStyles: {
-                    fillColor: [66, 66, 66], // خاکستری تیره مشابه دکمه‌های نقشه
+                    fillColor: [66, 66, 66],
                     textColor: [255, 255, 255],
                     fontStyle: 'normal',
                     halign: 'left'

@@ -4,7 +4,7 @@ import {
     TableHead, TableBody, TableRow, TableCell, CircularProgress, Box, Stack, Grid,
     IconButton, Menu, MenuItem, Typography, Autocomplete, TextField,
     TablePagination, Chip, ListItemIcon, TableContainer,
-    TableSortLabel, Alert, Tabs, Tab // 💡 Tabs و Tab اضافه شدند
+    TableSortLabel, Alert, Tabs, Tab
 } from '@mui/material';
 import axios from 'axios';
 import { IconDots, IconEdit, IconTrash, IconX, IconFileText, IconFileSpreadsheet, IconFileDownload } from '@tabler/icons-react';
@@ -13,29 +13,18 @@ import CustomFormLabel from '../../../components/forms/theme-elements/CustomForm
 import { tr } from 'date-fns/locale';
 import { format } from "date-fns";
 
-// --- Imports for Export ---
 import jsPDF from 'jspdf';
-// @ts-ignore
 import autoTable from 'jspdf-autotable';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
-// @ts-ignore
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
-// --- End Imports for Export ---
 
-// @ts-ignore
 import server from '../../../assets/address.json';
-// @ts-ignore
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
-// @ts-ignore
 import DeleteCourseParticipants from './DeleteCourseParticipants';
 import { useNavigate } from 'react-router';
 
 
-// -------------------------------------------------------------------------------------
-// --- INTERFACES & HELPERS ---
-// -------------------------------------------------------------------------------------
 interface CourseDateTimeOption {
     id: string;
     startDateTime: string;
@@ -92,7 +81,6 @@ const formatDateDisplaySimple = (dateString: string | null): string => {
     } catch (e) { return "Geçersiz Tarih"; }
 };
 
-// --- Sorting Helpers ---
 const descendingComparator = <T, Key extends keyof T>(a: T, b: T, orderBy: Key): number => {
     const valA = a[orderBy];
     const valB = b[orderBy];
@@ -118,7 +106,6 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilizedThis.map((el) => el[0]);
 };
 
-// --- PDF/Excel Helper Functions ---
 
 const addPdfHeader = (doc: jsPDF, title: string) => {
 
@@ -127,10 +114,10 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -140,7 +127,7 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
@@ -148,8 +135,6 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     doc.setFont('NotoSans', 'normal');
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -296,9 +281,6 @@ const exportDetailsToExcel = async (data: CourseParticipant[], title: string, sh
     }
 };
 
-// -------------------------------------------------------------------------------------
-// --- MAIN COMPONENT ---
-// -------------------------------------------------------------------------------------
 const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null, courseTitle: string, onClose: () => void, showAlert: (m: string, s: 'success' | 'error' | 'warning' | 'info') => void; }> = (props) => {
 
     const navigate = useNavigate();
@@ -310,18 +292,15 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
     const [loadingButton, setLoadingButton] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
-    // 💡 States for Tab and Multi-Select
     const [tabValue, setTabValue] = useState<'single' | 'multi'>('single');
     const [selectedPersonnelMulti, setSelectedPersonnelMulti] = useState<PersonnelApi[]>([]);
     const [personnelMultiError, setPersonnelMultiError] = useState(false);
 
-    // Form States (Single Select)
     const [selectedDateTime, setSelectedDateTime] = useState<CourseDateTimeOption | null>(null);
     const [selectedPersonnel, setSelectedPersonnel] = useState<PersonnelApi | null>(null);
     const [dateTimeError, setDateTimeError] = useState(false);
     const [personnelError, setPersonnelError] = useState(false);
 
-    // Table States
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [orderBy, setOrderBy] = useState<SortableKeys>('id');
@@ -329,12 +308,10 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<CourseParticipant | null>(null);
 
-    // Delete Modal States
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [deleteName, setDeleteName] = useState<string>('');
 
-    // Download Modal
     const [openDownloadModal, setOpenDownloadModal] = useState(false);
 
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
@@ -342,7 +319,6 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
 
     const authToken = localStorage.getItem('authToken');
 
-    // --- Utility Alerts ---
     const internalShowAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -408,7 +384,7 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
             return;
         }
         setLoading(true);
-        debugger
+
         try {
             const url = `${server.baseurl}${server.education}get-course-participants-by-course-id/${courseId}`;
             const res = await axios.get(url, { headers: { Authorization: `Bearer ${authToken}` } });
@@ -440,20 +416,18 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
             fetchPersonnel();
             fetchParticipants();
             resetForm();
-            setTabValue('single'); // شروع همیشه با حالت تکی
+            setTabValue('single');
         }
     }, [open, fetchDateTimesOptions, fetchPersonnel, fetchParticipants]);
 
-    // --- Tab Change Handler ---
     const handleTabChange = (_: React.SyntheticEvent, newValue: 'single' | 'multi') => {
-        if (editingId) return; // در حالت ویرایش امکان تغییر Tab نیست
+        if (editingId) return;
         setTabValue(newValue);
         resetForm();
         setSelectedPersonnelMulti([]);
         setPersonnelMultiError(false);
     };
 
-    // --- Form Handlers ---
     const validateFormSingle = (): boolean => {
         let ok = true;
         setDateTimeError(false); setPersonnelError(false);
@@ -492,7 +466,6 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
 
     const resetForm = useCallback(() => {
         setEditingId(null);
-        // اگر در حالت Multi بود، فقط SelectedDateTime حفظ می‌شود تا ثبت سریع‌تر باشد.
         if (tabValue === 'single') {
             setSelectedDateTime(dateTimesOptions.length > 0 ? dateTimesOptions[0] : null);
         }
@@ -511,7 +484,6 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
         setLoadingButton(true);
         const isEditing = editingId !== null;
 
-        // 💡 API برای ویرایش تکی و ثبت گروهی
         const urlCreate = `${server.baseurl}${server.education}create-course-participants`;
         const urlUpdate = `${server.baseurl}${server.education}update-course-participant`;
 
@@ -520,17 +492,15 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
         let finalMethod: 'post' | 'put';
 
         if (isEditing) {
-            // حالت ویرایش (فقط در Tab Single قابل دسترسی است)
             finalUrl = urlUpdate;
             finalMethod = 'put';
             finalDataToSend = {
                 id: editingId,
-                isParticipated: true, // فرض می‌شود در ویرایش این مقدار حفظ می‌شود
+                isParticipated: true,
                 courseDateTimeId: selectedDateTime!.id,
                 personnelId: selectedPersonnel!.id
             };
         } else if (tabValue === 'multi') {
-            // حالت ثبت چندتایی
             finalUrl = urlCreate;
             finalMethod = 'post';
             finalDataToSend = selectedPersonnelMulti.map(personnel => ({
@@ -539,7 +509,6 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
                 personnelId: personnel.id
             }));
 
-            // حذف پرسنل‌های تکراری از لیست انتخاب شده برای ثبت چندتایی
             const existingPersonnelIds = participants
                 .filter(p => p.courseDateTimeId === selectedDateTime!.id)
                 .map(p => p.personnelId);
@@ -549,13 +518,12 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
             );
 
             if (finalDataToSend.length === 0) {
-                showAlert('تمامی پرسنل انتخابی در تاریخ/زمان انتخابی قبلاً ثبت شده‌اند.', 'warning');
+                showAlert('Seçilen tüm personel için belirtilen tarih/saatte zaten kayıt yapılmıştır.', 'warning');
                 setLoadingButton(false);
                 return;
             }
 
         } else {
-            // حالت ثبت تکی
             finalUrl = urlCreate;
             finalMethod = 'post';
             finalDataToSend = [{
@@ -585,7 +553,7 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
 
     const handleEditClick = (row: CourseParticipant) => {
         setEditingId(row.id);
-        setTabValue('single'); // 💡 حتما به حالت تکی برود
+        setTabValue('single');
 
         const dtOption = dateTimesOptions.find(opt => opt.id === row.courseDateTimeId);
         setSelectedDateTime(dtOption || null);
@@ -600,7 +568,6 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
         handleCloseMenu();
     };
 
-    // --- Table & Pagination Handlers (بدون تغییر) ---
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: CourseParticipant) => { setAnchorEl(event.currentTarget); setSelectedRowForMenu(row); };
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
     const handleChangePage = (_: unknown, newPage: number) => setPage(newPage);
@@ -609,7 +576,6 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
         const isAsc = orderBy === property && order === 'asc'; setOrder(isAsc ? 'desc' : 'asc'); setOrderBy(property); setPage(0);
     }, [order, orderBy]);
 
-    // Delete Handlers
     const handleClickOpenDeleteModal = () => {
         if (!selectedRowForMenu) return;
         setDeleteId(selectedRowForMenu.id);
@@ -627,7 +593,6 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
         }
     };
 
-    // Download Handler
     const handleDownloadAll = (format: 'pdf' | 'excel') => {
         if (participants.length === 0) {
             showAlert('İndirilecek kayıt bulunmamaktadır.', 'warning');
@@ -645,7 +610,6 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
     };
 
 
-    // Sorted and Paginated Data
     const sortedParticipants = useMemo(() => stableSort(participants, getComparator(order, orderBy) as any), [participants, order, orderBy]);
     const paginatedRows = useMemo(() => sortedParticipants.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage), [sortedParticipants, page, rowsPerPage]);
 
@@ -670,9 +634,7 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
                     </Button>
                 </Stack>
 
-                {/* --- Form Section --- */}
                 <Box mb={3} border={1} borderColor="divider" borderRadius={2} >
-                    {/* 💡 TAB BAR */}
                     <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                         <Tabs value={tabValue} onChange={handleTabChange}>
                             <Tab label="Tek Kayıt Ekle" value="single" disabled={editingId !== null} />
@@ -680,10 +642,8 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
                         </Tabs>
                     </Box>
 
-                    {/* --- Form Content --- */}
                     <Box component={Stack} p={2}>
                         <Grid container spacing={2}>
-                            {/* Course DateTimes (Shared) */}
                             <Grid item xs={12} sm={6}>
                                 <CustomFormLabel required>Kurs Zamanı</CustomFormLabel>
                                 <Autocomplete
@@ -692,11 +652,10 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
                                     value={selectedDateTime}
                                     onChange={(_, newValue) => { setSelectedDateTime(newValue); setDateTimeError(false); }}
                                     renderInput={(params) => <TextField {...params} label="Tarih Aralığı Seçin" error={dateTimeError} helperText={dateTimeError ? 'Zorunlu alan.' : ''} />}
-                                // disabled={editingId !== null}
+
                                 />
                             </Grid>
 
-                            {/* 💡 Single Select Tab */}
                             {tabValue === 'single' && !editingId && (
                                 <Grid item xs={12} sm={6}>
                                     <CustomFormLabel required>Personel</CustomFormLabel>
@@ -711,12 +670,11 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
                                 </Grid>
                             )}
 
-                            {/* 💡 Multi Select Tab */}
                             {tabValue === 'multi' && !editingId && (
                                 <Grid item xs={12} sm={6}>
                                     <CustomFormLabel required>Personeller (Çoklu Seçim)</CustomFormLabel>
                                     <Autocomplete
-                                        multiple // ⭐️ Multi-Select Enabled
+                                        multiple
                                         size="small" options={personnelList}
                                         disableCloseOnSelect
                                         getOptionLabel={(option) => `${option.name} ${option.family} (${option.identityNumber})`}
@@ -730,7 +688,6 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
                                 </Grid>
                             )}
 
-                            {/* Actions (Shared) */}
                             <Grid item xs={12}>
                                 <Stack direction="row" spacing={1} justifyContent="flex-end">
                                     <Button
@@ -749,7 +706,6 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
                     </Box>
                 </Box>
 
-                {/* --- Table --- */}
                 <TableContainer component={Box} mt={3}>
                     {loading ? (
                         <Box display="flex" justifyContent="center" alignItems="center" height="150px"><CircularProgress /></Box>
@@ -803,7 +759,6 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
                 <Button onClick={onClose} color="secondary" disabled={loadingButton}>Kapat</Button>
             </DialogActions>
 
-            {/* --- Download Modal --- */}
             <Dialog open={openDownloadModal} onClose={() => setOpenDownloadModal(false)} maxWidth="xs">
                 <DialogTitle>Tüm Katılımcıları İndir</DialogTitle>
                 <DialogContent>
@@ -815,7 +770,6 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
                 <DialogActions><Button onClick={() => setOpenDownloadModal(false)} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* Delete Modal */}
             <DeleteCourseParticipants
                 openModal={openDeleteModal}
                 onClose={handleCloseDeleteModal}

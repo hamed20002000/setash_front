@@ -46,11 +46,10 @@ import BlankCard from 'src/components/shared/BlankCard';
 
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    fontFamily: 'NotoSans',
+    fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: {
-        fontSize: '1rem', // Masaüstünde daha büyük
+        fontSize: '1rem',
     },
 }));
 
@@ -65,7 +64,6 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
 }));
 
 
-// Type Definitions
 interface Work { id: string; title: string; startDate: string; endDate: string; createAt: string; recordStatus: number; }
 interface Network { id: string; createAt: string; recordStatus: number; title: string; description: string; work: Work; }
 interface UnitType { id: string; title: string; recordStatus: number; createAt: string; }
@@ -82,12 +80,10 @@ interface OrderItem {
 }
 interface RequestComboItem {
     id: number;
-    subject: string; // برای نمایش در کمبو
+    subject: string;
 }
-// در کنار سایر رابط‌ها (Interfaces)
 interface User {
     username: string;
-    // ... سایر فیلدهای لازم کاربر
 }
 
 interface OrderStatusHistory {
@@ -95,10 +91,10 @@ interface OrderStatusHistory {
     status: 0 | 1 | 2;
     description: string | null;
     createAt: string;
-    user: User; // کاربری که عملیات را انجام داده است
+    user: User;
 }
-interface RequestInfo { // Yeni bir arayüz tanımlayalım
-    id: string; // API'de string geliyor
+interface RequestInfo {
+    id: string;
     subject: string;
 }
 interface WorkhouseType {
@@ -130,15 +126,12 @@ interface OrderDetailType {
 }
 
 interface TenderType { id: string; title: string; recordStatus: number; createAt: string; }
-// اینترفیس مورد نیاز برای مودال شما
 export interface RegisterItemInitialData {
     description?: string;
     olcuBrimi?: string;
     originalRowId?: number;
 }
 
-// Table Style and Functions
-// type SortableOrderKeys = 'network.title' | 'docDate' | 'status';
 type SortableOrderKeys = 'id' | 'network.title' | 'docDate' | 'status' | 'createAt';
 
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
@@ -219,7 +212,6 @@ const ExcelImportComponent = () => {
     const [order, setOrder] = useState<'asc' | 'desc'>('desc');
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedOrderForMenu, setSelectedOrderForMenu] = useState<OrderType | null>(null);
-    // const openMenu = Boolean(anchorEl);
     const [openModal, setOpenModal] = useState(false);
     const [modalDetails, setModalDetails] = useState<OrderDetailType[]>([]);
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -262,35 +254,11 @@ const ExcelImportComponent = () => {
     const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
     const [openDownloadFilteredModal, setOpenDownloadFilteredModal] = useState(false);
 
-    // const { allowedOperations } = useAuth();
-    // const hasCreatePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-    // }, [allowedOperations]);
-
-    // const hasEditPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-    // }, [allowedOperations]);
-
-    // const hasDeletePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-    // }, [allowedOperations]);
-
-    // const hasDownloadPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
-    // }, [allowedOperations]);
-
-    // const hasStatusPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Onaylamak');
-    // }, [allowedOperations]);
-
-
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -298,25 +266,19 @@ const ExcelImportComponent = () => {
         }
         return null;
     };
-
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -354,26 +316,19 @@ const ExcelImportComponent = () => {
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
 
-                // داده‌ها را از سطر اول به عنوان هدر و از سطر دوم به بعد به عنوان داده بخوانید
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
 
-                // هدرها در سطر اول (index 0) قرار دارند.
                 const headersRow = jsonData[0] as string[];
-
-                // داده‌ها از سطر دوم (index 1) شروع می‌شوند.
                 const dataRows = jsonData.slice(1);
 
                 const trimmedHeaders = headersRow.map(header => (header as string)?.trim().toLowerCase());
 
-                // تعریف نام‌های ستون‌ها
-                // ✅ از نام‌های جستجو شده در آرایه trimmedHeaders استفاده کنید
                 const nameColIndex = trimmedHeaders.indexOf('ürün');
                 const unitColIndex = trimmedHeaders.indexOf('ölçü');
                 const quantityColIndex = trimmedHeaders.indexOf('miktar');
                 const descriptionColIndex = trimmedHeaders.indexOf('açıklama');
                 const priceColIndex = trimmedHeaders.indexOf('fiyat');
-                debugger
-                // بررسی وجود ستون‌های ضروری
+
                 if (nameColIndex === -1 || unitColIndex === -1 || quantityColIndex === -1) {
                     showAlert('Gerekli sütunlar (Ürün, ÖLÇÜ, Miktar) bulunamadı.', 'error');
                     return;
@@ -383,7 +338,6 @@ const ExcelImportComponent = () => {
                 dataRows.forEach((row, index) => {
                     const quantityValue = row[quantityColIndex];
 
-                    // بررسی مقدار Miktar
                     if (quantityValue && Number(quantityValue) > 0) {
                         const itemName = row[nameColIndex];
                         const itemUnitTitle = row[unitColIndex];
@@ -393,9 +347,7 @@ const ExcelImportComponent = () => {
                         const fullItem = itemsList.find(i => i.name === itemName);
 
                         parsedItems.push({
-                            // یک id موقت برای آیتم‌های جدید
                             id: Date.now() + index,
-                            // اگر آیتم در لیست اصلی وجود داشت، id آن را استفاده کن، در غیر این صورت نام آن را.
                             item: fullItem ? fullItem.id : itemName,
                             quantity: Number(quantityValue),
                             description: excelDescription || '',
@@ -407,7 +359,6 @@ const ExcelImportComponent = () => {
                     }
                 });
 
-                // آیتم‌های جدید را به لیست فعلی اضافه کنید
                 setOrderItems(prevItems => [...prevItems, ...parsedItems]);
                 showAlert('Excel dosyası başarıyla içe aktarıldı.', 'success');
 
@@ -433,7 +384,6 @@ const ExcelImportComponent = () => {
         if (priceInput === null || priceInput === undefined) {
             return '₺0.00';
         }
-        // حذف هر کاراکتری که عدد، نقطه یا منفی نیست (برای اطمینان بیشتر)
         const cleanedString = String(priceInput).replace(/[^0-9.-]/g, '');
         const numericValue = parseFloat(cleanedString);
 
@@ -441,7 +391,6 @@ const ExcelImportComponent = () => {
             return '₺0.00';
         }
 
-        // تغییر tr-TR به en-US برای استفاده از نقطه به عنوان اعشار
         const formattedPrice = numericValue.toLocaleString('en-US', {
             style: 'currency',
             currency: 'TRY',
@@ -459,10 +408,10 @@ const ExcelImportComponent = () => {
 
     const addPdfHeader = (doc: jsPDF, title: string) => {
         const pageWidth = doc.internal.pageSize.getWidth();
-        const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+        const logoWidth = 35;
         const logoHeight = 18;
         const margin = 15;
-        const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+        const logoX = pageWidth - logoWidth - margin;
 
         try {
             doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -472,7 +421,7 @@ const ExcelImportComponent = () => {
 
         doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
-        doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+        doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
         doc.setFontSize(10);
         doc.setFont('NotoSans', 'bold');
@@ -480,8 +429,6 @@ const ExcelImportComponent = () => {
         doc.setFont('NotoSans', 'normal');
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
 
-        // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-        // doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
         doc.line(15, 45, pageWidth - 15, 45);
     };
@@ -518,9 +465,8 @@ const ExcelImportComponent = () => {
 
 
     const exportToPdf = (orderData: OrderType) => {
-        debugger
+
         const doc = new jsPDF();
-        // بارگذاری فونت‌ها
         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
@@ -529,7 +475,6 @@ const ExcelImportComponent = () => {
         doc.addFont('Arial.ttf', 'Arial', 'normal');
         doc.setFont('Arial');
 
-        // داده‌های جدول اصلی
         const rows = orderData.orderDetails.map(detail => [
             detail.item.name || '-',
             Number(detail.quantity).toFixed(2) || '-',
@@ -538,7 +483,6 @@ const ExcelImportComponent = () => {
             cleanAndFormatPrice(detail.price),
         ]);
 
-        // رسم جدول اصلی
         autoTable(doc, {
             startY: 105,
             head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
@@ -553,9 +497,9 @@ const ExcelImportComponent = () => {
                     doc.setFontSize(10);
                     doc.text(`Sipariş No: ${orderData.id}`, 15, 54);
                     doc.text(`Şebeke: ${orderData.network ? orderData.network.title : '-'}`, 15, 60);
-                    doc.text(`Şantiye: ${orderData.workhouse ? orderData.workhouse.name : '-'}`, 15, 67); // تغییر Y coordinate بقیه
-                    doc.text(`Tarih: ${formatDateDisplay(orderData.docDate)}`, 15, 75); // Y += 7
-                    doc.text(`İlişkili Talep No: ${orderData.request ? '#' + orderData.request.id + orderData.request.subject : '-'}`, 15, 82); // Y += 7
+                    doc.text(`Şantiye: ${orderData.workhouse ? orderData.workhouse.name : '-'}`, 15, 67);
+                    doc.text(`Tarih: ${formatDateDisplay(orderData.docDate)}`, 15, 75);
+                    doc.text(`İlişkili Talep No: ${orderData.request ? '#' + orderData.request.id + orderData.request.subject : '-'}`, 15, 82);
                     doc.text(`Genel Açıklama: ${orderData.description || '-'}`, 15, 90);
                 }
                 addPdfFooter(doc);
@@ -566,7 +510,6 @@ const ExcelImportComponent = () => {
 
         const finalY = (doc as any).lastAutoTable.finalY;
 
-        // --- محاسبات جدول خلاصه ---
         const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
         let grandTotalPrice = 0;
 
@@ -574,11 +517,10 @@ const ExcelImportComponent = () => {
             const unitTitle = detail.item.unit.title;
             const qty = Number(detail.quantity);
 
-            // تمیز کردن قیمت
             const rawPriceString = String(detail.price).replace(/[$,]/g, '');
             const unitPrice = parseFloat(rawPriceString) || 0;
 
-            const lineTotal = qty * unitPrice; // قیمت کل این ردیف
+            const lineTotal = qty * unitPrice;
 
             const currentData = summaryData.get(unitTitle) || { totalQty: 0, totalPrice: 0 };
             summaryData.set(unitTitle, {
@@ -589,24 +531,22 @@ const ExcelImportComponent = () => {
             grandTotalPrice += lineTotal;
         });
 
-        // رسم جدول خلاصه
         if (summaryData.size > 0) {
             const summaryRows = Array.from(summaryData.entries()).map(([unit, data]) => [
                 unit,
                 data.totalQty.toFixed(2),
-                cleanAndFormatPrice(data.totalPrice) // جمع قیمت واحد
+                cleanAndFormatPrice(data.totalPrice)
             ]);
 
             autoTable(doc, {
                 startY: finalY + 10,
-                head: [['Birim', 'Toplam Miktar', 'Toplam Tutar']], // ستون سوم اضافه شد
+                head: [['Birim', 'Toplam Miktar', 'Toplam Tutar']],
                 body: summaryRows,
                 theme: 'grid',
                 styles: { font: 'Arial', fontSize: 10 },
                 headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0] },
             });
 
-            // نمایش جمع کل نهایی
             const priceSummaryY = (doc as any).lastAutoTable.finalY + 10;
             doc.setFontSize(12);
             doc.setFont('Arial', 'normal');
@@ -643,9 +583,9 @@ const ExcelImportComponent = () => {
             doc.setFontSize(10);
             doc.text(`Sipariş No: ${order.id}`, 15, 54);
             doc.text(`Şebeke: ${order.network ? order.network.title : '-'}`, 15, 60);
-            doc.text(`Şantiye: ${order.workhouse ? order.workhouse.name : '-'}`, 15, 66); // تغییر Y coordinate بقیه
-            doc.text(`Tarih: ${formatDateDisplay(order.docDate)}`, 15, 75); // Y += 7
-            doc.text(`İlişkili Talep No: ${order.request ? '#' + order.request.id + order.request.subject : '-'}`, 15, 82); // Y += 7
+            doc.text(`Şantiye: ${order.workhouse ? order.workhouse.name : '-'}`, 15, 66);
+            doc.text(`Tarih: ${formatDateDisplay(order.docDate)}`, 15, 75);
+            doc.text(`İlişkili Talep No: ${order.request ? '#' + order.request.id + order.request.subject : '-'}`, 15, 82);
             doc.text(`Genel Açıklama: ${order.description || '-'}`, 15, 90);
 
             const rows = order.orderDetails.map(detail => [
@@ -672,7 +612,6 @@ const ExcelImportComponent = () => {
 
             const finalY = (doc as any).lastAutoTable.finalY;
 
-            // --- محاسبات جدول خلاصه ---
             const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
             let grandTotalPrice = 0;
 
@@ -789,7 +728,6 @@ const ExcelImportComponent = () => {
             ]);
         });
 
-        // تنظیم عرض ستون‌ها
         worksheet.columns.forEach((column) => {
             let maxLength = 0;
             if (column && typeof column.eachCell === 'function') {
@@ -803,7 +741,6 @@ const ExcelImportComponent = () => {
             column.width = Math.min(Math.max(maxLength + 2, 15), 50);
         });
 
-        // --- محاسبات جدول خلاصه ---
         const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
         let grandTotalPrice = 0;
 
@@ -875,7 +812,6 @@ const ExcelImportComponent = () => {
             const worksheet = workbook.addWorksheet(`Sipariş_${order.id}`);
             worksheet.views = [{ rightToLeft: false }];
 
-            // هدر گزارش
             worksheet.addRow([`Sipariş Detayları`]).font = { name: 'Arial', size: 12, bold: true };
             worksheet.mergeCells('A1:E1');
             worksheet.getCell('A1').alignment = { horizontal: 'center' };
@@ -884,7 +820,6 @@ const ExcelImportComponent = () => {
             worksheet.getCell('A2').alignment = { horizontal: 'left' };
             worksheet.addRow([]);
 
-            // جزئیات سفارش
             worksheet.addRow(['Sipariş No', order.id]);
             worksheet.addRow(['Şebeke', order.network ? order.network.title : '-']);
             worksheet.addRow(['Şantiye', order.workhouse ? order.workhouse.name : '-']);
@@ -893,7 +828,6 @@ const ExcelImportComponent = () => {
             worksheet.addRow(['Genel Açıklama', order.description || '-']);
             worksheet.addRow([]);
 
-            // هدرهای جدول
             const tableHeaders = ['Ürün', 'ÖLÇÜ', 'Miktar', 'Açıklama', 'Fiyat'];
             const headerRow = worksheet.addRow(tableHeaders);
             headerRow.font = { name: 'Arial', bold: true };
@@ -905,7 +839,6 @@ const ExcelImportComponent = () => {
                 };
             });
 
-            // اقلام سفارش
             order.orderDetails.forEach(detail => {
                 worksheet.addRow([
                     detail.item.name,
@@ -916,7 +849,6 @@ const ExcelImportComponent = () => {
                 ]);
             });
 
-            // تنظیم عرض ستون‌ها
             worksheet.columns.forEach((column) => {
                 let maxLength = 0;
                 if (column && typeof column.eachCell === 'function') {
@@ -930,7 +862,6 @@ const ExcelImportComponent = () => {
                 column.width = Math.min(Math.max(maxLength + 2, 15), 50);
             });
 
-            // --- محاسبات جدول خلاصه ---
             const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
             let grandTotalPrice = 0;
 
@@ -994,38 +925,29 @@ const ExcelImportComponent = () => {
         setOpenDownloadAllModal(false);
         setOpenDownloadFilteredModal(false);
     };
-    // ------------------ End of New Export Functions ------------------
     const handleItemChange = (id: number, field: string, value: any) => {
-        // پیدا کردن آیتم در حال تغییر
         const itemToUpdate = orderItems.find(item => item.id === id);
         if (!itemToUpdate) return;
 
-        // ایجاد یک کپی از آیتم برای به‌روزرسانی
         const updatedItem = { ...itemToUpdate };
 
-        // اگر فیلد item تغییر کرد (یعنی محصول از کامبو باکس انتخاب شد)
         if (field === 'item') {
             const selectedItem = itemsList.find(i => i.id === value);
             updatedItem.item = value;
             updatedItem.unit = selectedItem?.unit;
             updatedItem.isRegistered = !!selectedItem;
-            // ✅ مقدار Miktar را به 0 یا مقدار فعلی تنظیم کنید، آن را دست‌نخورده نگه دارید.
-            //updatedItem.quantity = 0;
         }
-        // اگر فیلد quantity تغییر کرد
         else if (field === 'quantity') {
             const numericValue = parseFloat(value);
             updatedItem.quantity = isNaN(numericValue) ? 0 : numericValue;
         } else if (field === 'price') {
             const numericValue = parseFloat(value);
-            updatedItem.price = isNaN(numericValue) ? 0 : numericValue; // ✅ اگر NaN بود، 0 را ذخیره کن
+            updatedItem.price = isNaN(numericValue) ? 0 : numericValue;
         }
-        // اگر فیلد دیگری تغییر کرد
         else {
             (updatedItem as any)[field] = value;
         }
 
-        // به‌روزرسانی نهایی آرایه وضعیت (state)
         const updatedOrderItems = orderItems.map(item =>
             item.id === id ? updatedItem : item
         );
@@ -1039,7 +961,6 @@ const ExcelImportComponent = () => {
         setOpenSelectTenderModal(false);
     };
     const handleSelectItemsFromTender = (items: OrderItem[]) => {
-        // آیتم‌های جدید را به لیست فعلی اضافه کنید
         setOrderItems(prevItems => [...prevItems, ...items]);
         showAlert('Ürünler başarıyla eklendi!', 'success');
         handleCloseSelectTenderModal();
@@ -1166,18 +1087,17 @@ const ExcelImportComponent = () => {
         finally { setLoadingData(false); }
     };
 
-    // در کنار سایر توابع واکشی (getNetworks, getListItem, getListOrders)
     const fetchRequestsList = async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) return;
         try {
             const response = await axios.get(
-                server.baseurl + server.hr + "get-all-requests", // ⬅️ API درخواستی شما
+                server.baseurl + server.hr + "get-all-requests",
                 { headers: { "Authorization": `Bearer ${authToken}` } }
             );
             if (response.data.httpStatusCode === 200 && response.data.data) {
                 const activeRequests = (response.data.data as any[])
-                    .filter(req => req.status === 1) // فیلتر کردن فقط درخواست‌های "Beklemede" یا "Aktif"
+                    .filter(req => req.status === 1)
                     .map(req => ({ id: Number(req.id), subject: req.subject }));
                 setRequestsList(activeRequests);
             } else {
@@ -1229,13 +1149,10 @@ const ExcelImportComponent = () => {
         getListOrders();
         fetchTenders();
         fetchRequestsList();
-        getWorkhousesList(); // <--- اینجا اضافه کنید
+        getWorkhousesList();
     }, []);
     const validateForm = (): boolean => {
         let isValid = true;
-        //  if (!network) {
-        //     setNetworkError(true); isValid = false;
-        // } else { setNetworkError(false); } 
         if (!docDate) {
             setDocDateError(true); isValid = false;
 
@@ -1359,10 +1276,8 @@ const ExcelImportComponent = () => {
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: OrderType) => { setAnchorEl(event.currentTarget); setSelectedOrderForMenu(row); };
     const handleCloseMenu = () => {
         setAnchorEl(null);
-        // setSelectedOrderForMenu(null); 
-    };
-    // const handleAction = async (action: 'approve' | 'reject' | 'edit' | 'delete') => { alert(`Sipariş #${selectedOrderForMenu?.id} için "${action}" işlemi yapıldı.`); handleCloseMenu(); };
 
+    };
     const onDeleteSuccess = () => { getListOrders(); };
 
     const handleClickOpenDeleteModal = (id: number, title: string) => { setOrderIdToDelete(id); setOrderTitleToDelete(title); setOpenDeleteModal(true); handleCloseMenu(); };
@@ -1372,7 +1287,6 @@ const ExcelImportComponent = () => {
     const handleEditClick = (row: OrderType) => {
         setEditingId(row.id);
 
-        // ✅ بررسی وجود row.network قبل از دسترسی به ویژگی‌های آن
         if (row.network) {
             const selectedNetwork = networks.find(net => net.title === row.network.title);
             if (selectedNetwork) {
@@ -1380,7 +1294,6 @@ const ExcelImportComponent = () => {
                 setSelectedWork(selectedNetwork.work);
             }
         } else {
-            // ✅ در صورتی که network وجود ندارد، وضعیت‌ها را به حالت پیش‌فرض برگردانید یا مطابق نیاز مدیریت کنید
             setNetwork('');
             setSelectedWork(null);
         }
@@ -1391,14 +1304,10 @@ const ExcelImportComponent = () => {
         setGeneralDescription(row.description || '');
         const itemsToEdit: OrderItem[] = row.orderDetails.map(detail => {
             const fullItem = itemsList.find(item => item.id === detail.item.id);
-
-            // پاکسازی قیمت
             let priceValue = 0;
             if (detail.price !== null && detail.price !== undefined) {
-                // حذف $ و , و تبدیل به عدد
                 const cleanString = String(detail.price).replace(/[$,]/g, '');
                 const parsed = parseFloat(cleanString);
-                // اگر نتیجه NaN نبود، مقدار را استفاده کن
                 priceValue = isNaN(parsed) ? 0 : parsed;
             }
 
@@ -1410,7 +1319,7 @@ const ExcelImportComponent = () => {
                 isEditing: false,
                 unit: fullItem ? fullItem.unit : undefined,
                 isRegistered: true,
-                price: priceValue // مقدار اصلاح شده
+                price: priceValue
             };
         });
         setOrderItems(itemsToEdit);
@@ -1418,7 +1327,7 @@ const ExcelImportComponent = () => {
         setIsFormVisible(true);
         clearAlert();
     };
-    const handleRegisterItemSuccess = (registeredItem: any) => { // ✅ onRegisterSuccess handler
+    const handleRegisterItemSuccess = (registeredItem: any) => {
         getListItem();
         const updatedItems = orderItems.map(item => {
             if (item.item === registeredItem.name) {
@@ -1458,7 +1367,6 @@ const ExcelImportComponent = () => {
 
     const handleClickOpenStatusModal = (id: number, action: 'approve' | 'reject') => {
         setStatusToUpdate(action === 'approve' ? 1 : 2);
-        // setSelectedOrderForMenu(ordersList.find(o => o.id === id) || null); 
         setIdRow(id)
         setDescription('');
         setOpenStatusModal(true);
@@ -1473,12 +1381,6 @@ const ExcelImportComponent = () => {
     };
 
     const handleUpdateStatus = async () => {
-        // if (!description.trim()) {
-        //     setStatusError(true);
-        //     showAlert('Lütfen bir açıklama giriniz.', 'warning');
-        //     return;
-        // }
-
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             navigate("/");
@@ -1499,7 +1401,7 @@ const ExcelImportComponent = () => {
 
             if (response.data.httpStatusCode === 200) {
                 showAlert('Sipariş durumu başarıyla güncellendi!', 'success');
-                getListOrders(); // Sipariş listesini güncelle
+                getListOrders();
             } else {
                 showAlert(response.data.message || 'Sipariş durumu güncellenirken bir hata oluştu.', 'error');
             }
@@ -1557,7 +1459,6 @@ const ExcelImportComponent = () => {
     };
 
     const handleOpenHistoryModal = (row: OrderType) => {
-        // گرفتن کپی از آرایه و مرتب‌سازی آن بر اساس تاریخ (نزولی)
         const sortedHistory = row.orderHeaderStatusHistories
             ? [...row.orderHeaderStatusHistories].sort((a, b) =>
                 new Date(b.createAt).getTime() - new Date(a.createAt).getTime()
@@ -1591,9 +1492,6 @@ const ExcelImportComponent = () => {
         setOpenDescriptionModal(false);
         setFullDescriptionContent('');
     };
-
-
-    // محاسبه جمع کل بر اساس واحد برای مودال جزئیات
     const modalSummary = useMemo(() => {
         const summary: Record<string, number> = {};
         let grandTotal = 0;
@@ -1601,16 +1499,11 @@ const ExcelImportComponent = () => {
         modalDetails.forEach((detail) => {
             const unitTitle = detail.item?.unit?.title || "Diğer";
             const qty = Number(detail.quantity) || 0;
-
-            // راه حل خطا: تبدیل اجباری به رشته و سپس تمیزسازی
-            // این خط هم برای عدد کار می‌کند و هم برای رشته‌های دارای علامت مثل $
             const rawPrice = String(detail.price);
             const cleanPrice = rawPrice.replace(/[^0-9.-]/g, '');
             const priceVal = parseFloat(cleanPrice) || 0;
 
             const lineTotal = qty * priceVal;
-
-            // اضافه کردن به جمع واحد مربوطه
             summary[unitTitle] = (summary[unitTitle] || 0) + lineTotal;
             grandTotal += lineTotal;
         });
@@ -1741,8 +1634,8 @@ const ExcelImportComponent = () => {
                                 multiline
                                 rows={3}
                                 variant="outlined"
-                                value={generalDescription} // ⬅️ استفاده از نام جدید
-                                onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                value={generalDescription}
+                                onChange={(e) => setGeneralDescription(e.target.value)}
                             />
                         </Grid>
                     </Grid>
@@ -1995,7 +1888,6 @@ const ExcelImportComponent = () => {
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 {row.description && row.description.trim().length > 0 ? (
-                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button
 
@@ -2007,7 +1899,6 @@ const ExcelImportComponent = () => {
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (
-                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
                                                     <Typography variant="body2" align="center">
                                                         -
                                                     </Typography>
@@ -2129,7 +2020,6 @@ const ExcelImportComponent = () => {
                     rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage}
                 />
             </BlankCard>
-            {/* ⬅️ HISTORY MODAL (تاریخچه وضعیت) */}
             <Dialog open={openHistoryModal} onClose={handleCloseHistoryModal} maxWidth="md" fullWidth>
                 <DialogTitle>Sipariş Durum Geçmişi</DialogTitle>
                 <DialogContent dividers>
@@ -2163,7 +2053,6 @@ const ExcelImportComponent = () => {
                     <Button onClick={handleCloseHistoryModal}>Kapat</Button>
                 </DialogActions>
             </Dialog>
-            {/* Modals */}
             <Dialog open={openModal} onClose={handleCloseModal} maxWidth="md" fullWidth>
                 <DialogTitle>Ürün Detayları</DialogTitle>
                 <DialogContent dividers>
@@ -2223,7 +2112,6 @@ const ExcelImportComponent = () => {
                                                     </StyledTableCell>
                                                 </TableRow>
                                             ))}
-                                            {/* نمایش جمع کل نهایی (اختیاری) */}
                                             <TableRow sx={{ bgcolor: '#e3f2fd' }}>
                                                 <StyledTableCell sx={{ fontWeight: 'bold' }}>GENEL TOPLAM</StyledTableCell>
                                                 <StyledTableCell align="right" sx={{ fontWeight: 'bold' }}>
@@ -2293,7 +2181,6 @@ const ExcelImportComponent = () => {
                 itemsList={itemsList}
                 showAlert={showAlert}
             />
-            {/* New Download Modals */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
                 <DialogTitle>Tüm Siparişleri İndir</DialogTitle>
                 <DialogContent>

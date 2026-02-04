@@ -3,17 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, CircularProgress, Typography } from '@mui/material';
 
 import axios from 'axios';
-import server from '../../../assets/address.json'; // فرض می‌کنیم آدرس صحیح است
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // فرض می‌کنیم Context وجود دارد
+import server from '../../../assets/address.json';
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// Define the component props for type safety
 type DeleteProps = {
     openModal: boolean;
     idToDelete: number | null;
     nameToDelete: string;
     onClose: () => void;
     onDeleteSuccess: () => void;
-    // تابع نمایش هشدار که از کامپوننت والد می‌آید
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
@@ -32,7 +30,6 @@ const DeleteCarWarehouse = ({ openModal, idToDelete, nameToDelete, onClose, onDe
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             showAlert('Lütfen giriş yapın.', 'warning');
-            // در صورت نبود توکن، بهتر است به صفحه لاگین هدایت شود
             navigate('/');
             return;
         }
@@ -48,14 +45,13 @@ const DeleteCarWarehouse = ({ openModal, idToDelete, nameToDelete, onClose, onDe
 
             if (response.data.httpStatusCode === 200) {
                 showAlert('Araç Depo kaydı başarıyla silindi!', 'success');
-                onDeleteSuccess(); // فراخوانی تابع واکشی مجدد داده‌ها در والد
+                onDeleteSuccess();
                 onClose();
             } else {
                 showAlert(response.data.message || 'Kayıt silinirken bir hata oluştu.', 'error');
                 onClose();
             }
         } catch (e: any) {
-            // مدیریت خطاهای رایج (برگرفته از نمونه کد شما)
             if (e.response && e.response.status === 500) {
                 showAlert('Bu kayıt başka bir işlemde kullanıldığı için silinemez.', 'error');
             } else if (e.response && e.response.status === 401) {

@@ -88,7 +88,7 @@ const AttachFileModal: React.FC<AttachFileModalProps> = ({ open, onClose, tender
 
             if (uploadResponse.data.httpStatusCode === 201) {
                 const fileUrls = uploadResponse.data.data.files;
-                debugger
+
                 // Step 2: Prepare payload for the second API call
                 const updatePayload = {
                     id: Number(tenderId),

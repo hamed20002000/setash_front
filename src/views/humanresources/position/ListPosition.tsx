@@ -20,7 +20,6 @@ import { IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconX }
     from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
-// فرض بر این است که کامپوننت DeletePosition وجود دارد
 import DeletePosition from './DeletePosition';
 import axios from 'axios';
 import server from '../../../assets/address.json';
@@ -30,9 +29,7 @@ import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
 
 import { useAuth } from 'src/context/AuthContext';
-// واردات برای گزارش‌گیری
 import jsPDF from 'jspdf';
-// @ts-ignore
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import { TimesNewRoman } from 'src/assets/fonts/Times';
@@ -102,13 +99,12 @@ interface PositionType {
     id: number;
     title: string;
     createAt: string;
-    recordStatus?: number; // 0 = Aktif, 1 = Pasif, 2 = Silindi
-    status: string; // وضعیت متنی
+    recordStatus?: number;
+    status: string;
 }
 
 const MOCK_POSITIONS: PositionType[] = [];
 
-// توابع مرتب‌سازی بدون تغییر باقی می‌مانند
 const descendingComparator = <T, Key extends keyof T>(
     a: T,
     b: T,
@@ -203,32 +199,12 @@ const ListPosition = () => {
 
     const [loadingData, setLoadingData] = useState<boolean>(true);
 
-    // const { allowedOperations } = useAuth();
-    // // مجوزها بر اساس نام عملیات در بک‌اند
-    // const hasCreatePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-    // }, [allowedOperations]);
-
-    // const hasEditPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-    // }, [allowedOperations]);
-
-    // const hasDeletePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-    // }, [allowedOperations]);
-
-    // const hasDownloadPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
-    // }, [allowedOperations]);
-
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -237,24 +213,19 @@ const ListPosition = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -267,8 +238,6 @@ const ListPosition = () => {
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
 
-
-    // توابع کمکی منو و هشدارها
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: PositionType) => {
         setAnchorEl(event.currentTarget);
         setSelectedRowForMenu(row);
@@ -290,7 +259,7 @@ const ListPosition = () => {
     const handleClickCloseDeleteModal = () => {
         setOpenDeleteModal(false);
         setPositionIdToDelete(null);
-        getListPositions(); // رفرش لیست بعد از حذف
+        getListPositions();
     };
 
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -359,7 +328,7 @@ const ListPosition = () => {
         setLoadingButton(true);
         try {
             const response = await axios.post(
-                server.baseurl + server.hr + "create-position", // **API جدید**
+                server.baseurl + server.hr + "create-position",
                 { title: title },
                 {
                     headers: {
@@ -471,14 +440,14 @@ const ListPosition = () => {
         }
 
         if (Number(id) === 1 || Number(id) === 2) {
-            debugger
+
             showAlert('Bu pozisyonlar (Şantiye Çalışanı & Şefi) sistem kaydı olduğu için durumu değiştirilemez.', 'error');
-            handleCloseMenu(); // منو را ببندید
-            return; // جلوگیری از اجرای درخواست API
+            handleCloseMenu();
+            return;
         }
         try {
             const response = await axios.put(
-                server.baseurl + server.hr + "update-position", // **API جدید**
+                server.baseurl + server.hr + "update-position",
                 { id: Number(id), recordStatus: statusValue },
                 {
                     headers: {
@@ -510,13 +479,13 @@ const ListPosition = () => {
     };
     const handleSetActive = () => {
         if (selectedRowForMenu) {
-            sendStatusUpdate(selectedRowForMenu.id, 0); // 0 for Aktif
+            sendStatusUpdate(selectedRowForMenu.id, 0);
         }
     };
 
     const handleSetInactive = () => {
         if (selectedRowForMenu) {
-            sendStatusUpdate(selectedRowForMenu.id, 1); // 1 for Pasif
+            sendStatusUpdate(selectedRowForMenu.id, 1);
         }
     };
 
@@ -541,7 +510,7 @@ const ListPosition = () => {
         }
 
         axios.request({
-            baseURL: server.baseurl + server.hr + "get-all-positions", // **API جدید**
+            baseURL: server.baseurl + server.hr + "get-all-positions",
             method: "get",
             headers: {
                 "Accept": "application/json",
@@ -549,7 +518,7 @@ const ListPosition = () => {
             }
         }).then((result) => {
             if (result.data.httpStatusCode === 200) {
-                debugger
+
                 const formattedData = result.data.data.map((item: any) => ({
                     id: item.id,
                     title: item.title,
@@ -588,7 +557,6 @@ const ListPosition = () => {
         };
     }, []);
 
-    // توابع فیلترینگ و مرتب‌سازی
     const handleStatusFilterChange = (
         event: React.MouseEvent<HTMLElement>,
         newFilter: 'all' | 'active' | 'inactive' | null,
@@ -648,7 +616,6 @@ const ListPosition = () => {
         const pageHeight = doc.internal.pageSize.getHeight();
 
         try {
-            // ... (تنظیمات فونت و ... بدون تغییر)
             doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
             doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
             doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
@@ -684,7 +651,6 @@ const ListPosition = () => {
                 didDrawPage: () => {
                     doc.setFont('Arial', 'bold');
                     doc.setFontSize(14);
-                    // تغییر عنوان
                     doc.text('Tüm Pozisyon Raporu', pageWidth / 2, 15, { align: 'center' });
                     doc.setFontSize(10);
                     doc.setFont('NotoSans', 'bold');
@@ -724,7 +690,6 @@ const ListPosition = () => {
                 margin: { top: 50, bottom: 45 },
             });
 
-            // تغییر نام فایل
             doc.save('Tüm_Pozisyon_Raporu.pdf');
             showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (error: any) {
@@ -745,7 +710,6 @@ const ListPosition = () => {
 
         try {
             const workbook = new Excel.Workbook();
-            // تغییر نام شیت
             const worksheet = workbook.addWorksheet('Pozisyon Raporu', { views: [{ rightToLeft: false }] });
 
             const thinBorder = { style: 'thin', color: { argb: 'FFD3D3D3' } };
@@ -788,7 +752,6 @@ const ListPosition = () => {
             };
 
             worksheet.addRow(['', '', '']);
-            // تغییر عنوان
             const titleRow = worksheet.addRow(['Tüm Pozisyon Raporu']);
             if (titleRow) {
                 titleRow.font = { name: 'Times New Roman', size: 12, bold: true };
@@ -837,7 +800,6 @@ const ListPosition = () => {
             });
 
             const buffer = await workbook.xlsx.writeBuffer();
-            // تغییر نام فایل
             const fileName = `Tüm_Pozisyon_Raporu_${new Date().toLocaleDateString('tr-TR')}.xlsx`;
             saveAs(new Blob([buffer]), fileName);
 
@@ -860,7 +822,6 @@ const ListPosition = () => {
             }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2} mb={3} flexWrap="wrap" gap={2}>
 
-                    {/* تغییر متن عنوان */}
                     <Typography variant="h5" mb={2}>{editingId ? 'Pozisyon Düzenle' : 'Yeni Pozisyon Kaydı'}</Typography>
                     <Stack
                         direction={{ xs: 'column', sm: 'row' }}
@@ -1005,7 +966,6 @@ const ListPosition = () => {
                 <Box sx={{ p: 2 }}>
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} sm={6} md={8}>
-                            {/* تغییر لیبل جستجو */}
                             <TextField
                                 label="Pozisyon Ara"
                                 variant="outlined"
@@ -1095,7 +1055,6 @@ const ListPosition = () => {
                                 <TableRow>
                                     <StyledTableCell colSpan={4} align="center">
                                         <CircularProgress />
-                                        {/* تغییر متن بارگذاری */}
                                         <Typography variant="subtitle1" color="textSecondary">
                                             Pozisyonlar yükleniyor...
                                         </Typography>
@@ -1197,7 +1156,6 @@ const ListPosition = () => {
                             ) : (
                                 <TableRow>
                                     <StyledTableCell colSpan={4} align="center">
-                                        {/* تغییر متن پیدا نشدن */}
                                         <Typography variant="subtitle1" color="textSecondary">
                                             Hiç Pozisyon bulunamadı.
                                         </Typography>
@@ -1219,19 +1177,13 @@ const ListPosition = () => {
                     labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
                 />
             </BlankCard>
-
-            {/* ************************************** */}
-            {/* ** تغییر: فراخوانی DeletePosition ** */}
-            {/* ************************************** */}
             <DeletePosition
                 openModal={openDeleteModal}
                 onClose={handleClickCloseDeleteModal}
-                positionIdToDelete={positionIdToDelete} // تغییر نام props
+                positionIdToDelete={positionIdToDelete}
                 onDeleteSuccess={getListPositions}
                 showAlert={showAlert}
             />
-
-            {/* Download Modal */}
             <Dialog
                 open={openDownloadModal}
                 onClose={() => setOpenDownloadModal(false)}

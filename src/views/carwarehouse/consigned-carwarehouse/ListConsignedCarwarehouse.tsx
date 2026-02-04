@@ -21,27 +21,20 @@ import { format } from 'date-fns';
 import { styled, keyframes } from '@mui/material/styles';
 
 import axios from 'axios';
-// @ts-ignore
 import server from '../../../assets/address.json';
-// @ts-ignore
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
-// @ts-ignore
 import { useAuth } from 'src/context/AuthContext';
-// @ts-ignore
 import DeleteConsignedCarwarehouse from './DeleteConsignedCarwarehouse';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
-// @ts-ignore
 import autoTable from 'jspdf-autotable';
-// @ts-ignore
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
 import CustomFormLabel from "src/components/forms/theme-elements/CustomFormLabel";
 import BlankCard from "src/components/shared/BlankCard";
 
 
-// --- Interfaces (با اعمال اصلاحات لازم برای سازگاری با JSON جدید) ---
 type RecordStatus = 0 | 1;
 
 interface RegionType { id: string; name: string; depth: number; createAt: string; recordStatus: RecordStatus; }
@@ -68,7 +61,6 @@ interface CarDetail {
     recordStatus: RecordStatus;
     fuelType: string | null;
 
-    // فیلدهای جدید/تکمیلی از JSON
     manufactureDate: string;
     description: string;
     attacments: AttachmentType[];
@@ -77,11 +69,6 @@ interface CarDetail {
 }
 
 interface PersonnelType { id: number; name: string; family: string; identityNumber: string; workEndDate: string | null; }
-
-// interface ConsignedCarPayload {
-//     date: string; attachments: { fileUrl: string }[]; description: string; kilometer: number; carWarhouseDetailId: number | string;
-//     personnelId: number; consigned: boolean;
-// }
 
 interface WorkhouseType {
     id: number;
@@ -94,8 +81,6 @@ interface WorkhouseType {
 interface ConsignedCarPayload {
     date: string; attachments: { fileUrl: string }[]; description: string; kilometer: number; carWarhouseDetailId: number | string;
     personnelId: number; consigned: boolean;
-    // ⭐ NEW FIELD ⭐
-    // workhouseId: number | string;
     workhouseId?: string | number | null;
 }
 
@@ -109,7 +94,6 @@ interface ConsignedCarRecord {
 
     carWarhouseDetail: CarDetail;
     carWarehouseDetail: CarDetail;
-    // 💡 فرض می‌کنیم فیلد Personnel در پاسخ اصلی وجود دارد 💡
     personnel: PersonnelType;
     attachments: AttachmentType[];
     createAt: string;
@@ -117,7 +101,6 @@ interface ConsignedCarRecord {
 type SortableKeys = 'date' | 'kilometer' | 'consigned' | 'createAt';
 
 
-// --- Styles ---
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans',
     fontSize: '0.8rem',
@@ -130,7 +113,6 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
 }));
 
 
-// --- توابع کمکی: تاریخ، مرتب‌سازی ---
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "-";
     try {
@@ -161,7 +143,6 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilizedThis.map((el) => el[0]);
 };
 
-// --- توابع فایل (Icon/Color/Upload) ---
 const getFileIcon = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase();
     if (ext === 'pdf') return <IconFileText size={18} />;
@@ -230,7 +211,6 @@ const ConsignmentFileUpload: React.FC<{
     );
 };
 
-// --- توابع کامل دانلود PDF/Excel ---
 
 const addPdfHeader = (doc: jsPDF, title: string) => {
 
@@ -239,10 +219,10 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -252,7 +232,7 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
@@ -260,8 +240,6 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     doc.setFont('NotoSans', 'normal');
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -304,10 +282,10 @@ const addPdfHeaders = (doc: jsPDF, title: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -317,7 +295,7 @@ const addPdfHeaders = (doc: jsPDF, title: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
@@ -325,8 +303,6 @@ const addPdfHeaders = (doc: jsPDF, title: string) => {
     doc.setFont('NotoSans', 'normal');
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -366,7 +342,6 @@ const exportToPdf = (data: ConsignedCarRecord[], title: string, showAlert: (m: s
     if (!data || data.length === 0) { showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning'); return; }
     setLoadingData(true); showAlert('Rapor oluşturuluyor...', 'info');
 
-    // @ts-ignore
     const doc = new jsPDF();
     const docAny = doc as any;
 
@@ -416,7 +391,6 @@ const addExcelHeader = (worksheet: Excel.Worksheet, title: string, columnsLength
 };
 
 const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, columnsLength: number) => {
-    // const companyInfo = ['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.', 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR'];
     const companyInfo = [
         'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
         'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
@@ -492,23 +466,15 @@ const handleDownloadExcel = (data: ConsignedCarRecord[], title: string, showAler
 
 const ListConsignedCarwarehouse: React.FC = () => {
     const navigate = useNavigate();
-    // const { allowedOperations } = useAuth();
 
 
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
-    // const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
-
-
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -517,24 +483,19 @@ const ListConsignedCarwarehouse: React.FC = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -543,15 +504,13 @@ const ListConsignedCarwarehouse: React.FC = () => {
     };
 
     const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
-    //   const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
 
 
-    const [isReturnMode, setIsReturnMode] = useState(false); // حالت برگشت فعال است؟
-    const [originalRecord, setOriginalRecord] = useState<ConsignedCarRecord | null>(null); // رکورد اصلی برای حالت برگشت
+    const [isReturnMode, setIsReturnMode] = useState(false);
+    const [originalRecord, setOriginalRecord] = useState<ConsignedCarRecord | null>(null);
 
-    // Form Inputs
     const [date, setDate] = useState<Date | null>(new Date());
     const [kilometer, setKilometer] = useState<number | ''>('');
     const [description, setDescription] = useState<string>('');
@@ -562,27 +521,22 @@ const ListConsignedCarwarehouse: React.FC = () => {
     const [selectedWorkhouse, setSelectedWorkhouse] = useState<WorkhouseType | null>(null);
     const [workhouseError, setWorkhouseError] = useState(false);
 
-    // Form Combos
     const [warehousesList, setWarehousesList] = useState<CarWarehouseApi[]>([]);
-    const [selectedWarehouse, setSelectedWarehouse] = useState<CarWarehouseApi | null>(null); // کمبوی ۱: انبار
+    const [selectedWarehouse, setSelectedWarehouse] = useState<CarWarehouseApi | null>(null);
     const [carDetailsList, setCarDetailsList] = useState<CarDetail[]>([]);
-    const [selectedCarDetail, setSelectedCarDetail] = useState<CarDetail | null>(null); // کمبوی ۲: جزئیات خودرو
+    const [selectedCarDetail, setSelectedCarDetail] = useState<CarDetail | null>(null);
     const [personnelList, setPersonnelList] = useState<PersonnelType[]>([]);
-    const [selectedPersonnel, setSelectedPersonnel] = useState<PersonnelType | null>(null); // کمبوی ۳: پرسنل
+    const [selectedPersonnel, setSelectedPersonnel] = useState<PersonnelType | null>(null);
 
-    // Validation States
     const [warehouseError, setWarehouseError] = useState(false);
     const [carDetailError, setCarDetailError] = useState(false);
     const [personnelError, setPersonnelError] = useState(false);
     const [kilometerError, setKilometerError] = useState(false);
 
-    // ------------------------------------
-    // Table States (فیلتر و نمایش)
-    // ------------------------------------
     const [filterWarehousesList, setFilterWarehousesList] = useState<CarWarehouseApi[]>([]);
-    const [selectedFilterWarehouse, setSelectedFilterWarehouse] = useState<CarWarehouseApi | null>(null); // فیلتر ۱: انبار
+    const [selectedFilterWarehouse, setSelectedFilterWarehouse] = useState<CarWarehouseApi | null>(null);
     const [filterCarDetailsList, setFilterCarDetailsList] = useState<CarDetail[]>([]);
-    const [selectedFilterCarDetail, setSelectedFilterCarDetail] = useState<CarDetail | null>(null); // فیلتر ۲: جزئیات خودرو
+    const [selectedFilterCarDetail, setSelectedFilterCarDetail] = useState<CarDetail | null>(null);
 
     const [consignedCars, setConsignedCars] = useState<ConsignedCarRecord[]>([]);
     const [loadingData, setLoadingData] = useState<boolean>(true);
@@ -614,8 +568,8 @@ const ListConsignedCarwarehouse: React.FC = () => {
 
     const [openAttachModal, setOpenAttachModal] = useState(false);
     const [rowToUpdateAttachments, setRowToUpdateAttachments] = useState<ConsignedCarRecord | null>(null);
-    const [attachFiles, setAttachFiles] = useState<File[]>([]); // فایل‌های جدید برای آپلود
-    const [attachCurrentAttachments, setAttachCurrentAttachments] = useState<AttachmentType[]>([]); // پیوست‌های موجود
+    const [attachFiles, setAttachFiles] = useState<File[]>([]);
+    const [attachCurrentAttachments, setAttachCurrentAttachments] = useState<AttachmentType[]>([]);
     const [attachButtonLoading, setAttachButtonLoading] = useState(false);
     const [attachError, setAttachError] = useState(false);
 
@@ -624,11 +578,11 @@ const ListConsignedCarwarehouse: React.FC = () => {
 
     const [openAttachmentsModal, setOpenAttachmentsModal] = useState(false);
     const [attachmentsToView, setAttachmentsToView] = useState<AttachmentType[]>([]);
-    const [isBlinking, setIsBlinking] = useState<boolean>(true); // برای دکمه 'Yeni Emanet Kaydı Ekle'
+    const [isBlinking, setIsBlinking] = useState<boolean>(true);
 
 
-    const [searchTerm, setSearchTerm] = useState(''); // ⬅️ جستجو
-    const [startFilter, setStartFilter] = useState<Date | null>(null); // ⬅️ فیلتر تاریخ شروع
+    const [searchTerm, setSearchTerm] = useState('');
+    const [startFilter, setStartFilter] = useState<Date | null>(null);
     const [endFilter, setEndFilter] = useState<Date | null>(null);
 
 
@@ -650,7 +604,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
 
 
 
-    // --- Utility Functions ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -727,7 +680,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
             if (res.data.httpStatusCode === 200) {
                 const filteredList = (res.data.data as any[])
                     .filter((car: any) => Number(car.recordStatus) === 0 && car.available === true)
-                    .map((car: any): CarDetail => ({ // 👈 اطمینان از نوع خروجی map
+                    .map((car: any): CarDetail => ({
                         id: Number(car.id),
                         brand: String(car.brand),
                         model: String(car.model),
@@ -736,12 +689,11 @@ const ListConsignedCarwarehouse: React.FC = () => {
                         fuelType: String(car.fuelType),
                         recordStatus: (Number(car.recordStatus) === 0 ? 0 : 1) as RecordStatus,
 
-                        // فیلدهای جدید/تکمیلی
                         manufactureDate: String(car.manufactureDate),
                         description: String(car.description),
-                        attacments: car.attacments || [], // فرض می‌کنیم این لیست است
+                        attacments: car.attacments || [],
                         createAt: String(car.createAt),
-                        carWarehouse: car.carWarehouse, // فرض می‌کنیم آبجکت کامل ارسال می‌شود
+                        carWarehouse: car.carWarehouse,
                     }));
 
                 setCarDetailsList(filteredList);
@@ -765,7 +717,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
                 const rawList = (res.data.data as any[]);
                 const filteredList = rawList
                     .filter((car: any) => Number(car.recordStatus) === 0)
-                    .map((car: any): CarDetail => ({ // 👈 اطمینان از نوع خروجی map
+                    .map((car: any): CarDetail => ({
                         id: Number(car.id),
                         brand: String(car.brand),
                         model: String(car.model),
@@ -774,12 +726,11 @@ const ListConsignedCarwarehouse: React.FC = () => {
 
                         fuelType: String(car.fuelType),
                         recordStatus: (Number(car.recordStatus) === 0 ? 0 : 1) as RecordStatus,
-                        // فیلدهای جدید/تکمیلی
                         manufactureDate: String(car.manufactureDate),
                         description: String(car.description),
-                        attacments: car.attacments || [], // فرض می‌کنیم این لیست است
+                        attacments: car.attacments || [],
                         createAt: String(car.createAt),
-                        carWarehouse: car.carWarehouse, // فرض می‌کنیم آبجکت کامل ارسال می‌شود
+                        carWarehouse: car.carWarehouse,
                     }));
                 setFilterCarDetailsList(filteredList);
             }
@@ -811,7 +762,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
             });
 
             if (res.data.httpStatusCode === 200) {
-                // فرض می‌کنیم داده‌های personnel در این پاسخ وجود دارند.
                 setConsignedCars(res.data.data as ConsignedCarRecord[]);
             } else { showAlert(res.data.message || 'Araç kayıtları yüklenemedi.', 'error'); }
         } catch (e: any) {
@@ -856,7 +806,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
         }
     }, [navigate, showAlert]);
 
-    // useEffect(() => { fetchWarehouses(); fetchPersonnelList(); }, [fetchWarehouses, fetchPersonnelList]);
     useEffect(() => {
         fetchWarehouses();
         fetchPersonnelList();
@@ -872,7 +821,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
         setWorkhouseError(false);
         if (!selectedWarehouse) { setWarehouseError(true); ok = false; }
         if (!selectedCarDetail) { setCarDetailError(true); ok = false; }
-        // if (!selectedWorkhouse && !isReturnMode) { setWorkhouseError(true); ok = false; }
         if (!selectedPersonnel && !isReturnMode) { setPersonnelError(true); ok = false; }
         if (kilometer === '' || Number(kilometer) <= 0) { setKilometerError(true); ok = false; }
 
@@ -925,7 +873,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
             kilometer: Number(kilometer),
             carWarhouseDetailId: Number(selectedCarDetail!.id),
             personnelId: Number(personnelToSend),
-            // workhouseId: Number(workhouseToSend),
             workhouseId: workhouseToSend ? Number(workhouseToSend) : null,
             consigned: consignedStatus,
         };
@@ -965,7 +912,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
 
 
     useEffect(() => {
-        // اگر دیتای جدیدی ثبت کردیم و لیست جدول آپدیت شده و لودینگ تمام شده
         if (lastSubmittedPayload && !loadingData) {
 
             const found = consignedCars.find(r =>
@@ -974,20 +920,20 @@ const ListConsignedCarwarehouse: React.FC = () => {
             );
 
             if (found) {
-                setSelectedRowForDownload(found); // رکورد را انتخاب کن
-                setOpenRowDownloadModal(true);    // مودال دانلود ردیف را باز کن
-                setLastSubmittedPayload(null);    // عملیات تمام شد، ریست کن
+                setSelectedRowForDownload(found);
+                setOpenRowDownloadModal(true);
+                setLastSubmittedPayload(null);
             }
         }
     }, [consignedCars, loadingData, lastSubmittedPayload]);
 
     const handleReturnCar = (row: ConsignedCarRecord) => {
         setRowToReturn(row);
-        setReturnKilometer(''); // پر کردن کیلومتر قبلی به عنوان مقدار اولیه
+        setReturnKilometer('');
         setReturnDescription('');
-        setReturnAttachments([]); // پیوست‌های قبلی را بیاورید
-        setReturnFiles([]); // فایل‌های جدید را ریست کنید
-        setReturnDate(new Date()); // تاریخ را به امروز تنظیم کنید
+        setReturnAttachments([]);
+        setReturnFiles([]);
+        setReturnDate(new Date());
         setReturnKilometerError(false);
 
         setOpenReturnModal(true);
@@ -1000,31 +946,26 @@ const ListConsignedCarwarehouse: React.FC = () => {
         if (lastSubmittedPayload && isListReadyToSearch && consignedCars.length > 0) {
 
             const targetConsignedStatus = lastSubmittedPayload.consigned;
-            // پیدا کردن رکورد جدید (بر اساس تطابق کامل Payload)
             const newRecord = consignedCars.find(r =>
                 String(r.carWarehouseDetail.id) === String(lastSubmittedPayload.carWarhouseDetailId) &&
                 String(r.personnel.id) === String(lastSubmittedPayload.personnelId) &&
                 r.kilometer === lastSubmittedPayload.kilometer &&
-                r.consigned === targetConsignedStatus // ✅ تطابق بر اساس وضعیت مورد انتظار
+                r.consigned === targetConsignedStatus
             );
 
             if (newRecord) {
                 setLastRecordDetail(newRecord);
                 setOpenLastRecordModal(true);
 
-                // ✅ پاکسازی Flagها
                 setLastSubmittedPayload(null);
                 setIsListReadyToSearch(false);
             } else {
-                // در صورت عدم یافتن (ممکن است بخواهید یک پیغام خطا بدهید یا دوباره صبر کنید)
                 console.warn("New record not found in the refreshed list. Waiting for next sync or API delay.");
-                // بهتر است Flag را در اینجا پاک نکنیم تا اگر API بعداً Sync شد، مجدداً چک شود.
             }
         } else if (isListReadyToSearch && !loadingData) {
-            // اگر جستجو کامل شد و رکورد پیدا نشد و loading تمام شد، Flag را پاک کنیم.
             setIsListReadyToSearch(false);
         }
-    }, [consignedCars, lastSubmittedPayload, isListReadyToSearch, loadingData]); // وابستگی‌ها
+    }, [consignedCars, lastSubmittedPayload, isListReadyToSearch, loadingData]);
 
     const handleReturnSubmit = async () => {
         if (!rowToReturn || returnKilometer === '' || Number(returnKilometer) <= 0) {
@@ -1040,12 +981,10 @@ const ListConsignedCarwarehouse: React.FC = () => {
         let fileUrls: string[] | null = [];
         if (returnFiles.length > 0) {
             showAlert('Dosyalar yükleniyor...', 'info');
-            // 💡 استفاده از تابع آپلود فایل موجود
             fileUrls = await uploadFiles(returnFiles, authToken, showAlert);
             if (fileUrls === null) { setReturnButtonLoading(false); return; }
         }
 
-        // پیوست‌های موجود + پیوست‌های جدید آپلود شده
         const finalAttachments: AttachmentType[] = [...returnAttachments, ...(fileUrls?.map(url => ({ fileUrl: url })) ?? [])];
 
         const payload: ConsignedCarPayload = {
@@ -1067,12 +1006,10 @@ const ListConsignedCarwarehouse: React.FC = () => {
             if (res.data.httpStatusCode === 201) {
                 showAlert(`Araç başarıyla geri alındı! (Consigned: False)`, 'success');
                 setLastSubmittedPayload(payload);
-                // ✅ فعال‌سازی Flag جستجو
                 setIsListReadyToSearch(true);
 
-                handleCloseReturnModal(); // بستن Modal بازپس‌گیری اصلی
+                handleCloseReturnModal();
                 fetchConsignedCars(selectedFilterCarDetail?.id || null);
-                // fetchCarDetailsForForm(rowToReturn.carWarhouseDetail.carWarehouse.id || null); // به‌روزرسانی لیست موجودی برای فرم امانت
             } else { showAlert(res.data.message || 'İşlem sırasında bir hata oluştu.', 'error'); }
         } catch (e: any) {
             if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde  için silinemez veya düzenlenemez.', 'error');
@@ -1089,18 +1026,10 @@ const ListConsignedCarwarehouse: React.FC = () => {
         setReturnButtonLoading(false);
     };
 
-    // const handleRegisterFuel = (row: ConsignedCarRecord) => {
-    //     debugger
-
-    //     const route = `/car-warehouse/list-car-fuels/${row.id}`;
-    //     navigate(route);
-    //     handleCloseMenu();
-    // };
 
     const handleRegisterFuel = (row: ConsignedCarRecord) => {
         const route = `/car-warehouse/list-car-fuels/${row.id}`;
 
-        // ارسال داده از طریق state به صفحه مقصد
         navigate(route, {
             state: {
                 initialFuelType: row.carWarehouseDetail?.fuelType
@@ -1114,19 +1043,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
 
 
-    // const filteredConsignedCars = useMemo(() => {
-    //     const list = consignedCars.filter(r => {
-    //         const matchesSearch = r.carWarhouseDetail.plaque.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    //             r.personnel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    //             r.personnel.family.toLowerCase().includes(searchTerm.toLowerCase());
-    //         const cDate = new Date(r.date);
-    //         const inRange = (!startFilter || (cDate && cDate >= startFilter)) &&
-    //             (!endFilter || (cDate && cDate <= endFilter));
-
-    //         return matchesSearch && inRange;
-    //     });
-    //     return stableSort(list, getComparator(order, orderBy));
-    // }, [consignedCars, searchTerm, startFilter, endFilter, order, orderBy]);
 
     const filteredConsignedCars = useMemo(() => {
         if (!consignedCars) return [];
@@ -1134,8 +1050,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
         const list = consignedCars.filter(r => {
             if (!r) return false;
 
-            // اصلاح نام: carWarehouseDetail
-            // استفاده از ?. برای جلوگیری از خطا اگر workhouse نال بود
             const plaque = r.carWarehouseDetail?.plaque || "";
             const pName = r.personnel?.name || "";
             const pFamily = r.personnel?.family || "";
@@ -1180,7 +1094,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
     const handleDownloadLinkClick = (fileUrl: string) => { if (!fileUrl) { showAlert('Dosya adresi geçersiz.', 'error'); return; } const url = `${server.urldpwonload}${fileUrl}`; window.open(url, '_blank'); showAlert(`"${fileUrl.split('/').pop()}" dosyası indiriliyor.`, 'info'); };
 
 
-    // باز کردن مودال ردیف
     const handleOpenRowDownloadModal = (row: ConsignedCarRecord) => {
         setSelectedRowForDownload(row);
         setOpenRowDownloadModal(true);
@@ -1225,26 +1138,20 @@ const ListConsignedCarwarehouse: React.FC = () => {
         }
 
         const sideMargin = 20;
-        let finalY = 70; // شروع محتوای اصلی بعد از هدر
+        let finalY = 70;
 
-        // 2. افزودن هدر
         addPdfHeaders(doc, title);
 
-        // 3. اطلاعات پرسنل و خودرو (متن)
-        // 3. اطلاعات پرسنل و خودرو (متن)
-        const labelFontSize = 11; // سایز فونت عنوان
-        const valueFontSize = 9;  // سایز فونت جواب
+        const labelFontSize = 11;
+        const valueFontSize = 9;
 
-        // --- ردیف پرسنل ---
         doc.setFontSize(labelFontSize).setFont('NotoSans', 'bold');
         doc.text("Emanet Alan: ", sideMargin, finalY);
 
         doc.setFontSize(valueFontSize).setFont('NotoSans', 'normal');
-        // جلو بردن X به اندازه تقریبی متن عنوان (حدود 70 واحد)
         doc.text(`${record.personnel.name} ${record.personnel.family} (${record.personnel.identityNumber})`, sideMargin + 75, finalY);
         finalY += 16;
 
-        // --- ردیف پلاک ---
         doc.setFontSize(labelFontSize).setFont('NotoSans', 'bold');
         doc.text("Plaka: ", sideMargin, finalY);
 
@@ -1252,7 +1159,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
         doc.text(`${record.carWarehouseDetail.plaque}`, sideMargin + 75, finalY);
         finalY += 16;
 
-        // --- ردیف برند و مدل ---
         doc.setFontSize(labelFontSize).setFont('NotoSans', 'bold');
         doc.text("Marka/Model: ", sideMargin, finalY);
 
@@ -1260,7 +1166,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
         doc.text(`${record.carWarehouseDetail.brand} / ${record.carWarehouseDetail.model}`, sideMargin + 75, finalY);
         finalY += 25;
 
-        // 4. جدول جزئیات رکورد
         doc.setFontSize(14).setFont('NotoSans', 'normal');
         doc.text("Emanet İşlem Detayları", sideMargin, finalY);
         finalY += 10;
@@ -1289,19 +1194,15 @@ const ListConsignedCarwarehouse: React.FC = () => {
 
         finalY = (docAny.lastAutoTable.finalY || finalY) + 30;
 
-        // 5. کادر امضا (قبول/تحویل)
         doc.setFontSize(10);
 
-        // خط اول امضا
         doc.text("Personel İmzası:", sideMargin, finalY);
         doc.line(sideMargin + 100, finalY, sideMargin + 250, finalY);
 
-        // خط دوم امضا (کنترلر/انبار)
         doc.text("Yetkili / Depo Sorumlusu İmzası:", sideMargin + 300, finalY);
         doc.line(sideMargin + 450, finalY, sideMargin + 600, finalY);
 
 
-        // 6. ذخیره فایل
         const fileName = `Emanet_Rapor_${record.carWarehouseDetail.plaque}_${formatDateDisplay(record.date)}.pdf`;
         doc.save(fileName);
         showAlert('Emanet raporu başarıyla oluşturuldu ve indiriliyor.', 'info');
@@ -1326,14 +1227,13 @@ const ListConsignedCarwarehouse: React.FC = () => {
 
     const handleOpenAttachModal = (row: ConsignedCarRecord) => {
         setRowToUpdateAttachments(row);
-        setAttachCurrentAttachments(row.attachments); // بارگذاری پیوست‌های فعلی
-        setAttachFiles([]); // ریست کردن فایل‌های جدید
+        setAttachCurrentAttachments(row.attachments);
+        setAttachFiles([]);
         setAttachError(false);
         setOpenAttachModal(true);
         handleCloseMenu();
     };
 
-    // تابع Handler برای بستن مودال
     const handleCloseAttachModal = () => {
         setOpenAttachModal(false);
         setRowToUpdateAttachments(null);
@@ -1382,7 +1282,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
 
             if (res.data.httpStatusCode === 200) {
                 showAlert('Ekler başarıyla güncellendi.', 'success');
-                fetchConsignedCars(selectedFilterCarDetail?.id || null); // رفرش جدول
+                fetchConsignedCars(selectedFilterCarDetail?.id || null);
                 handleCloseAttachModal();
             } else {
                 showAlert(res.data.message || 'Ekler güncellenirken bir hata oluştu.', 'error');
@@ -1489,23 +1389,19 @@ const ListConsignedCarwarehouse: React.FC = () => {
             {alertMessage && (<Stack sx={{ width: '100%', mb: 3 }} spacing={2}><Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert></Stack>)}
 
             <BlankCard>
-                {/* --- Filters (فیلترهای جدول) --- */}
                 <Box sx={{ p: 2 }}>
                     <Grid container spacing={2} alignItems="center">
-                        {/* 1. Filtre Araç Depo */}
                         <Grid item xs={12} sm={6} md={3}>
                             <CustomFormLabel required>Filtre Araç Depo</CustomFormLabel>
                             <Autocomplete size="small" options={filterWarehousesList} getOptionLabel={(option) => `${option.name} (${option.code})`} isOptionEqualToValue={(option, value) => option.id === value.id} value={selectedFilterWarehouse} onChange={(_, newValue) => { setSelectedFilterWarehouse(newValue); }} renderInput={(params) => (<TextField {...params} label="Depo Seçin" />)} />
                         </Grid>
 
-                        {/* 2. Filtre Araç Plakası */}
                         <Grid item xs={12} sm={6} md={3}>
                             <CustomFormLabel required>Filtre Araç Plakası</CustomFormLabel>
                             <Autocomplete size="small" options={filterCarDetailsList} getOptionLabel={(option) => `${option.brand} - ${option.plaque}`} isOptionEqualToValue={(option, value) => option.id === value.id} value={selectedFilterCarDetail} onChange={(_, newValue) => { setSelectedFilterCarDetail(newValue); }} renderInput={(params) => (<TextField {...params} label="Plaka Seçin" />)} disabled={!selectedFilterWarehouse} />
                         </Grid>
 
 
-                        {/* 7. دکمه‌های دانلود (متصل به مودال) */}
                         <Grid item xs={12} md={6}>
                             <Stack direction="row" spacing={1} justifyContent="flex-end" alignItems="center">
                                 {isFilterActive && hasDownloadPermission && (
@@ -1519,7 +1415,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
                     </Grid>
 
                     <Grid container spacing={2} alignItems="center">
-                        {/* 3. Arama (جستجوی متنی) ⭐️ */}
                         <Grid item xs={12} sm={6} md={6}>
                             <CustomFormLabel>Ara (Plaka / Personel)</CustomFormLabel>
                             <TextField
@@ -1533,7 +1428,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
                             />
                         </Grid>
 
-                        {/* 4. Tarih Başلنگ (فیلتر تاریخ شروع) ⭐️ */}
                         <Grid item xs={12} sm={6} md={3}>
                             <CustomFormLabel>Tarih Aralığı (Başlangıç)</CustomFormLabel>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
@@ -1547,7 +1441,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
                             </LocalizationProvider>
                         </Grid>
 
-                        {/* 5. Tarih Bitiş (فیلتر تاریخ پایان) ⭐️ */}
                         <Grid item xs={12} sm={6} md={3}>
                             <CustomFormLabel>Tarih Aralığı (Bitiş)</CustomFormLabel>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
@@ -1568,7 +1461,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
 
                     </Grid>
                 </Box>
-                {/* --- Table --- */}
                 <TableContainer>
                     {loadingData || !selectedFilterCarDetail ? (<Box display="flex" justifyContent="center" alignItems="center" height="200px">
                         {loadingData && <CircularProgress />}<Typography variant="h6" sx={{ ml: 2 }}>{loadingData ? 'Kayıtlar yükleniyor...' : 'Lütfen filtrelemek için bir araç plakası seçin.'}</Typography>
@@ -1593,28 +1485,14 @@ const ListConsignedCarwarehouse: React.FC = () => {
                                     paginatedRows.map((row) => (
                                         <TableRow key={row.id}>
                                             <StyledTableCell>{formatDateDisplay(row.date)}</StyledTableCell>
-                                            {/* <StyledTableCell>{row.carWarhouseDetail.plaque || '-'}</StyledTableCell> */}
                                             <StyledTableCell>{row.carWarehouseDetail?.plaque || '-'}</StyledTableCell>
                                             <StyledTableCell>{row.workhouse?.name || '-'}</StyledTableCell>
 
                                             <StyledTableCell>{`${row.personnel.name} ${row.personnel.family}` || '-'}</StyledTableCell>
                                             <StyledTableCell>{row.kilometer.toLocaleString() || '-'}</StyledTableCell>
-                                            {/* <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
-                                                <Box sx={{
-                                                    maxHeight: '5em', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                                                }}>
-                                                    <div dangerouslySetInnerHTML={{ __html: row.description }} />
-                                                </Box>
-                                                {row.description.length > 50 && (
-                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }}
-                                                            onClick={() => { handleOpenDescriptionModal(row.description); }}>Açıklamanı Oku</Button>
-                                                    </CustomTooltip>
-                                                )}
-                                            </StyledTableCell> */}
+
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 {row.description && row.description.trim().length > 0 ? (
-                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button
                                                             variant="text"
@@ -1625,7 +1503,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (
-                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
                                                     <Typography variant="body2" align="center">
                                                         -
                                                     </Typography>
@@ -1663,7 +1540,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
                                                     {hasDownloadPermission && selectedRowForMenu && (
                                                         <CustomTooltip
                                                             placement="left"
-                                                            // عنوان Tooltip را برای وضوح بیشتر اصلاح می‌کنیم
                                                             title={isTooltipGloballyEnabled ? "İşlem detaylarını gör ve PDF raporunu indir" : ""}
                                                         >
                                                             <MuiMenuItem onClick={() => handleOpenLastRecordModalFromRow(selectedRowForMenu)}>
@@ -1728,14 +1604,12 @@ const ListConsignedCarwarehouse: React.FC = () => {
                 <DialogActions><Button onClick={() => setOpenDownloadAllModal(false)} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* 2. Modalı Download Filtered */}
             <Dialog open={openDownloadFilteredModal} onClose={() => setOpenDownloadFilteredModal(false)} maxWidth="xs">
                 <DialogTitle>Filtrelenmiş Kayıtları İndir</DialogTitle>
                 <DialogContent><Stack direction="column" spacing={2} sx={{ mt: 2 }}><Button variant="contained" color="primary" startIcon={<IconFileText />} onClick={() => handleDownloadFilteredAction('pdf')}>PDF Olarak İndir</Button><Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />} onClick={() => handleDownloadFilteredAction('excel')}>Excel Olarak İndir</Button></Stack></DialogContent>
                 <DialogActions><Button onClick={() => setOpenDownloadFilteredModal(false)} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* 3. Modalı Download Row */}
             <Dialog open={openRowDownloadModal} onClose={() => setOpenRowDownloadModal(false)} maxWidth="xs">
                 <DialogTitle>Dosya Formatını Seçin</DialogTitle>
                 <DialogContent><Stack direction="column" spacing={2} sx={{ mt: 2 }}><Button variant="contained" color="primary" startIcon={<IconFileText />} onClick={() => handleDownloadRow('pdf')}>PDF Olarak İndir</Button><Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />} onClick={() => handleDownloadRow('excel')}>Excel Olarak İndir</Button></Stack></DialogContent>
@@ -1754,7 +1628,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* --- NEW: Modal for Returning Car (Geri Al) --- */}
             <Dialog open={openReturnModal} onClose={handleCloseReturnModal} maxWidth="md" fullWidth>
                 <DialogTitle sx={{ backgroundColor: 'warning.light', color: 'warning.dark' }}>
                     Araç Geri Alma Onayı (Geri Al)
@@ -1836,9 +1709,8 @@ const ListConsignedCarwarehouse: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* --- Modal 4: Son Kayıt Detayları (Yeni Emanet/Geri Alma) --- */}
             <Dialog open={openLastRecordModal} onClose={() => setOpenLastRecordModal(false)} maxWidth="md" fullWidth>
-                {/* 💡 عنوان و رنگ Modal بر اساس وضعیت رکورد */}
+
                 <DialogTitle sx={{
                     backgroundColor: lastRecordDetail?.consigned === false ? 'warning.main' : 'success.main',
                     color: 'white'
@@ -1850,7 +1722,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
                 <DialogContent dividers>
                     {lastRecordDetail ? (
                         <Stack spacing={2}>
-                            {/* ... (نمایش جزئیات رکورد) ... */}
                             <Grid container spacing={2}>
                                 <Grid item xs={12} sm={4}><Typography fontWeight="bold">Plaka:</Typography></Grid>
                                 <Grid item xs={12} sm={8}><Typography>{lastRecordDetail.carWarehouseDetail.plaque}</Typography></Grid>
@@ -1886,7 +1757,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
                 <DialogActions>
                     {lastRecordDetail && (
                         <Button
-                            // ✅ دکمه دانلود در کنار دکمه بستن
                             onClick={() => createSingleConsignmentPdf(lastRecordDetail, showAlert)}
                             color="primary"
                             variant="contained"
@@ -1900,7 +1770,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* --- NEW: Attachment Edit Modal --- */}
             <Dialog open={openAttachModal} onClose={attachButtonLoading ? undefined : handleCloseAttachModal} maxWidth="sm" fullWidth>
                 <DialogTitle>
                     Ek Ekle/Düzenle: {rowToUpdateAttachments?.carWarehouseDetail?.plaque || 'Kayıt'}

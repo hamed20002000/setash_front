@@ -180,7 +180,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     // const getMaterialSymbol = (ptcat?: 1 | 2) => (ptcat === 1 ? '🧱' : ptcat === 2 ? '⚙️' : '');
 
     // const getMaterialSymbol = (ptcat?: any) => {
-    //     debugger
+    //      
     //     const category = Number(ptcat);
     //     if (category === 1) return '🧱';
     //     if (category === 2) return '⚙️';
@@ -399,7 +399,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     }, [activeTool, networkId]);
 
     // const convertTransmissionsToMapData = useCallback((currentTransmissions: TransmissionRow[]) => {
-    //     debugger
+    //      
     //     const nodesMap = new Map<string, MapNode>();
     //     const links: D3MapLink[] = [];
 
@@ -505,7 +505,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     //     const detailsLookup = new Map(allProductTypes.map(opt => [String(opt.id), opt]));
     //     const productTypeDetailsMap = new Map((productTypesList || []).map(p => [String(p.id), p]));
 
-    //     debugger
+    //      
 
     //     currentTransmissions.forEach(t => {
     //         // شناسه ها را به رشته تبدیل می‌کنیم
@@ -613,7 +613,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             optionsLookup.set(String(opt.id), opt);
         });
 
-        debugger
+
         currentTransmissions.forEach(t => {
             // استفاده از ID به جای نام برای شناسایی گره‌ها
             const pair = [

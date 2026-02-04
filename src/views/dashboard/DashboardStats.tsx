@@ -72,16 +72,8 @@ const DashboardStats = () => {
 
     return (
         <Box>
-            {/* Grid Calculation:
-               Row 1 (5 items): md={2.4}
-               Row 2 (3 items): md={4}
-               Row 3 (3 items): md={4}
-            */}
-
-            {/* --- ردیف اول: 5 کارت --- */}
             <Grid container spacing={3} mb={3}>
 
-                {/* 1. Personnel */}
                 <Grid item xs={12} sm={6} md={2.4}>
                     <StatCard
                         title="Personel"
@@ -95,7 +87,6 @@ const DashboardStats = () => {
                     />
                 </Grid>
 
-                {/* 2. Workhouses */}
                 <Grid item xs={12} sm={6} md={2.4}>
                     <StatCard
                         title="Şantiyeler"
@@ -108,7 +99,6 @@ const DashboardStats = () => {
                     />
                 </Grid>
 
-                {/* 3. Projects */}
                 <Grid item xs={12} sm={6} md={2.4}>
                     <StatCard
                         title="Projeler"
@@ -121,7 +111,6 @@ const DashboardStats = () => {
                     />
                 </Grid>
 
-                {/* 4. Works */}
                 <Grid item xs={12} sm={6} md={2.4}>
                     <StatCard
                         title="İşler"
@@ -134,7 +123,6 @@ const DashboardStats = () => {
                     />
                 </Grid>
 
-                {/* 5. Tenders */}
                 <Grid item xs={12} sm={6} md={2.4}>
                     <StatCard
                         title="İhaleler"
@@ -148,10 +136,8 @@ const DashboardStats = () => {
                 </Grid>
             </Grid>
 
-            {/* --- ردیف دوم: 3 کارت --- */}
             <Grid container spacing={3} mb={3}>
 
-                {/* 1. Cars */}
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
                         title="Araçlar"
@@ -161,7 +147,6 @@ const DashboardStats = () => {
                     />
                 </Grid>
 
-                {/* 2. Consignments */}
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
                         title="Demirbaş Sayısı"
@@ -171,7 +156,6 @@ const DashboardStats = () => {
                     />
                 </Grid>
 
-                {/* 3. Courses */}
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
                         title="Eğitimler"
@@ -182,10 +166,8 @@ const DashboardStats = () => {
                 </Grid>
             </Grid>
 
-            {/* --- ردیف سوم: 3 کارت --- */}
             <Grid container spacing={3}>
 
-                {/* 1. Warehouse Items */}
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
                         title="Depo Ürünleri"
@@ -195,7 +177,6 @@ const DashboardStats = () => {
                     />
                 </Grid>
 
-                {/* 2. Store Items */}
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
                         title="Şantiye Ürünleri"
@@ -205,7 +186,6 @@ const DashboardStats = () => {
                     />
                 </Grid>
 
-                {/* 3. Kabullar */}
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
                         title="Kabullar"

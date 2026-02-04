@@ -4,18 +4,16 @@ import {
     Button, Typography, CircularProgress, Chip, Stack, Alert
 } from '@mui/material';
 import axios from 'axios';
-import server from 'src/assets/address.json'; // فرض بر این است که فایل address.json در دسترس است
+import server from 'src/assets/address.json';
 
 import { MapNode, SelectOption } from './types';
 
-// props های مورد نیاز برای این کامپوننت
 interface RegisterNewNodesModalProps {
     open: boolean;
     onClose: () => void;
     nodesToRegister: MapNode[];
     onRegisterSuccess: (registeredNodes: MapNode[]) => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
-    // برای به‌روز کردن لیست اصلی پس از ثبت
     getListProductTypes: () => void;
 }
 
@@ -46,7 +44,6 @@ const RegisterNewNodesModal: React.FC<RegisterNewNodesModalProps> = ({
 
         for (const node of nodesToRegister) {
             try {
-                // API çağrısı için payload
                 const payload = { name: node.name };
 
                 const response = await axios.post<{ data: SelectOption; httpStatusCode: number; message: string }>(
@@ -56,16 +53,13 @@ const RegisterNewNodesModal: React.FC<RegisterNewNodesModalProps> = ({
                 );
 
                 if (response.data.httpStatusCode === 201) {
-                    // Kayıt başarılıysa, yeni ID ile düğümü listeye ekle
                     registeredNodes.push({ ...node, id: response.data.data.id });
                 } else {
-                    // Hata durumunda, hata mesajını göster
                     setLocalAlertMessage(`'${node.name}' adlı direk kaydedilirken bir hata oluştu: ${response.data.message}`);
                     setLocalAlertSeverity('error');
                     hasError = true;
                 }
             } catch (e: any) {
-                // Axios hatası durumunda, hata mesajını göster
                 setLocalAlertMessage(`'${node.name}' adlı direk kaydedilirken bir hata oluştu: ${e.response?.data?.message}`);
                 setLocalAlertSeverity('error');
                 hasError = true;
@@ -75,14 +69,11 @@ const RegisterNewNodesModal: React.FC<RegisterNewNodesModalProps> = ({
         setLoading(false);
 
         if (!hasError) {
-            // Eğer hiç hata oluşmadıysa, ebeveyn bileşeni bilgilendir
             onRegisterSuccess(registeredNodes);
-            onClose(); // Modalı kapat
-            // Ana listedeki seçenekleri yenilemek için bu fonksiyonu çağırıyoruz
+            onClose();
             getListProductTypes();
             showAlert('Tüm yeni direkler başarıyla kaydedildi!', 'success');
         } else {
-            // Hata oluştuysa modalı açık tut ve tekrar denemesini iste
         }
     }, [nodesToRegister, showAlert, onClose, onRegisterSuccess, getListProductTypes]);
 

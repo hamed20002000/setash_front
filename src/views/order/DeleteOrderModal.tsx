@@ -15,7 +15,7 @@ import server from '../../assets/address.json';
 interface DeleteOrderModalProps {
     openModal: boolean;
     orderIdToDelete: number | null;
-    orderTitleToDelete: string; // نام شبکه سفارش
+    orderTitleToDelete: string;
     onClose: () => void;
     onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
@@ -45,7 +45,7 @@ const DeleteOrderModal: React.FC<DeleteOrderModalProps> = ({
             onClose();
             return;
         }
-        debugger
+
         setLoading(true);
         try {
             const response = await axios.delete(

@@ -175,7 +175,7 @@ const Notifications = () => {
       const url = `${server.baseurl}${server.baseinfo}get-system-notification/${encodeURIComponent(role)}`;
       const resp = await axios.get(url, { headers: { Authorization: `Bearer ${authToken}` } });
 
-      debugger
+
 
 
       if (resp.data?.httpStatusCode === 200 && Array.isArray(resp.data?.data)) {

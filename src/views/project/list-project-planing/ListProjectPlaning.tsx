@@ -42,7 +42,6 @@ import Logo from 'src/assets/images/logos/logo.png';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 
-// ================= Styled =================
 const blinkAnimation = keyframes`
   0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
   50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
@@ -71,7 +70,6 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     [theme.breakpoints.up('md')]: { fontSize: '1rem' },
 }));
 
-// ================= Types =================
 interface ProjectType {
     id: number;
     title: string;
@@ -115,7 +113,6 @@ interface PlanningType {
     hucre?: PlanningValue;
 }
 
-// فیلدها و رنگ‌ها (برای دانلود و UI)
 const ALL_PLANNING_FIELDS: {
     key: keyof Omit<PlanningType, 'id' | 'startDate' | 'endDate' | 'projectId' | 'project' | 'recordStatus' | 'status'>,
     label: string,
@@ -139,7 +136,6 @@ const ALL_PLANNING_FIELDS: {
         { key: 'hucre', label: 'Hücre', color: 'blue' },
     ];
 
-// ================= Helpers =================
 const descendingComparator = <T, Key extends keyof T>(a: T, b: T, orderBy: Key): number => {
     const valA = a[orderBy];
     const valB = b[orderBy];
@@ -168,39 +164,28 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
 const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 
-// ⬇️ جدید: تنظیم ساعت برای ارسال
 const toDateAt = (d: Date, h: number, m: number) => {
     const x = new Date(d);
     x.setHours(h, m, 0, 0);
     return x;
 };
 
-// جدید: آخرین تاریخ شروع ثبت‌شده
 const getLastPlanningStart = (arr: PlanningType[]): Date | null => {
     if (!arr || arr.length === 0) return null;
     const maxMs = Math.max(...arr.map(x => startOfDay(new Date(x.startDate)).getTime()));
     return new Date(maxMs);
 };
 
-// const getLastPlanningEnd = (arr: PlanningType[]): Date | null => {
-//     if (!arr || arr.length === 0) return null;
-//     const maxMs = Math.max(...arr.map(x => new Date(x.endDate).getTime()));
-//     return new Date(maxMs);
-// };
-
-// ================= Component =================
 const ListProjectPlanning = () => {
     const navigate = useNavigate();
     const { projectId } = useParams<{ projectId: string }>();
     const numericProjectId = useMemo(() => Number(projectId), [projectId]);
 
-    // States
     const [projectData, setProjectData] = useState<ProjectType | null>(null);
     const [planningsList, setPlanningsList] = useState<PlanningType[]>([]);
 
-    const [startDate, setStartDate] = useState<Date | null>(null);   // فرم (خودکار)
-    const [endDate, setEndDate] = useState<Date | null>(null);       // فرم (خودکار)
-
+    const [startDate, setStartDate] = useState<Date | null>(null);
+    const [endDate, setEndDate] = useState<Date | null>(null);
     const [formData, setFormData] = useState<any>({});
     const [editingId, setEditingId] = useState<number | null>(null);
 
@@ -256,73 +241,15 @@ const ListProjectPlanning = () => {
     const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
     const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
 
-
-
-    // const { menuItems, allowedOperations } = useAuth();
-    // const findMenuByHref = (items: any[], path: string): any => {
-    //     for (const item of items) {
-    //         if (item.href) {
-    //             // ۱. نرمال‌سازی: تبدیل به حروف کوچک و حذف اسلش‌ها
-    //             const normalizedItemHref = item.href.toLowerCase().replace(/\//g, "");
-    //             const normalizedPath = path.toLowerCase().replace(/\//g, "");
-
-    //             // ۲. منطق تطبیق منعطف:
-    //             // اگر آدرس منو "network" است و در آدرس فعلی ما هم کلمه "network" وجود دارد
-    //             // این باعث می‌شود /work/15/networks با /network/list-network تطبیق پیدا کند
-    //             const menuKeyword = normalizedItemHref.replace("list", "").replace("report", "");
-
-    //             if (normalizedPath.includes(menuKeyword) || normalizedItemHref.includes(normalizedPath)) {
-    //                 return item;
-    //             }
-    //         }
-
-    //         if (item.children && item.children.length > 0) {
-    //             const found = findMenuByHref(item.children, path);
-    //             if (found) return found;
-    //         }
-    //     }
-    //     return null;
-    // };
-    // // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
-    // const currentMenu = useMemo(() => {
-    //     // ارسال کل مسیر فعلی بدون دستکاری
-    //     return findMenuByHref(menuItems, location.pathname);
-    // }, [menuItems, location.pathname]);
-    // // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
-    // const currentMenuOpIds = useMemo(() => {
-    //     // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
-    //     if (!currentMenu || !currentMenu.menuOperations) return [];
-
-    //     return currentMenu.menuOperations.map((op: any) => {
-    //         // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
-    //         return String(op.id);
-    //     });
-    // }, [currentMenu]);
-
-    // // ۴. تابع نهایی بررسی دسترسی
-    // const hasPermission = (opName: string) => {
-    //     return allowedOperations.some((op: any) =>
-    //         op.systemOperationName === opName &&
-    //         currentMenuOpIds.includes(String(op.menuOperationId))
-    //     );
-    // };
-
-    // const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
-    // const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
-    // const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
-    // const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
-
-    // بازه پروژه برای محدودسازی
     const [projectStart, setProjectStart] = useState<Date | null>(null);
     const [projectEnd, setProjectEnd] = useState<Date | null>(null);
     const [canCreateInRange, setCanCreateInRange] = useState(true);
 
-    // فیلتر فیلدهای قابل نمایش/ویرایش طبق نوع پروژه
     const getFilteredPlanningFields = useCallback((projectType: ProjectType['type']) => {
         if (projectType === undefined || projectType === null) return [];
-        if (projectType === 0) return ALL_PLANNING_FIELDS.filter(f => f.color === 'yellow');                  // AG
-        if (projectType === 1) return ALL_PLANNING_FIELDS.filter(f => f.color === 'yellow' || f.color === 'orange'); // OG
-        if (projectType === 2) return ALL_PLANNING_FIELDS.filter(f => f.color === 'yellow' || f.color === 'blue');   // Tesis-Ket
+        if (projectType === 0) return ALL_PLANNING_FIELDS.filter(f => f.color === 'yellow');
+        if (projectType === 1) return ALL_PLANNING_FIELDS.filter(f => f.color === 'yellow' || f.color === 'orange');
+        if (projectType === 2) return ALL_PLANNING_FIELDS.filter(f => f.color === 'yellow' || f.color === 'blue');
         return [];
     }, []);
     const planningFields = useMemo(() => {
@@ -344,7 +271,6 @@ const ListProjectPlanning = () => {
         return () => clearTimeout(t);
     }, []);
 
-    // ====== API: Project (با تاریخ‌ها)
     const fetchProjects = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -402,7 +328,6 @@ const ListProjectPlanning = () => {
         }
     }, [navigate, numericProjectId]);
 
-    // ====== API: Planning list
     const getListPlannings = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -439,14 +364,10 @@ const ListProjectPlanning = () => {
         }
     }, [navigate, numericProjectId]);
 
-    // ====== محاسبه خودکار بازه تاریخ فرم (start=end همان روز)
     useEffect(() => {
         if (!projectStart || !projectEnd) return;
-
-        // آخرین startDate ثبت‌شده (به‌صورت روز)
         const lastStart = getLastPlanningStart(planningsList);
 
-        // اگر رکورد نیست ⇒ تاریخ شروع پروژه، وگرنه ⇒ روز بعد از آخرین
         const candidateDay = startOfDay(
             lastStart ? addDays(startOfDay(lastStart), 1) : startOfDay(projectStart)
         );
@@ -459,18 +380,15 @@ const ListProjectPlanning = () => {
         }
 
         setCanCreateInRange(true);
-        // ✅ شروع و پایان، همان روز
         setStartDate(candidateDay);
         setEndDate(candidateDay);
     }, [projectStart, projectEnd, planningsList]);
 
-    // ====== Effects
     useEffect(() => {
         fetchProjects();
         getListPlannings();
     }, [fetchProjects, getListPlannings]);
 
-    // ====== Menu handlers
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: PlanningType) => {
         setAnchorEl(event.currentTarget);
         setSelectedRowForMenu(row);
@@ -486,14 +404,13 @@ const ListProjectPlanning = () => {
         getListPlannings();
     };
 
-    // ====== Edit (تاریخ‌ها editable نیستند؛ فقط همان روز را ست می‌کنیم)
     const handleEditClick = () => {
         if (!selectedRowForMenu) return;
         setEditingId(selectedRowForMenu.id);
 
         const s = startOfDay(new Date(selectedRowForMenu.startDate));
         setStartDate(s);
-        setEndDate(s); // همان روز
+        setEndDate(s);
 
         const newFormData = planningFields.reduce((acc: any, field) => {
             const key = field.key;
@@ -508,7 +425,6 @@ const ListProjectPlanning = () => {
         clearAlert();
     };
 
-    // ====== Value modal handlers
     const handleOpenValueModal = (fieldKey: string) => {
         setCurrentField(fieldKey);
         setCurrentValues(formData[fieldKey] || { estimatedNumber: 0, min: 0, max: 0 });
@@ -528,7 +444,6 @@ const ListProjectPlanning = () => {
             maxRef.current?.focus();
             return;
         }
-        // ✅ Max باید >= Tahmini باشد
         if (currentValues.max < currentValues.estimatedNumber) {
             showAlert('Maksimum değer Tahmini Sayıdan az olamaz (en az Tahmini kadar olmalı).', 'error');
             maxRef.current?.focus();
@@ -539,7 +454,6 @@ const ListProjectPlanning = () => {
         handleCloseValueModal();
     };
 
-    // ====== Create/Update payload helpers (بدون تغییر در روال — اوبجکت‌ها کامل ارسال می‌شن)
     const buildPlanningDetailsPayload = () => {
         return ALL_PLANNING_FIELDS.reduce((acc: any, field) => {
             const value = formData[field.key];
@@ -550,14 +464,12 @@ const ListProjectPlanning = () => {
                     max: Number(value.max),
                 };
             } else {
-                // صفرها مثل قبل
                 acc[field.key] = { estimatedNumber: 0, min: 0, max: 0 };
             }
             return acc;
         }, {});
     };
 
-    // ====== Insert (تنها تغییر: ساعت‌ها موقع ارسال ست می‌شن)
     const insertPlanning = async () => {
         if (!canCreateInRange) { showAlert('Bu proje için girilebilecek tarih kalmadı (proje bitişini aştı).', 'warning'); return; }
         if (!startDate || !endDate || !projectData) { showAlert('Tarih aralığı hazır değil. Lütfen sayfayı yenileyin.', 'warning'); return; }
@@ -575,8 +487,8 @@ const ListProjectPlanning = () => {
 
         const planningDetails = buildPlanningDetailsPayload();
         const payload = {
-            startDate: toDateAt(startDate, 8, 0).toISOString(),    // 08:00 همان روز
-            endDate: toDateAt(endDate, 17, 0).toISOString(),   // 17:00 همان روز
+            startDate: toDateAt(startDate, 8, 0).toISOString(),
+            endDate: toDateAt(endDate, 17, 0).toISOString(),
             ...planningDetails,
             projectId: numericProjectId,
         };
@@ -604,7 +516,6 @@ const ListProjectPlanning = () => {
         } finally { setLoadingButton(false); }
     };
 
-    // ====== Edit (تنها تغییر: ساعت‌ها موقع ارسال ست می‌شن)
     const editPlanning = async () => {
         if (!editingId || !startDate || !endDate || !projectData) { showAlert('Lütfen tüm gerekli alanları doldurunuz!', 'warning'); return; }
 
@@ -648,14 +559,11 @@ const ListProjectPlanning = () => {
     };
 
     const resetFormAndState = () => {
-        // setStartDate(null);
-        // setEndDate(null);
         setFormData({});
         setEditingId(null);
         setIsFormVisible(false);
     };
 
-    // ====== Downloads (PDF/Excel) – بدون تغییرات گسترده
     const handleDownloadPDF = (data: PlanningType[], titlePrefix: string = 'Planlama_Detay') => {
         if (!data || data.length === 0) {
             showAlert('PDF oluşturulacak planlama bulunamadı.', 'warning');
@@ -666,7 +574,6 @@ const ListProjectPlanning = () => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
 
-        // فونت‌ها (یکبار)
         (doc as any).addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         (doc as any).addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         (doc as any).addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
@@ -694,7 +601,6 @@ const ListProjectPlanning = () => {
         data.forEach((item, idx) => {
             if (idx > 0) doc.addPage();
 
-            // Header
             doc.setFont('Arial', 'normal').setFontSize(14)
                 .text('Proje Planlama Detayları', pageWidth / 2, 15, { align: 'center' });
             doc.setFont('Arial', 'normal').setFontSize(10);
@@ -714,10 +620,8 @@ const ListProjectPlanning = () => {
                 15, 35
             );
 
-            // doc.line(15, 40, pageWidth - 15, 40);
             try { doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25); } catch { }
 
-            // کارت‌های دو ستونه
             const columnCount = 2;
             const padding = 10;
             const cardWidth = (pageWidth - padding * (columnCount + 1)) / columnCount;
@@ -735,7 +639,6 @@ const ListProjectPlanning = () => {
                 const currentX = padding + col * (cardWidth + padding);
 
                 if (col === 0 && columnIndex > 0) {
-                    // شروع ردیف جدید
                     currentY += cardHeight + 10;
                 }
                 if (currentY + cardHeight + 10 > pageHeight - 40) {
@@ -760,7 +663,6 @@ const ListProjectPlanning = () => {
             });
         });
 
-        // Footer برای همه صفحات
         const pageCount = (doc as any).internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) { doc.setPage(i); drawFooter(i, pageCount); }
 
@@ -830,13 +732,12 @@ const ListProjectPlanning = () => {
         }
     };
 
-    // ====== Single download modal
     const handleClickOpenSingleDownloadModal = () => {
         if (selectedRowForMenu) {
-            setRowForDownload(selectedRowForMenu); // snapshot ردیف
+            setRowForDownload(selectedRowForMenu);
             setOpenSingleDownloadModal(true);
         }
-        handleCloseMenu(); // اشکالی ندارد اگر selectedRowForMenu را null کند
+        handleCloseMenu();
     };
     const handleCloseSingleDownloadModal = () => {
         setOpenSingleDownloadModal(false);
@@ -857,7 +758,6 @@ const ListProjectPlanning = () => {
     };
 
 
-    // ====== Filters/Sorting/Pagination
     const handleChangePage = (_: unknown, newPage: number) => setPage(newPage);
     const handleChangeRowsPerPage = (e: React.ChangeEvent<HTMLInputElement>) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); };
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => { setSearchTerm(e.target.value); setPage(0); };
@@ -890,7 +790,7 @@ const ListProjectPlanning = () => {
                 if (pStart.getTime() < d0.getTime()) matchesDate = false;
             }
             if (filterEndDate) {
-                const d1 = startOfDay(addDays(filterEndDate, 1)); // انتهای روز
+                const d1 = startOfDay(addDays(filterEndDate, 1));
                 if (pStart.getTime() >= d1.getTime()) matchesDate = false;
             }
             return matchesSearch && matchesStatus && matchesDate;
@@ -901,7 +801,6 @@ const ListProjectPlanning = () => {
 
     const paginatedPlannings = sortedAndFilteredPlannings.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-    // ====== UI
     return (
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
@@ -960,7 +859,6 @@ const ListProjectPlanning = () => {
                     <>
                         {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                             <Grid container spacing={2}>
-                                {/* تاریخ‌های فرم: فقط نمایش (Readonly + Disabled) */}
                                 <Grid item xs={12} sm={6}>
                                     <CustomFormLabel>Tarih (Otomatik)</CustomFormLabel>
                                     <TextField
@@ -969,10 +867,8 @@ const ListProjectPlanning = () => {
                                         fullWidth
                                         InputProps={{ readOnly: true }}
                                         disabled
-                                    // helperText="Bu tarih sistem tarafından sıraya göre otomatik atanır."
                                     />
                                 </Grid>
-                                {/* فیلدهای داینامیک */}
                                 {planningFields.map(field => (
                                     <Grid item xs={12} sm={6} md={3} key={field.key}>
                                         {formData[field.key] ? (
@@ -1112,7 +1008,6 @@ const ListProjectPlanning = () => {
                             />
                         </Grid>
 
-                        {/* ✅ فیلتر تاریخ‌ها با DatePicker مثل قبل */}
                         <Grid item xs={12} sm={6} md={6}>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                 <Stack direction="row" spacing={1} alignItems="center">
@@ -1267,7 +1162,6 @@ const ListProjectPlanning = () => {
                 />
             </BlankCard>
 
-            {/* Delete Modal */}
             <DeleteProjectPlanning
                 openModal={openDeleteModal}
                 onClose={handleClickCloseDeleteModal}
@@ -1276,7 +1170,6 @@ const ListProjectPlanning = () => {
                 showAlert={showAlert}
             />
 
-            {/* Download All/Filtered Modal */}
             <Dialog open={openDownloadModal} onClose={() => setOpenDownloadModal(false)}>
                 <DialogTitle>Dosya Formatını Seçin</DialogTitle>
                 <DialogContent>
@@ -1292,7 +1185,6 @@ const ListProjectPlanning = () => {
                 <DialogActions><Button onClick={() => setOpenDownloadModal(false)} color="secondary">İptal</Button></DialogActions>
             </Dialog>
 
-            {/* Single row download */}
             <Dialog open={openSingleDownloadModal} onClose={handleCloseSingleDownloadModal}>
                 <DialogTitle>Dosya Formatını Seçin</DialogTitle>
                 <DialogContent>
@@ -1308,14 +1200,11 @@ const ListProjectPlanning = () => {
                 <DialogActions><Button onClick={handleCloseSingleDownloadModal} color="secondary">İptal</Button></DialogActions>
             </Dialog>
 
-
-            {/* Details Modal */}
-            {/* Proje Planlama Detayları Modalı */}
             <Dialog
                 open={openDetailModal}
                 onClose={() => setOpenDetailModal(false)}
                 fullWidth
-                maxWidth="md" // تغییر سایز مودال به متوسط یا بزرگ (md/lg)
+                maxWidth="md"
             >
                 <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white' }}>
                     Proje Planlama Detayları
@@ -1323,7 +1212,6 @@ const ListProjectPlanning = () => {
                 <DialogContent dividers>
                     {detailData && (
                         <Grid container spacing={2} sx={{ mt: 1 }}>
-                            {/* بخش اطلاعات کلی در یک ردیف کامل */}
                             <Grid item xs={12}>
                                 <Paper elevation={0} sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2, mb: 2 }}>
                                     <Typography variant="h6" color="primary">{detailData.project?.title}</Typography>
@@ -1334,16 +1222,14 @@ const ListProjectPlanning = () => {
                                 </Paper>
                             </Grid>
 
-                            {/* نمایش فیلدها به صورت کارت‌های ۳ تایی */}
                             {planningFields.map(field => {
                                 const values = (detailData as any)[field.key];
-                                // فقط اگر مقداری غیر از صفر وجود داشت نمایش دهد (اختیاری)
                                 const hasValue = values && (values.estimatedNumber > 0 || values.min > 0 || values.max > 0);
 
                                 if (!values) return null;
 
                                 return (
-                                    <Grid item xs={12} sm={6} md={4} key={field.key}> {/* md={4} باعث نمایش ۳ کارت در هر ردیف می‌شود */}
+                                    <Grid item xs={12} sm={6} md={4} key={field.key}>
                                         <Paper
                                             variant="outlined"
                                             sx={{
@@ -1352,7 +1238,7 @@ const ListProjectPlanning = () => {
                                                 borderRadius: 2,
                                                 transition: '0.3s',
                                                 '&:hover': { boxShadow: 3, borderColor: 'primary.main' },
-                                                opacity: hasValue ? 1 : 0.6 // اگر صفر باشد کمرنگ‌تر نمایش دهد
+                                                opacity: hasValue ? 1 : 0.6
                                             }}
                                         >
                                             <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1, minHeight: '40px' }}>
@@ -1385,59 +1271,12 @@ const ListProjectPlanning = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Value Modal */}
-            {/* <Dialog open={openValueModal} onClose={handleCloseValueModal}>
-                <DialogTitle>Değer Gir  {ALL_PLANNING_FIELDS.find(f => f.key === currentField)?.label}</DialogTitle>
-                <DialogContent>
-                    <CustomFormLabel>Tahmini Sayı</CustomFormLabel>
-                    <CustomTextField
-                        inputRef={estimatedRef}
-                        type="number"
-                        value={currentValues.estimatedNumber}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentValues(prev => ({ ...prev, estimatedNumber: Number(e.target.value) }))}
-                        fullWidth size="small" onFocus={(e: React.ChangeEvent<HTMLInputElement>) => e.target.select()} inputProps={{ min: 0 }}
-                    />
-                    <CustomFormLabel sx={{ mt: 2 }}>Minimum</CustomFormLabel>
-                    <CustomTextField
-                        inputRef={minRef}
-                        type="number"
-                        value={currentValues.min}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentValues(prev => ({ ...prev, min: Number(e.target.value) }))}
-                        fullWidth size="small" onFocus={(e: React.ChangeEvent<HTMLInputElement>) => e.target.select()} inputProps={{ min: 0 }}
-                        error={currentValues.min > currentValues.estimatedNumber}
-                        helperText={currentValues.min > currentValues.estimatedNumber ? "Minimum değer Tahmini Sayıdan fazla olamaz." : ""}
-                    />
-                    <CustomFormLabel sx={{ mt: 2 }}>Maksimum</CustomFormLabel>
-                    <CustomTextField
-                        inputRef={maxRef}
-                        type="number"
-                        value={currentValues.max}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentValues(prev => ({ ...prev, max: Number(e.target.value) }))}
-                        fullWidth size="small" onFocus={(e: React.ChangeEvent<HTMLInputElement>) => e.target.select()} inputProps={{ min: 0 }}
-                        error={
-                            currentValues.max < currentValues.min ||
-                            currentValues.max < currentValues.estimatedNumber
-                        }
-                        helperText={
-                            currentValues.max < currentValues.min
-                                ? "Maksimum değer minimumdan az olamaz."
-                                : currentValues.max < currentValues.estimatedNumber
-                                    ? "Maksimum değer Tahmini Sayıdan az olamaz (en az Tahmini kadar olmalı)."
-                                    : ""
-                        }
-                    />
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseValueModal}>İptal</Button>
-                    <Button variant="contained" onClick={handleSaveValue}>Kaydet</Button>
-                </DialogActions>
-            </Dialog> */}
 
             <Dialog open={openValueModal} onClose={handleCloseValueModal} maxWidth="xs" fullWidth>
                 <DialogTitle>Değer Gir {ALL_PLANNING_FIELDS.find(f => f.key === currentField)?.label}</DialogTitle>
-                <DialogContent sx={{ minHeight: '320px' }}> {/* یک ارتفاع حداقل برای ثابت ماندن مودال */}
+                <DialogContent sx={{ minHeight: '320px' }}>
 
-                    <Box sx={{ mb: 3 }}> {/* استفاده از Box با فاصله ثابت */}
+                    <Box sx={{ mb: 3 }}>
                         <CustomFormLabel>Tahmini Sayı</CustomFormLabel>
                         <CustomTextField
                             inputRef={estimatedRef}
@@ -1451,7 +1290,7 @@ const ListProjectPlanning = () => {
                         />
                     </Box>
 
-                    <Box sx={{ mb: 3, position: 'relative' }}> {/* Position Relative برای مدیریت متن خطا */}
+                    <Box sx={{ mb: 3, position: 'relative' }}>
                         <CustomFormLabel sx={{ mt: 0 }}>Minimum</CustomFormLabel>
                         <CustomTextField
                             inputRef={minRef}
@@ -1464,7 +1303,7 @@ const ListProjectPlanning = () => {
                             inputProps={{ min: 0 }}
                             error={currentValues.min > currentValues.estimatedNumber}
                             helperText={currentValues.min > currentValues.estimatedNumber ? "Minimum değer Tahmini Sayıdan fazla olamaz." : ""}
-                            // تنظیم متن خطا به صورت مطلق برای جلوگیری از تغییر سایز فیلد
+
                             FormHelperTextProps={{
                                 sx: { position: 'absolute', bottom: '-20px', left: 0, margin: 0 }
                             }}

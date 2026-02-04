@@ -3,12 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, CircularProgress, Typography } from '@mui/material';
 
 import axios from 'axios';
-// @ts-ignore
 import server from '../../../assets/address.json';
-// @ts-ignore
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// Define the component props for type safety
 type DeleteProps = {
     openModal: boolean;
     idToDelete: number | string | null;

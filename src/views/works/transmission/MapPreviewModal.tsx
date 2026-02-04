@@ -113,7 +113,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     productTypesList,
     availableTrafoOptionsForMap,
     availableProductTypeOptionsForMap,
-    // nodeStatusByChannelRowId,
 }) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -122,7 +121,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     const svgElementRef = useRef<SVGSVGElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // ... (States مربوط به D3 بدون تغییر)
     const initialViewWidth = 800;
     const initialViewHeight = 600;
     const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: initialViewWidth, height: initialViewHeight });
@@ -142,7 +140,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
     const [editingEdgeId, setEditingEdgeId] = useState<string | null>(null);
     const [editValue, setEditValue] = useState<string>('');
-    const [isDistanceLocked, setIsDistanceLocked] = useState(false);
+    const [isDistanceLocked, setIsDistanceLocked] = useState(true);
     const [mapNodes, setMapNodes] = useState<MapNode[]>([]);
     const [mapEdges, setMapEdges] = useState<MapEdge[]>([]);
     const [openDetailsModal, setOpenDetailsModal] = useState(false);
@@ -158,7 +156,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     const [isLeftDrawerOpen, setIsLeftDrawerOpen] = useState(false);
     const [isRightDrawerOpen, setIsRightDrawerOpen] = useState(false);
 
-    // --- State برای مشاهده آیتم‌ها ---
     const [viewItemsModalOpen, setViewItemsModalOpen] = useState(false);
     const [viewItemsData, setViewItemsData] = useState<any[]>([]);
     const [viewItemsLoading, setViewItemsLoading] = useState(false);
@@ -182,7 +179,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         return { x: p.x, y: p.y };
     }, []);
 
-    // تابعی برای تبدیل پیکسل به مختصات فرضی کاربر
     const pixelToGeo = (val: number, isLat: boolean) => {
         const min = isLat ? geoBounds.minLat : geoBounds.minLon;
         const max = isLat ? geoBounds.maxLat : geoBounds.maxLon;
@@ -191,16 +187,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     };
 
 
-    // const getMaterialSymbol = (ptcat?: 1 | 2) => (ptcat === 1 ? '🧱' : ptcat === 2 ? '⚙️' : '');
-
-    // const getMaterialSymbol = (ptcat?: any) => {
-    //     debugger
-    //     const category = Number(ptcat);
-    //     if (category === 1) return '🧱';
-    //     if (category === 2) return '⚙️';
-    //     return '';
-    // };
-
     const getMaterialSymbol = (ptcat?: any) => {
         if (!ptcat) return '';
         if (Number(ptcat) === 1) return '🧱';
@@ -208,27 +194,14 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         return '';
     };
 
-    // const getNodeStatus = useCallback((nodeId: string, _fallbackMiktarTipi?: MiktarTipi): NodeStatus => {
-    //     if (nodeStatusByChannelRowId && nodeStatusByChannelRowId[nodeId as keyof typeof nodeStatusByChannelRowId] !== undefined) {
-    //         return nodeStatusByChannelRowId[nodeId as keyof typeof nodeStatusByChannelRowId] as NodeStatus;
-    //     }
-    //     const incoming = mapEdges.find(e => e.toNodeId === nodeId && e.miktarTipi !== 'TR-Connection');
-    //     if (incoming) {
-    //         if (String(incoming.miktarTipi).toLowerCase().includes('dmm')) return 1;
-    //         return 0;
-    //     }
-    //     return 0;
-    // }, [nodeStatusByChannelRowId, mapEdges]);
 
 
     const getNodeStatus = useCallback((nodeId: string): NodeStatus => {
-        // ۱. ابتدا در میان گره‌های مپ شده فعلی جستجو کن
         const node = mapNodes.find(n => n.id === nodeId);
         if (node && node.status !== undefined) {
             return node.status as NodeStatus;
         }
 
-        // ۲. اگر پیدا نشد (مثلاً گره جدید است)، از لیست آپشن‌ها کمک بگیر
         const opt = allProductTypes.find(o => String(o.id) === nodeId);
         return (opt?.productStatus ?? 0) as NodeStatus;
     }, [mapNodes, allProductTypes]);
@@ -412,202 +385,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         }
     }, [activeTool, networkId]);
 
-    // const convertTransmissionsToMapData = useCallback((currentTransmissions: TransmissionRow[]) => {
-    //     debugger
-    //     const nodesMap = new Map<string, MapNode>();
-    //     const links: D3MapLink[] = [];
-
-    //     const detailsLookup = new Map(allProductTypes.map(opt => [opt.id, opt]));
-    //     const productTypeDetailsMap = new Map(productTypesList.map(p => [String(p.id), p]));
-
-    //     currentTransmissions.forEach(t => {
-    //         const fromId = String(t.fromProductTypeId || '');
-    //         const toId = String(t.toProductTypeId || '');
-
-    //         const fromDetails = detailsLookup.get(fromId);
-    //         const toDetails = detailsLookup.get(toId);
-
-    //         const fromTechDetails = productTypeDetailsMap.get(fromId);
-    //         const toTechDetails = productTypeDetailsMap.get(toId);
-
-    //         const fromUniqueKey = fromId || `${t.fromProductType}_${fromDetails?.groupId || 'nogroup'}`;
-    //         const toUniqueKey = toId || `${t.toProductType}_${toDetails?.groupId || 'nogroup'}`;
-
-    //         if (!nodesMap.has(fromUniqueKey)) {
-    //             const isTrafo = fromDetails?.type === 0;
-    //             nodesMap.set(fromUniqueKey, {
-    //                 id: fromId || fromUniqueKey,
-    //                 name: t.fromProductType,
-    //                 x: t.fromProductTypeX,
-    //                 y: t.fromProductTypeY,
-    //                 fx: t.fromProductTypeX,
-    //                 fy: t.fromProductTypeY,
-    //                 isNew: !fromId,
-    //                 isHub: isTrafo,
-    //                 groupId: fromDetails?.groupId,
-    //                 productTypeCategory: fromTechDetails?.type as 1 | 2 | undefined,
-    //             });
-    //         }
-    //         if (!nodesMap.has(toUniqueKey)) {
-    //             const isTrafo = toDetails?.type === 0;
-    //             nodesMap.set(toUniqueKey, {
-    //                 id: toId || toUniqueKey,
-    //                 name: t.toProductType,
-    //                 x: t.toProductTypeX,
-    //                 y: t.toProductTypeY,
-    //                 fx: t.toProductTypeX,
-    //                 fy: t.toProductTypeY,
-    //                 isNew: !toId,
-    //                 isHub: isTrafo,
-    //                 groupId: toDetails?.groupId,
-    //                 productTypeCategory: toTechDetails?.type as 1 | 2 | undefined,
-    //             });
-    //         }
-    //     });
-
-    //     const hubs = Array.from(nodesMap.values()).filter(n => n.isHub);
-    //     const totalHubs = hubs.length;
-
-    //     hubs.forEach((hub, index) => {
-    //         if (hub.x === undefined || hub.y === undefined) {
-    //             const sectionWidth = initialViewWidth / (totalHubs + 1);
-    //             const xPos = sectionWidth * (index + 1);
-
-    //             hub.fx = xPos;
-    //             hub.fy = initialViewHeight / 2;
-    //             hub.x = xPos;
-    //             hub.y = initialViewHeight / 2;
-    //         }
-    //     });
-    //     currentTransmissions.forEach(t => {
-    //         const fromId = String(t.fromProductTypeId || '');
-    //         const toId = String(t.toProductTypeId || '');
-    //         const fromDetails = detailsLookup.get(fromId);
-    //         const toDetails = detailsLookup.get(toId);
-
-    //         const fromUniqueKey = fromId || `${t.fromProductType}_${fromDetails?.groupId || 'nogroup'}`;
-    //         const toUniqueKey = toId || `${t.toProductType}_${toDetails?.groupId || 'nogroup'}`;
-
-    //         const fromNode = nodesMap.get(fromUniqueKey);
-    //         const toNode = nodesMap.get(toUniqueKey);
-
-    //         if (fromNode && toNode) {
-    //             const isConnectionToHub = fromNode.isHub || toNode.isHub;
-    //             const newMiktarTipi: MiktarTipi = isConnectionToHub ? 'TR-Connection' : (t.miktarTipi as MiktarTipi);
-
-    //             links.push({
-    //                 id: t.id,
-    //                 source: fromNode,
-    //                 target: toNode,
-    //                 distance: t.distance,
-    //                 miktarTipi: newMiktarTipi,
-    //                 formulaTitle: t.formulaTitle,
-    //                 items: t.items
-    //             });
-    //         }
-    //     });
-
-    //     return { nodes: Array.from(nodesMap.values()), links };
-    // }, [initialViewHeight, initialViewWidth, productTypesList, allProductTypes]);
-
-    // const convertTransmissionsToMapData = useCallback((currentTransmissions: TransmissionRow[]) => {
-    //     const nodesMap = new Map<string, MapNode>();
-    //     const links: D3MapLink[] = [];
-
-    //     // ۱. ایجاد دیتابیس کوچک از محصولات برای پیدا کردن Type (1 یا 2)
-    //     // استفاده از کدهای اورجینال خودتان برای lookup
-    //     const detailsLookup = new Map(allProductTypes.map(opt => [String(opt.id), opt]));
-    //     const productTypeDetailsMap = new Map((productTypesList || []).map(p => [String(p.id), p]));
-
-    //     debugger
-
-    //     currentTransmissions.forEach(t => {
-    //         // شناسه ها را به رشته تبدیل می‌کنیم
-    //         const fromId = String(t.fromProductTypeId || '');
-    //         const toId = String(t.toProductTypeId || '');
-
-    //         // پیدا کردن اطلاعات تکمیلی از هر دو منبع موجود در کد شما
-    //         const fromDetails = detailsLookup.get(fromId);
-    //         const toDetails = detailsLookup.get(toId);
-    //         const fromTechDetails = productTypeDetailsMap.get(fromId);
-    //         const toTechDetails = productTypeDetailsMap.get(toId);
-
-    //         // --- پردازش گره مبدا (From Node) ---
-    //         if (!nodesMap.has(fromId)) {
-    //             // تشخیص ترافو: یا از روی type API یا از روی منطق قبلی خودتان (details.type === 0)
-    //             const isTrafo = fromTechDetails?.type === 0 || fromDetails?.type === 0;
-
-    //             nodesMap.set(fromId, {
-    //                 id: fromId,
-    //                 name: t.fromProductType,
-    //                 x: t.fromProductTypeX,
-    //                 y: t.fromProductTypeY,
-    //                 fx: t.fromProductTypeX,
-    //                 fy: t.fromProductTypeY,
-    //                 isNew: !fromId || fromId.startsWith('temp-'),
-    //                 isHub: isTrafo, // این خط باعث برگرداندن مثلث می‌شود
-    //                 groupId: fromDetails?.groupId || fromTechDetails?.parentProductType?.id,
-    //                 // استخراج نوع بتن (1) یا آهن (2)
-    //                 productTypeCategory: (fromTechDetails?.type || fromDetails?.type) as 1 | 2 | undefined,
-    //             });
-    //         }
-
-    //         // --- پردازش گره مقصد (To Node) ---
-    //         if (!nodesMap.has(toId)) {
-    //             const isTrafo = toTechDetails?.type === 0 || toDetails?.type === 0;
-
-    //             nodesMap.set(toId, {
-    //                 id: toId,
-    //                 name: t.toProductType,
-    //                 x: t.toProductTypeX,
-    //                 y: t.toProductTypeY,
-    //                 fx: t.toProductTypeX,
-    //                 fy: t.toProductTypeY,
-    //                 isNew: !toId || toId.startsWith('temp-'),
-    //                 isHub: isTrafo, // این خط باعث برگرداندن مثلث می‌شود
-    //                 groupId: toDetails?.groupId || toTechDetails?.parentProductType?.id,
-    //                 // استخراج نوع بتن (1) یا آهن (2)
-    //                 productTypeCategory: (toTechDetails?.type || toDetails?.type) as 1 | 2 | undefined,
-    //             });
-    //         }
-
-    //         // --- ایجاد یال‌ها (Links) ---
-    //         const fromNode = nodesMap.get(fromId);
-    //         const toNode = nodesMap.get(toId);
-
-    //         if (fromNode && toNode) {
-    //             const isConnectionToHub = fromNode.isHub || toNode.isHub;
-    //             const newMiktarTipi: MiktarTipi = isConnectionToHub ? 'TR-Connection' : (t.miktarTipi as MiktarTipi);
-
-    //             links.push({
-    //                 id: t.id,
-    //                 source: fromNode,
-    //                 target: toNode,
-    //                 distance: t.distance,
-    //                 miktarTipi: newMiktarTipi,
-    //                 formulaTitle: t.formulaTitle,
-    //                 items: t.items
-    //             });
-    //         }
-    //     });
-
-    //     // --- چیدمان ترافوها (مثلث‌ها) طبق کد اصلی خودتان ---
-    //     const hubs = Array.from(nodesMap.values()).filter(n => n.isHub);
-    //     const totalHubs = hubs.length;
-
-    //     hubs.forEach((hub, index) => {
-    //         if (hub.x === undefined || hub.y === undefined) {
-    //             const sectionWidth = initialViewWidth / (totalHubs + 1);
-    //             const xPos = sectionWidth * (index + 1);
-    //             hub.fx = xPos;
-    //             hub.fy = initialViewHeight / 2;
-    //             hub.x = xPos;
-    //             hub.y = initialViewHeight / 2;
-    //         }
-    //     });
-
-    //     return { nodes: Array.from(nodesMap.values()), links };
-    // }, [initialViewHeight, initialViewWidth, productTypesList, allProductTypes]);
 
     const updateNodeLocation = useCallback((nodeId: string, newX?: number, newY?: number) => {
         setMapNodes(prevNodes => prevNodes.map(n =>
@@ -622,7 +399,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                     fromY: edge.fromNodeId === nodeId ? (newY ?? edge.fromY) : edge.fromY,
                     toX: edge.toNodeId === nodeId ? (newX ?? edge.toX) : edge.toX,
                     toY: edge.toNodeId === nodeId ? (newY ?? edge.toY) : edge.toY,
-                    // اگر فاصله قفل نیست، متناسب با جابجایی پیکسل، مسافت را هم آپدیت کن
                     distance: isDistanceLocked ? edge.distance : parseFloat(Math.hypot(
                         (edge.fromNodeId === nodeId ? (newX ?? edge.fromX) : edge.fromX) - (edge.toNodeId === nodeId ? (newX ?? edge.toX) : edge.toX),
                         (edge.fromNodeId === nodeId ? (newY ?? edge.fromY) : edge.fromY) - (edge.toNodeId === nodeId ? (newY ?? edge.toY) : edge.toY)
@@ -637,22 +413,18 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         const nodesMap = new Map<string, MapNode>();
         const links: D3MapLink[] = [];
 
-        // ۱. ایجاد کاتالوگ فنی بر اساس ID (کلید یکتا)
-        // این کار باعث می‌شود اگر دو رکورد با نام یکسان اما ID متفاوت داریم، هر دو حفظ شوند.
         const technicalCatalog = new Map();
         (productTypesList || []).forEach(p => {
             technicalCatalog.set(String(p.id), p);
         });
 
-        // ۲. ایجاد نقشه آپشن‌ها بر اساس Instance ID
         const optionsLookup = new Map();
         (allProductTypes || []).forEach(opt => {
             optionsLookup.set(String(opt.id), opt);
         });
 
-        debugger
+
         currentTransmissions.forEach(t => {
-            // استفاده از ID به جای نام برای شناسایی گره‌ها
             const pair = [
                 { id: String(t.fromProductTypeId), name: t.fromProductType, x: t.fromProductTypeX, y: t.fromProductTypeY },
                 { id: String(t.toProductTypeId), name: t.toProductType, x: t.toProductTypeX, y: t.toProductTypeY }
@@ -662,23 +434,13 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 if (item.id && item.id !== 'undefined' && !nodesMap.has(item.id)) {
 
                     const optRecord = optionsLookup.get(item.id);
-                    // // پیدا کردن لینک به کاتالوگ فنی (بسیار مهم: از فیلد productTypeId استفاده کنید)
                     const linkedTechId = optRecord ? String(optRecord.productTypeId) : item.id;
-                    // const techDetail = technicalCatalog.get(linkedTechId);
-
-                    // // تعیین دقیق نوع (۰: ترافو، ۱: بتن، ۲: آهن)
-                    // let finalType = techDetail ? Number(techDetail.type) : undefined;
-
-                    // داخل MapPreviewModal
-                    // const optRecord = optionsLookup.get(item.id); 
-                    const finalType = optRecord ? Number(optRecord.type) : undefined; // مستقیم از رکورد بخوان
-
-                    // لاگ برای بررسی اینکه چرا نوع اشتباه تشخیص داده می‌شود
+                    const finalType = optRecord ? Number(optRecord.type) : undefined;
                     console.log(`Node: ${item.name} | InstanceID: ${item.id} | TechID: ${linkedTechId} | Detected Type: ${finalType}`);
 
                     nodesMap.set(item.id, {
                         id: item.id,
-                        name: item.name, // نام تکراری اینجا مشکلی ایجاد نمی‌کند چون کلید Map مقدار ID است
+                        name: item.name,
                         x: item.x,
                         y: item.y,
                         fx: item.x,
@@ -687,13 +449,11 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                         isHub: finalType === 0,
                         status: optRecord?.productStatus,
                         groupId: optRecord?.groupId,
-                        // اختصاص آیکون بر اساس نوع واقعی از کاتالوگ فنی
                         productTypeCategory: (finalType === 1 || finalType === 2) ? (finalType as 1 | 2) : undefined,
                     });
                 }
             });
 
-            // ۳. ایجاد لینک‌ها
             const fromNode = nodesMap.get(String(t.fromProductTypeId));
             const toNode = nodesMap.get(String(t.toProductTypeId));
             if (fromNode && toNode) {
@@ -709,7 +469,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             }
         });
 
-        // ... باقی منطق رندر ترافو
         return { nodes: Array.from(nodesMap.values()), links };
     }, [initialViewHeight, initialViewWidth, productTypesList, allProductTypes]);
 
@@ -783,10 +542,8 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             return changed;
         };
 
-        // چند بار تلاش برای رفع همپوشانی نهایی
         for (let k = 0; k < 5; k++) { if (!resolveOverlaps(nodes)) break; }
 
-        // اطمینان از اینکه همه نودها مختصات دارند (اگر NaN شد، وسط صفحه بگذار)
         const updatedNodes = nodes.map(n => ({
             ...n,
             x: n.x && !isNaN(n.x) ? n.x : initialViewWidth / 2,
@@ -798,7 +555,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             edges: links.map(link => {
                 const sId = (link.source as MapNode).id;
                 const tId = (link.target as MapNode).id;
-                // پیدا کردن مختصات نهایی سورس و تارگت
                 const s = updatedNodes.find(n => n.id === sId) || (link.source as MapNode);
                 const t = updatedNodes.find(n => n.id === tId) || (link.target as MapNode);
 
@@ -910,8 +666,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
 
 
 
-    ////////////////////////////////////////////////////////////
-
 
     const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -941,7 +695,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 setSelectedEdgeIds(new Set());
             }
         }
-        // ... داخل handleMouseDown
         else if (activeTool === 'addEdge') {
             if (e.target instanceof Element && (e.target.tagName === 'circle' || e.target.tagName === 'path')) {
                 const nodeId = (e.target.tagName === 'circle' ? e.target.getAttribute('id') : e.target.closest('g')?.querySelector('circle')?.getAttribute('id')) || '';
@@ -949,13 +702,10 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
 
                 if (node) {
                     if (!drawingEdgeStartNode) {
-                        // انتخاب گره اول
                         setDrawingEdgeStartNode(node);
                     } else if (drawingEdgeStartNode.id === node.id) {
-                        // لغو انتخاب اگر دوباره روی همان گره کلیک شد
                         setDrawingEdgeStartNode(null);
                     } else {
-                        // انتخاب گره دوم - بررسی محدودیت‌ها
                         const startGroup = drawingEdgeStartNode.groupId;
                         const endGroup = node.groupId;
 
@@ -971,10 +721,9 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                             return;
                         }
 
-                        // اینجا بخش کلیدی است:
                         setTempTransmissionData({ fromNode: drawingEdgeStartNode, toNode: node });
-                        setOpenDetailsModal(true); // این خط باید حتما اجرا شود تا مودال باز شود
-                        setDrawingEdgeStartNode(null); // ریست کردن برای ترسیم بعدی
+                        setOpenDetailsModal(true);
+                        setDrawingEdgeStartNode(null);
                     }
                 }
             }
@@ -1178,8 +927,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 items,
             } as TransmissionRow;
         });
-        // const payload = updatedTransmissions.map(t => ({ ...t, 
-        //     distance: Math.round((Number(t.distance) || 0)), }));
         const payload = updatedTransmissions.map(t => ({
             ...t,
             distance: parseFloat(Number(t.distance || 0).toFixed(2)),
@@ -1189,26 +936,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         onClose();
     }, [mapEdges, mapNodes, transmissions, networkId, networkTitle, onSaveMapChanges, showAlert]);
 
-    // const handleDownload = useCallback((format: 'png' | 'pdf') => {
-    //     if (svgContainerRef.current) {
-    //         toPng(svgContainerRef.current, { backgroundColor: '#fff' })
-    //             .then((dataUrl) => {
-    //                 if (format === 'png') {
-    //                     const link = document.createElement('a');
-    //                     link.download = `${networkTitle}_map.png`;
-    //                     link.href = dataUrl;
-    //                     link.click();
-    //                 } else {
-    //                     const pdf = new jsPDF('l', 'mm', 'a4');
-    //                     const imgWidth = 280;
-    //                     const imgHeight = (pdf.internal.pageSize.getHeight() * imgWidth) / pdf.internal.pageSize.getWidth();
-    //                     pdf.addImage(dataUrl, 'PNG', 5, 5, imgWidth, imgHeight);
-    //                     pdf.save(`${networkTitle}_map.pdf`);
-    //                 }
-    //             })
-    //             .catch((err) => console.error('Export failed', err));
-    //     }
-    // }, [networkTitle]);
 
     const handleDownload = useCallback((format: 'png' | 'pdf') => {
         if (svgContainerRef.current) {
@@ -1219,10 +946,9 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                         link.download = `${networkTitle}_map.png`;
                         link.href = dataUrl;
 
-                        // ✅ اصلاح مخصوص فایرفاکس:
                         document.body.appendChild(link);
                         link.click();
-                        document.body.removeChild(link); // بلافاصله حذف شود
+                        document.body.removeChild(link);
                     } else {
                         const pdf = new jsPDF('l', 'mm', 'a4');
                         const imgWidth = 280;
@@ -1264,7 +990,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                             {symbol && (<text x={(h.x || 0) + (30 / scale)} y={(h.y || 0) + (5 / scale)}
                                 fontSize={`${12 / scale}px`} fill={textColor} textAnchor="start" style={{ pointerEvents: 'none' }}>{symbol}</text>)}
 
-                            {/* --- اضافه کردن بخش مختصات جغرافیایی برای ترافو --- */}
                             {activeTool === 'geoMode' && (
                                 <foreignObject
                                     x={(h.x || 0) - 50 / scale}
@@ -1329,20 +1054,18 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         );
     };
 
-    // --- توابع کمکی هدر و فوتر PDF ---
     const addPdfHeader = (doc: jsPDF, title: string) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const docAny = doc as any;
-        // اضافه کردن لوگو
         try {
-            docAny.addImage(Logo, 'PNG', pageWidth - 50, 20, 30, 15); // کمی ابعاد را تنظیم کردم
+            docAny.addImage(Logo, 'PNG', pageWidth - 50, 20, 30, 15);
         } catch (e) {
             console.error("Logo yüklenemedi", e);
         }
 
         doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
-        doc.text(title, pageWidth / 2, 30, { align: 'center' }); // وسط چین
+        doc.text(title, pageWidth / 2, 30, { align: 'center' });
 
         doc.setFontSize(10);
         doc.setFont('NotoSans', 'bold');
@@ -1350,7 +1073,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         doc.setFont('NotoSans', 'normal');
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 45);
 
-        // خط جداکننده زیر هدر
         doc.setLineWidth(0.5);
         doc.line(15, 48, pageWidth - 15, 48);
     };
@@ -1376,21 +1098,18 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             footerY += 4;
         });
 
-        // خط امضا و شماره صفحه
         doc.setTextColor(0);
         doc.setFontSize(10);
         doc.text('İmza', pageWidth - 20, pageHeight - 15, { align: 'right' });
-        doc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10); // خط امضا
+        doc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
 
         const pageNumber = docAny.internal.getCurrentPageInfo().pageNumber;
         doc.text(`Sayfa ${pageNumber}`, 15, pageHeight - 10);
     };
 
-    // --- تابع دانلود PDF (اصلاح شده) ---
     const handleDownloadItemsPDF = () => {
         const doc = new jsPDF();
 
-        // لود فونت فارسی/ترکی
         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
@@ -1408,11 +1127,10 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             tableRows.push(itemData);
         });
 
-        // جدول اصلی
         autoTable(doc, {
             head: [tableColumn],
             body: tableRows,
-            startY: 55, // فاصله از بالا برای هدر
+            startY: 55,
             styles: {
                 font: 'NotoSans',
                 fontStyle: 'normal',
@@ -1421,22 +1139,19 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 overflow: 'linebreak'
             },
             headStyles: { fillColor: [66, 66, 66] },
-            margin: { top: 55, bottom: 35 }, // مارجین برای هدر و فوتر
+            margin: { top: 55, bottom: 35 },
             didDrawPage: (_data) => {
-                // این تابع در هر صفحه اجرا می‌شود
                 addPdfHeader(doc, viewItemsTitle);
                 addPdfFooter(doc);
             }
         });
 
-        // محاسبه موقعیت برای جدول خلاصه
         let finalY = (doc as any).lastAutoTable.finalY + 10;
 
-        // اگر فضای کافی در صفحه نبود، صفحه جدید اضافه کن
         if (finalY > doc.internal.pageSize.getHeight() - 50) {
             doc.addPage();
-            addPdfHeader(doc, viewItemsTitle); // هدر در صفحه جدید
-            addPdfFooter(doc); // فوتر در صفحه جدید
+            addPdfHeader(doc, viewItemsTitle);
+            addPdfFooter(doc);
             finalY = 55;
         }
 
@@ -1451,7 +1166,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             data.rowTotal.toLocaleString()
         ]);
 
-        // جدول خلاصه
         autoTable(doc, {
             head: [['Birim', 'Top. Miktar', 'Top. Birim Ağ.', 'Sonuç (Kg)']],
             body: summaryRows,
@@ -1463,11 +1177,10 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 cellPadding: 2,
                 overflow: 'linebreak'
             },
-            headStyles: { fillColor: [25, 118, 210] }, // آبی
+            headStyles: { fillColor: [25, 118, 210] },
             theme: 'grid',
             margin: { bottom: 35 },
             didDrawPage: (data) => {
-                // فقط اگر جدول خلاصه باعث ایجاد صفحه جدید شد
                 if (data.pageNumber > 1 && data.cursor?.y === data.settings.startY) {
                     addPdfHeader(doc, viewItemsTitle);
                     addPdfFooter(doc);
@@ -1475,10 +1188,9 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             }
         });
 
-        // نمایش جمع کل
         finalY = (doc as any).lastAutoTable.finalY + 15;
         doc.setFontSize(12);
-        doc.setTextColor(0, 100, 0); // سبز تیره
+        doc.setTextColor(0, 100, 0);
         doc.text(`GENEL TOPLAM: ${calculatedTotals.grandTotalWeight.toLocaleString()}`, 15, finalY);
 
         doc.save(`${viewItemsTitle.replace(/\s+/g, '_')}.pdf`);
@@ -1488,7 +1200,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         const workbook = new Excel.Workbook();
         const worksheet = workbook.addWorksheet('Malzemeler');
 
-        // --- هدر شرکت (شبیه سازی هدر PDF) ---
         worksheet.mergeCells('A1:D1');
         const titleCell = worksheet.getCell('A1');
         titleCell.value = 'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.';
@@ -1506,9 +1217,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         dateCell.value = `Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`;
         dateCell.alignment = { horizontal: 'center' };
 
-        worksheet.addRow([]); // فاصله
-
-        // --- جدول داده‌ها ---
+        worksheet.addRow([]);
         worksheet.columns = [
             { header: 'Malzeme Adı', key: 'name', width: 35 },
             { header: 'Miktar', key: 'quantity', width: 15 },
@@ -1516,7 +1225,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             { header: 'Ağırlık (Birim)', key: 'weight', width: 20 },
         ];
 
-        // استایل هدر جدول
         const headerRow = worksheet.getRow(5);
         headerRow.values = ['Malzeme Adı', 'Miktar', 'Birim', 'Ağırlık (Birim)'];
         headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -1524,7 +1232,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF424242' } };
         });
 
-        // داده‌ها
         viewItemsData.forEach(item => {
             worksheet.addRow({
                 name: item.name,
@@ -1536,7 +1243,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
 
         worksheet.addRow([]);
 
-        // --- جدول خلاصه ---
         const summaryTitleRow = worksheet.addRow(['ÖZET TABLOSU']);
         summaryTitleRow.font = { bold: true, size: 12 };
 
@@ -1559,7 +1265,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         const grandTotalRow = worksheet.addRow(['GENEL TOPLAM', '', '', calculatedTotals.grandTotalWeight]);
         grandTotalRow.font = { bold: true, size: 12, color: { argb: 'FF006400' } }; // سبز
 
-        // --- فوتر شرکت ---
         worksheet.addRow([]);
         const lastRowIdx = worksheet.rowCount + 1;
         worksheet.mergeCells(`A${lastRowIdx}:D${lastRowIdx}`);
@@ -1594,7 +1299,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                             width: { xs: isLeftDrawerOpen ? '60px' : '0px', md: '60px' },
                             position: { xs: 'fixed', md: 'relative' },
                             left: { xs: '-5px', md: 0 },
-                            top: { xs: '20%', md: 0 }, // در موبایل کمی پایین‌تر بیاید
+                            top: { xs: '20%', md: 0 },
                             zIndex: 1200,
                             height: { xs: 'auto', md: '100%' },
                             bgcolor: 'background.paper',
@@ -1605,13 +1310,12 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                             boxShadow: { xs: 3, md: 0 },
                             borderRadius: { xs: '0 8px 8px 0', md: 0 }
                         }}>
-                            {/* دکمه کشویی لبه کادر */}
                             <IconButton
                                 onClick={() => setIsLeftDrawerOpen(!isLeftDrawerOpen)}
                                 sx={{
                                     display: { xs: 'flex', md: 'none' },
                                     position: 'absolute',
-                                    right: '-30px', // آیکون بیرون از کادر قرار می‌گیرد
+                                    right: '-30px',
                                     top: '50%',
                                     transform: 'translateY(-50%)',
                                     zIndex: "5",
@@ -1626,7 +1330,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                 {isLeftDrawerOpen ? <IconMinus size={18} /> : <IconPlus size={18} />}
                             </IconButton>
 
-                            {/* محتوای ابزارها فقط وقتی باز است یا در دسکتاپ نمایش داده شود */}
                             {(isLeftDrawerOpen || theme.breakpoints.up('md')) && (
                                 <ToggleButtonGroup orientation="vertical" value={activeTool} exclusive onChange={(_e, newTool) => {
                                     if (newTool !== null) {
@@ -1634,8 +1337,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                         setDrawingEdgeStartNode(null); setEditingNodeId(null); setEditingEdgeId(null); setEditValue(''); setIsRotating(false); setSelectedNodeIds(new Set()); setSelectedEdgeIds(new Set());
                                     }
                                 }}>
-                                    {/* <Tooltip placement="right" 
-                                title="Seç (Sürükle/Seç)"> */}
 
                                     <StyledToolButton value="select" aria-label="select">
 
@@ -1645,7 +1346,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                         </CustomTooltip>
                                     </StyledToolButton>
 
-                                    {/* </Tooltip> */}
                                     <StyledToolButton value="pan" aria-label="pan">
                                         <Tooltip placement="right" title="Kaydır">
                                             <IconHandGrab size={20} />
@@ -1723,9 +1423,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                             onMouseLeave={handleMouseUp}
                             onWheel={handleWheel}
 
-                            // اضافه کردن رویدادهای لمسی (جدید)
                             onTouchStart={(e) => {
-                                // تبدیل Touch به فرمت شبیه MouseEvent برای سازگاری با توابع قبلی شما
                                 const touch = e.touches[0];
                                 handleMouseDown({
                                     clientX: touch.clientX,
@@ -1829,7 +1527,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                                                 boxShadow: '0px 4px 10px rgba(0,0,0,0.3)',
                                                             }}
                                                         >
-                                                            {/* فیلد Latitude */}
                                                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                                 <Typography sx={{ fontSize: `${8 / scale}px`, fontWeight: 'bold' }}>Lat</Typography>
                                                                 <input
@@ -1852,7 +1549,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                                                 />
                                                             </Box>
 
-                                                            {/* فیلد Longitude */}
                                                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                                 <Typography sx={{ fontSize: `${8 / scale}px`, fontWeight: 'bold' }}>Lon</Typography>
                                                                 <input
@@ -1892,7 +1588,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                             right: '0',
                             top: { xs: '20%', md: 0 },
                             zIndex: 1200,
-                            height: { xs: '80%', md: '100%' }, // در موبایل تمام صفحه نباشد
+                            height: { xs: '80%', md: '100%' },
                             bgcolor: 'background.paper',
                             transition: 'all 0.3s ease',
                             borderLeft: '1px solid #eee',
@@ -1967,7 +1663,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             <SelectTrafoModal open={isTrafoModalOpen} onClose={() => setIsTrafoModalOpen(false)} onSelectTrafo={handleSelectNewTrafo} onRegisterNewTrafo={onRegisterNewTrafo} showAlert={showAlert} availableTrafoOptions={availableTrafoOptionsForMap} />
             <SelectProductTypeModal open={isProductTypeModalOpen} onClose={() => { setIsProductTypeModalOpen(false); setEditingNodeId(null); }} onSelectProductType={handleSelectProductType} onRegisterNewProductType={onRegisterNewTrafo} showAlert={showAlert} availableProductTypeOptions={availableProductTypeOptionsForMap} />
 
-            {/* --- مودال نمایش آیتم‌ها و مجموع‌ها --- */}
             <Dialog
                 open={viewItemsModalOpen}
                 onClose={() => setViewItemsModalOpen(false)}
@@ -1996,7 +1691,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                 <Typography variant="subtitle2" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
                                     Malzeme Listesi
                                 </Typography>
-                                {/* اضافه کردن اسکرول افقی برای موبایل */}
                                 <TableContainer component={Paper} elevation={0} variant="outlined" sx={{ mb: 3, maxHeight: '400px' }}>
                                     <Table size="small" stickyHeader>
                                         <TableHead>
@@ -2013,7 +1707,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                                     <TableCell sx={{ fontSize: { xs: '0.75rem', md: '0.875rem' } }}>{item.name}</TableCell>
                                                     <TableCell align="right">{item.quantity}</TableCell>
                                                     <TableCell align="right">{item.unit}</TableCell>
-                                                    {/* وزن در موبایل‌های خیلی کوچک مخفی می‌شود تا فضا باز شود */}
                                                     <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{item.weight || '-'}</TableCell>
                                                 </TableRow>
                                             ))}
@@ -2028,7 +1721,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                 </Divider>
 
                                 <Grid container spacing={2}>
-                                    {/* جدول خلاصه - در موبایل ۱۲ ستون و در دسکتاپ ۹ ستون */}
                                     <Grid item xs={12} md={8}>
                                         <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto' }}>
                                             <Table size="small">
@@ -2054,7 +1746,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                         </TableContainer>
                                     </Grid>
 
-                                    {/* کادر جمع کل نهایی */}
                                     <Grid item xs={12} md={4}>
                                         <Paper
                                             elevation={0}
@@ -2091,7 +1782,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 <DialogActions sx={{ flexDirection: { xs: 'column', sm: 'row' }, gap: 1, p: 2 }}>
                     <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, justifyContent: 'center' }}>
                         <Button
-                            // fullWidth={useTheme().breakpoints.down('sm')}
                             fullWidth={isMobile}
                             variant="contained"
                             color="success"
@@ -2102,7 +1792,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                             Excel
                         </Button>
                         <Button
-                            // fullWidth={useTheme().breakpoints.down('sm')}
                             fullWidth={isMobile}
                             variant="contained"
                             color="error"
@@ -2114,7 +1803,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                         </Button>
                     </Stack>
                     <Button
-                        // fullWidth={useTheme().breakpoints.down('sm')}
                         fullWidth={isMobile}
                         onClick={() => setViewItemsModalOpen(false)}
                         variant="outlined"

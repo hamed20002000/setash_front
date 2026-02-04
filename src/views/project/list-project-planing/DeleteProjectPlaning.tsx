@@ -17,9 +17,9 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type Props = {
     openModal: boolean;
-    planningIdToDelete: number | null; // ID برنامه‌ریزی برای حذف
+    planningIdToDelete: number | null;
     onClose: () => void;
-    onDeleteSuccess: () => void; // تابعی برای رفرش کردن لیست اصلی
+    onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 

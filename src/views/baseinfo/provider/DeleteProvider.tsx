@@ -8,7 +8,6 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import server from '../../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// --- Props interface ---
 type Props = {
     openModal: boolean;
     providerIdToDelete: number | null;
@@ -23,7 +22,6 @@ const DeleteProvider = ({ openModal, providerIdToDelete, providerNameToDelete, o
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // State for Provider In Use modal
     const [openProviderInUseModal, setOpenProviderInUseModal] = useState<boolean>(false);
 
     const handleDeleteProvider = async () => {
@@ -41,7 +39,6 @@ const DeleteProvider = ({ openModal, providerIdToDelete, providerNameToDelete, o
 
         setLoading(true);
         try {
-            // API adresini sağlayıcılara uygun olarak güncelleyin
             const response = await axios.delete(
                 `${server.baseurl}${server.baseinfo}delete-provider/${providerIdToDelete}`,
                 {
@@ -84,7 +81,6 @@ const DeleteProvider = ({ openModal, providerIdToDelete, providerNameToDelete, o
 
     return (
         <>
-            {/* Main Delete Confirmation Modal */}
             <Dialog
                 open={openModal}
                 onClose={onClose}
@@ -124,7 +120,6 @@ const DeleteProvider = ({ openModal, providerIdToDelete, providerNameToDelete, o
                 </DialogActions>
             </Dialog>
 
-            {/* Dialog for Provider In Use */}
             <Dialog
                 open={openProviderInUseModal}
                 onClose={handleCloseProviderInUseModal}

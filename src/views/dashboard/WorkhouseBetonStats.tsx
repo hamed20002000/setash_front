@@ -27,8 +27,7 @@ import {
     IconChartBar,
     IconLayoutGrid,
     IconDownload,
-    IconDatabaseOff, // آیکون برای حالت بدون دیتا
-    // IconExclamationCircle
+    IconDatabaseOff,
 } from '@tabler/icons-react';
 import {
     BarChart,
@@ -39,7 +38,6 @@ import {
     Tooltip as RechartsTooltip,
     ResponsiveContainer,
     Cell,
-    // Text 
 } from 'recharts';
 import server from '../../assets/address.json';
 
@@ -49,7 +47,6 @@ interface BetonStatType {
     total_quantity: string;
 }
 
-// کامپوننت کارت (بدون تغییر)
 interface StatCardProps {
     item: BetonStatType;
 }
@@ -84,7 +81,6 @@ const StatCard: React.FC<StatCardProps> = ({ item }) => (
     </Card>
 );
 
-// ✅ کامپوننت جدید برای نمایش پیام "بدون دیتا" در حالت لیست
 const NoDataView = () => (
     <Box
         display="flex"
@@ -118,7 +114,6 @@ const NoDataView = () => (
     </Box>
 );
 
-// ✅ کامپوننت برای نمایش پیام وسط نمودار خالی
 const CustomNoDataOverlay = () => (
     <div style={{
         position: 'absolute',
@@ -157,10 +152,9 @@ const WorkhouseBetonStats = () => {
                 });
 
                 if (response.data.httpStatusCode === 200 && response.data.data) {
-                    debugger
+
                     setData(response.data.data);
                 } else {
-                    // اگر دیتا null بود یا مشکلی بود، آرایه خالی ست میکنیم که شرط‌های پایین کار کنن
                     setData([]);
                     if (!response.data.success) {
                         setError(response.data.message || 'Veri alınamadı');
@@ -215,18 +209,14 @@ const WorkhouseBetonStats = () => {
         };
     }, [data]);
 
-    // اگر لودینگ یا ارور بود همچنان کل صفحه رو بلاک میکنیم (میتونید این رو هم ببرید پایین)
     if (loading) return <Box p={3} textAlign="center"><CircularProgress /></Box>;
     if (error) return <Alert severity="error">{error}</Alert>;
 
-    // ❌ خط زیر حذف شد تا هدر همیشه نمایش داده شود
-    // if (data.length === 0) return <Alert severity="info">Kayıt bulunamadı</Alert>;
 
     const isDataEmpty = data.length === 0;
 
     return (
         <Box>
-            {/* ------------------ HEADER (همیشه قابل مشاهده) ------------------ */}
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
                 <Typography variant="h5" fontWeight={700}>
                     Şantiye Beton Miktarları
@@ -269,17 +259,14 @@ const WorkhouseBetonStats = () => {
                 </Stack>
             </Stack>
 
-            {/* ------------------ CONTENT ------------------ */}
             <Box>
                 {viewMode === 'chart' ? (
                     <Card sx={{ p: 2, boxShadow: 'none', border: '1px solid #e5eaef', position: 'relative' }}>
                         <Box height="400px" width="100%" ref={chartRef} sx={{ bgcolor: 'background.paper', position: 'relative' }}>
-                            {/* اگر دیتا خالی بود، پیام وسط نمودار نمایش داده شود */}
                             {isDataEmpty && <CustomNoDataOverlay />}
 
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart
-                                    // اگر دیتا خالیه، یک دیتای فیک میدیم که نمودار رندر بشه ولی خالی باشه
                                     data={isDataEmpty ? [{ name: '', quantity: 0 }, { name: '', quantity: 0 }, { name: '', quantity: 0 }, { name: '', quantity: 0 }, { name: '', quantity: 0 }] : chartData}
                                     margin={{ top: 20, right: 30, left: 20, bottom: 50 }}
                                 >
@@ -298,7 +285,6 @@ const WorkhouseBetonStats = () => {
                                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
                                     />
                                     <Bar dataKey="quantity" name="Beton Miktarı" radius={[4, 4, 0, 0]}>
-                                        {/* فقط اگر دیتا واقعی بود، سلول‌ها رنگی میشن، وگرنه چیزی رندر نمیشه چون مقدار صفره */}
                                         {!isDataEmpty && chartData.map((_entry, index) => (
                                             <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#5D87FF' : '#49BEFF'} />
                                         ))}
@@ -308,13 +294,10 @@ const WorkhouseBetonStats = () => {
                         </Box>
                     </Card>
                 ) : (
-                    // ------------------ LIST VIEW ------------------
                     <>
                         {isDataEmpty ? (
-                            // ✅ نمایش کامپوننت "بدون دیتا" شیک
                             <NoDataView />
                         ) : (
-                            // نمایش لیست کارت‌ها (کد قبلی)
                             <>
                                 <Grid container spacing={3}>
                                     {firstThreeItems.map((item, index) => (

@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, CircularProgress } from '@mui/material';
 import { IconTrash } from '@tabler/icons-react';
 import axios from 'axios';
-// مسیرهای زیر را بر اساس ساختار پروژه شما فرض می‌کنیم:
-import server from 'src/assets/address.json'; // مسیر فایل آدرس سرور
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // مسیر Context Tooltip
+import server from 'src/assets/address.json';
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type DeleteProps = {
     openModal: boolean;
@@ -16,7 +15,6 @@ type DeleteProps = {
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-// نام کامپوننت به DeletePersonnelConsigneds تغییر داده شد
 export const DeletePersonnelConsigneds = ({ openModal, idToDelete, nameToDelete, onClose, onDeleteSuccess, showAlert }: DeleteProps) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
@@ -34,9 +32,6 @@ export const DeletePersonnelConsigneds = ({ openModal, idToDelete, nameToDelete,
             showAlert('Lütfen giriş yapın.', 'warning');
             return;
         }
-
-        debugger
-
         setLoading(true);
         try {
             const response = await axios.delete(`${server.baseurl}${server.hr}delete-personnel-consigned/${idToDelete}`, {

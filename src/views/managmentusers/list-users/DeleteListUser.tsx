@@ -41,7 +41,7 @@ const DeleteListUser = ({ openModal, userIdToDelete, onClose, onDeleteSuccess, s
       navigate("/");
       return;
     }
-    debugger
+
     setLoading(true);
     try {
       const response = await axios.delete(

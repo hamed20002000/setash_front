@@ -5,18 +5,15 @@ import axios from 'axios';
 import server from '../../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// Define the component props for type safety
 type DeleteProps = {
     openModal: boolean;
     idToDelete: number | null;
     nameToDelete: string;
     onClose: () => void;
     onDeleteSuccess: () => void;
-    // تابع نمایش هشدار که از کامپوننت والد (ListConsignments) می‌آید
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-// نام کامپوننت به DeleteConsignment تغییر یافت
 export const DeleteConsignment = ({ openModal, idToDelete, nameToDelete, onClose, onDeleteSuccess, showAlert }: DeleteProps) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
@@ -37,7 +34,6 @@ export const DeleteConsignment = ({ openModal, idToDelete, nameToDelete, onClose
 
         setLoading(true);
         try {
-            // **API Endpoint به 'delete-consignment' تغییر داده شد**
             const response = await axios.delete(
                 `${server.baseurl}${server.hr}delete-consignment/${idToDelete}`,
                 { headers: { Accept: 'application/json', Authorization: `Bearer ${authToken}` } }
@@ -52,7 +48,6 @@ export const DeleteConsignment = ({ openModal, idToDelete, nameToDelete, onClose
                 onClose();
             }
         } catch (e: any) {
-            // مدیریت خطاهای رایج
             if (e.response && e.response.status === 500) {
                 showAlert('Bu kayıt başka bir işlemde kullanıldığı için silinemez.', 'error');
             } else if (e.response && e.response.status === 401) {

@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import {
-    IconTruck, // ایکون برای انبار خودرو
+    IconTruck,
     IconDots, IconEdit, IconTrash, IconSearch,
     IconFileSpreadsheet, IconFileText, IconX, IconFileDownload,
     IconChevronRight, IconChevronDown,
@@ -31,29 +31,25 @@ import CustomFormLabel from '../../../components/forms/theme-elements/CustomForm
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import { useAuth } from 'src/context/AuthContext';
-import DeleteCarWarehouse from './DeleteCareWarehouse'; // فرض می‌کنیم کامپوننت حذف وجود دارد
+import DeleteCarWarehouse from './DeleteCareWarehouse';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
-// @ts-ignore
 import autoTable from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
 import BlankCard from "src/components/shared/BlankCard";
 
 
-// --- Data Interfaces ---
 interface RegionType { id: number; name: string; depth: number; regions?: RegionType[]; recordStatus?: number; }
 interface FlattenedRegionType { id: number; name: string; label: string; depth: number; }
 interface RegionNode { id: number; name: string; label: string; depth: number; children: RegionNode[]; }
 interface CarWarehouseApiData { id: string; name: string; code: string; address: string; createAt: string; recordStatus: 0 | 1; region: { id: string; name: string; }; }
 interface CarWarehouse { id: number; name: string; code: string; address: string; createAt: string; recordStatus: 0 | 1; regionName: string; regionId: number; }
 
-// ⭐️ Type Mismatch Fix: اضافه کردن کلیدهای داخلی برای مرتب‌سازی
 type SortableKeys = 'id' | 'name' | 'code' | 'address' | 'createAt' | 'regionName' | 'recordStatus';
 
 
-// --- Helper Functions and Styles (از ListStores گرفته شده) ---
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "-";
     try {
@@ -64,7 +60,6 @@ const formatDateDisplay = (dateString: string | null): string => {
 };
 
 const descendingComparator = <T, Key extends keyof T>(a: T, b: T, orderBy: Key): number => {
-    // ⭐️ مدیریت مرتب‌سازی برای 'regionName'
     if (orderBy === ('regionName' as any)) {
         const regionA = (a as unknown as CarWarehouse).regionName || '';
         const regionB = (b as unknown as CarWarehouse).regionName || '';
@@ -96,7 +91,6 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilizedThis.map((el) => el[0]);
 };
 
-// --- PDF Helpers ---
 const addPdfHeader = (doc: jsPDF, title: string) => {
 
     const docAny = doc as any;
@@ -104,10 +98,10 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -117,7 +111,7 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
@@ -125,8 +119,6 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     doc.setFont('NotoSans', 'normal');
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -162,7 +154,6 @@ const addPdfFooter = (doc: jsPDF) => {
 };
 
 
-// --- Excel Helpers ---
 const addExcelHeader = (worksheet: Excel.Worksheet, title: string, columnsLength: number) => {
     worksheet.views = [{ rightToLeft: false }];
     const titleRow = worksheet.addRow([title]);
@@ -188,7 +179,6 @@ const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, colum
     });
 };
 
-// --- Region Tree Helpers ---
 const buildRegionTree = (regions: RegionType[] | undefined, depth: number = 0): RegionNode[] => {
     if (!regions) return [];
     return regions.filter(r => r.recordStatus === 0).map(region => ({
@@ -229,7 +219,6 @@ const filterRegionTree = (nodes: RegionNode[], query: string): RegionNode[] => {
         .filter(Boolean) as RegionNode[];
 };
 
-// --- Region Select Item Component ---
 interface RegionTreeSelectMenuItemProps {
     node: RegionNode;
     onSelect: (regionId: number) => void;
@@ -240,15 +229,14 @@ interface RegionTreeSelectMenuItemProps {
 const RegionTreeSelectMenuItem: React.FC<RegionTreeSelectMenuItemProps> = ({ node, onSelect, selectedId, onCloseParentSelect, searchQuery }) => {
     const isSelected = selectedId === node.id;
     const hasChildren = node.children && node.children.length > 0;
-    const isOpen = searchQuery !== '' || hasChildren; // همیشه در حالت جستجو باز باشد
+    const isOpen = searchQuery !== '' || hasChildren;
 
     const handleItemClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         onSelect(node.id);
-        onCloseParentSelect(); // بستن Select اصلی پس از انتخاب
+        onCloseParentSelect();
     };
 
-    // اگر در حالت جستجو بود و Node مطابقت نداشت اما فرزندانش مطابقت داشتند، آن را نمایش می‌دهیم
     const displayNode = searchQuery === '' || node.name.toLowerCase().includes(searchQuery.toLowerCase()) || node.children.length > 0;
     if (!displayNode && !hasChildren) return null;
 
@@ -300,7 +288,6 @@ const RegionTreeSelectMenuItem: React.FC<RegionTreeSelectMenuItemProps> = ({ nod
 };
 
 
-// --- Styles ---
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
     '&.Mui-selected': {
         color: 'white',
@@ -323,32 +310,19 @@ const blinkAnimation = keyframes`
 const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({ animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none', transition: 'transform 0.3s ease-in-out', }));
 
 
-// =====================================================================================
-// === Main Component: ListCarWarehouse ===
-// =====================================================================================
-
 const ListCarWarehouse: React.FC = () => {
     const navigate = useNavigate();
-    // const { allowedOperations } = useAuth();
     const { isTooltipGloballyEnabled } = useTooltip();
 
 
     const nameInputRef = useRef<HTMLInputElement>(null);
 
-    // Permissions
-    // const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
-    // const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
-    // const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
-
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -357,24 +331,19 @@ const ListCarWarehouse: React.FC = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -388,22 +357,16 @@ const ListCarWarehouse: React.FC = () => {
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
 
 
-    // ------------------------------------
-    // States Form
-    // ------------------------------------
     const [editingId, setEditingId] = useState<number | null>(null);
     const [name, setName] = useState<string>('');
     const [code, setCode] = useState<string>('');
     const [address, setAddress] = useState<string>('');
-    const [selectedRegionId, setSelectedRegionId] = useState<number | null>(null); // ⭐️ تغییر نوع داده
-
-    // Form Validation States
+    const [selectedRegionId, setSelectedRegionId] = useState<number | null>(null);
     const [nameError, setNameError] = useState(false);
     const [codeError, setCodeError] = useState(false);
     const [addressError, setAddressError] = useState(false);
     const [regionError, setRegionError] = useState(false);
 
-    // Global States
     const [carWarehouses, setCarWarehouses] = useState<CarWarehouse[]>([]);
     const [loadingData, setLoadingData] = useState<boolean>(true);
     const [loadingButton, setLoadingButton] = useState<boolean>(false);
@@ -412,16 +375,11 @@ const ListCarWarehouse: React.FC = () => {
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
-    // Region States (برای Select درختی) 
     const [regionTree, setRegionTree] = useState<RegionNode[]>([]);
-    // const [regionOptions, setRegionOptions] = useState<FlattenedRegionType[]>([]);
     const [isRegionSelectOpen, setIsRegionSelectOpen] = useState(false);
     const [regionSearchQuery, setRegionSearchQuery] = useState('');
     const [regionMap, setRegionMap] = useState<Map<number, string>>(new Map());
 
-    // ------------------------------------
-    // States Table/Filter/Modals
-    // ------------------------------------
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
@@ -440,7 +398,6 @@ const ListCarWarehouse: React.FC = () => {
     const [openRowDownloadModal, setOpenRowDownloadModal] = useState(false);
     const [selectedRowForDownload, setSelectedRowForDownload] = useState<CarWarehouse | null>(null);
 
-    // --- Utility Functions ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -453,7 +410,6 @@ const ListCarWarehouse: React.FC = () => {
     }, [alertMessage]);
     useEffect(() => { const t = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(t); }, []);
 
-    // --- Data Mapping ---
     const mapApiDataToCarWarehouse = (r: CarWarehouseApiData): CarWarehouse => ({
         id: Number(r.id),
         name: r.name,
@@ -466,7 +422,6 @@ const ListCarWarehouse: React.FC = () => {
     });
 
 
-    // --- Data Fetching: Regions (Hierarchical) ---
     const fetchRegions = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate('/'); return; }
@@ -478,7 +433,6 @@ const ListCarWarehouse: React.FC = () => {
                 const flattened = flattenRegions(regions);
 
                 setRegionTree(regionTreeData);
-                // setRegionOptions(flattened);
 
                 const newRegionMap = new Map<number, string>();
                 flattened.forEach(region => {
@@ -490,7 +444,6 @@ const ListCarWarehouse: React.FC = () => {
     }, [navigate, showAlert]);
 
 
-    // --- Data Fetching: Car Warehouses ---
     const fetchCarWarehouses = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -532,7 +485,6 @@ const ListCarWarehouse: React.FC = () => {
         fetchCarWarehouses();
     }, [fetchRegions, fetchCarWarehouses]);
 
-    // --- Form Logic ---
     const validateForm = (): boolean => {
         let ok = true;
         setNameError(false); setCodeError(false); setAddressError(false); setRegionError(false);
@@ -540,7 +492,7 @@ const ListCarWarehouse: React.FC = () => {
         if (!name.trim()) { setNameError(true); ok = false; }
         if (!code.trim()) { setCodeError(true); ok = false; }
         if (!address.trim()) { setAddressError(true); ok = false; }
-        if (!selectedRegionId) { setRegionError(true); ok = false; } // ⭐️ تغییر در چک کردن ID
+        if (!selectedRegionId) { setRegionError(true); ok = false; }
 
         if (!ok) { showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning'); }
         return ok;
@@ -557,7 +509,7 @@ const ListCarWarehouse: React.FC = () => {
     }, []);
 
     const handleSubmitForm = async () => {
-        if (!validateForm() || !selectedRegionId) return; // ⭐️ چک کردن ID
+        if (!validateForm() || !selectedRegionId) return;
         setLoadingButton(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { showAlert('Kimlik doğrulama hatası.', 'error'); setLoadingButton(false); return; }
@@ -568,7 +520,7 @@ const ListCarWarehouse: React.FC = () => {
             name: name.trim(),
             code: code.trim(),
             address: address.trim(),
-            regionId: Number(selectedRegionId), // ⭐️ ارسال ID
+            regionId: Number(selectedRegionId),
         };
 
         const url = isEditing
@@ -598,7 +550,7 @@ const ListCarWarehouse: React.FC = () => {
         setCode(row.code);
         setAddress(row.address);
 
-        setSelectedRegionId(row.regionId); // ⭐️ تنظیم ID
+        setSelectedRegionId(row.regionId);
 
         setIsFormVisible(true);
 
@@ -646,7 +598,6 @@ const ListCarWarehouse: React.FC = () => {
         }
     };
 
-    // --- Table/Filter Logic ---
     const filteredCarWarehouses = useMemo(() => {
         const list = carWarehouses.filter(r => {
             const matchesSearch = r.name.toLowerCase().includes(searchTerm.toLowerCase()) || r.code.toLowerCase().includes(searchTerm.toLowerCase()) || r.address.toLowerCase().includes(searchTerm.toLowerCase()) || r.regionName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -662,7 +613,6 @@ const ListCarWarehouse: React.FC = () => {
     const paginatedRows = useMemo(() => filteredCarWarehouses.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage), [filteredCarWarehouses, page, rowsPerPage]);
     const isFilterActive = useMemo(() => !!searchTerm.trim() || statusFilter !== 'all' || startFilter !== null || endFilter !== null, [searchTerm, statusFilter, startFilter, endFilter]);
 
-    // --- Table Handlers ---
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: CarWarehouse) => { setAnchorEl(event.currentTarget); setSelectedRowForMenu(row); };
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
     const handleChangePage = (_: unknown, newPage: number) => setPage(newPage);
@@ -680,7 +630,6 @@ const ListCarWarehouse: React.FC = () => {
     };
     const handleCloseDeleteModal = () => { setOpenDeleteModal(false); setDeleteId(null); setDeleteName(''); fetchCarWarehouses(); };
 
-    // --- Region Select Handlers ---
     const handleCloseRegionSelect = () => { setIsRegionSelectOpen(false); setRegionSearchQuery(''); };
     const renderSelectedRegion = (selectedId: any) => {
         return regionMap.get(selectedId as number) || '';
@@ -690,12 +639,10 @@ const ListCarWarehouse: React.FC = () => {
     }, [regionTree, regionSearchQuery]);
 
 
-    // --- Export Functions (PDF/Excel) ---
     const exportStoresToPdf = (data: CarWarehouse[], title: string) => {
         if (!data || data.length === 0) { showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning'); return; }
         setLoadingData(true); showAlert('Rapor oluşturuluyor...', 'info');
 
-        // @ts-ignore
         const doc = new jsPDF();
         const docAny = doc as any;
 
@@ -787,7 +734,6 @@ const ListCarWarehouse: React.FC = () => {
     const handleOpenRowDownloadModal = useCallback((row: CarWarehouse) => {
         setSelectedRowForDownload(row);
         setOpenRowDownloadModal(true);
-        // اگر از منوی ردیف (Menu) فراخوانی می‌شود، بهتر است منو بسته شود
         if (selectedRowForMenu) {
             handleCloseMenu();
         }
@@ -818,23 +764,19 @@ const ListCarWarehouse: React.FC = () => {
                     </Stack>
                 </Stack>
 
-                {/* --- Form Section --- */}
                 {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                         <Grid container spacing={2}>
-                            {/* Name */}
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Ad</CustomFormLabel>
                                 <CustomTextField placeholder="Adı Girin" size="small"
                                     inputRef={nameInputRef}
                                     fullWidth value={name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setName(e.target.value); setNameError(false); }} error={nameError} helperText={nameError ? 'Bu alan zorunludur!' : ''} />
                             </Grid>
-                            {/* Code */}
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Kod</CustomFormLabel>
                                 <CustomTextField placeholder="Kodu Girin" size="small" fullWidth value={code} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setCode(e.target.value); setCodeError(false); }} error={codeError} helperText={codeError ? 'Bu alan zorunludur!' : ''} />
                             </Grid>
-                            {/* Region (Hierarchical Select) ⭐️ پیاده‌سازی Select درختی */}
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Bölge Seçimi</CustomFormLabel>
                                 <FormControl size="small" error={regionError} fullWidth>
@@ -887,13 +829,11 @@ const ListCarWarehouse: React.FC = () => {
                                     {regionError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bu alan zorunludur!</Typography>}
                                 </FormControl>
                             </Grid>
-                            {/* Address */}
                             <Grid item xs={12} sm={12} md={12}>
                                 <CustomFormLabel required>Adres</CustomFormLabel>
                                 <CustomTextField placeholder="Adresi Girin" size="small" fullWidth value={address} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setAddress(e.target.value); setAddressError(false); }} error={addressError} helperText={addressError ? 'Bu alan zorunludur!' : ''} />
                             </Grid>
 
-                            {/* Form Actions */}
                             <Grid item xs={12}>
                                 <Stack direction="row" spacing={1} justifyContent="flex-end">
                                     <Button variant="contained" color={editingId ? "info" : "success"} onClick={handleSubmitForm} disabled={loadingButton} size="small">
@@ -913,7 +853,6 @@ const ListCarWarehouse: React.FC = () => {
                 )}
             </div>
 
-            {/* --- Table Section --- */}
             <BlankCard>
                 <>
                     {alertMessage && (
@@ -1009,12 +948,7 @@ const ListCarWarehouse: React.FC = () => {
                                                     <IconButton onClick={(e) => handleClickMenu(e, row)} size="small"><IconDots width={18} /></IconButton>
                                                 </CustomTooltip>
                                                 <Menu anchorEl={anchorEl} open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
-                                                    {/* <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu depo için detay kayıt sayfasına git" : ""}>
-                                                        <MuiMenuItem onClick={handleRegisterDetailsClick}>
-                                                            <ListItemIcon><IconFileText width={18} /></ListItemIcon>
-                                                            Detayları Kaydet
-                                                        </MuiMenuItem>
-                                                    </CustomTooltip> */}
+
                                                     {hasEditPermission && (<CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kaydı düzenle" : ""}><MuiMenuItem onClick={() => handleEditClick(selectedRowForMenu!)}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenlemek</MuiMenuItem></CustomTooltip>)}
                                                     {hasEditPermission && (
                                                         selectedRowForMenu?.recordStatus === 0 ? (
@@ -1048,7 +982,6 @@ const ListCarWarehouse: React.FC = () => {
                 <TablePagination rowsPerPageOptions={[5, 10, 25]} component="div" count={filteredCarWarehouses.length} rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage} labelRowsPerPage="Satır başına düşen:" labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`} />
             </BlankCard>
 
-            {/* Download Modals */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
                 <DialogTitle>Tüm Kayıtları İndir</DialogTitle>
                 <DialogContent><Stack direction="column" spacing={2} sx={{ mt: 2 }}><Button variant="contained" color="primary" startIcon={<IconFileText />} onClick={() => handleDownloadAll('pdf')}>PDF Olarak İndir</Button><Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />} onClick={() => handleDownloadAll('excel')}>Excel Olarak İndir</Button></Stack></DialogContent>
@@ -1065,7 +998,6 @@ const ListCarWarehouse: React.FC = () => {
                 <DialogActions><Button onClick={() => setOpenRowDownloadModal(false)} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* Delete Modal */}
             <DeleteCarWarehouse
                 openModal={openDeleteModal}
                 onClose={handleCloseDeleteModal}

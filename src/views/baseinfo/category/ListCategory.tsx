@@ -75,11 +75,10 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
 }));
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-  fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-  // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-  fontSize: '0.8rem', // Varsayılan olarak küçük font
+  fontFamily: 'NotoSans',
+  fontSize: '0.8rem',
   [theme.breakpoints.up('md')]: {
-    fontSize: '1rem', // Masaüstünde daha büyük
+    fontSize: '1rem',
   },
 }));
 
@@ -98,7 +97,7 @@ interface CategoryType {
   name: string;
   createAt: string;
   recordStatus: number;
-  status: string; // Derived from recordStatus
+  status: string;
   parentId: string | null;
   depth: number;
 }
@@ -109,7 +108,6 @@ interface BreadcrumbItem {
   depth: number;
 }
 
-// **ToggleButton سفارشی با استایل‌های شرطی**
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
   '&.Mui-selected': {
     color: 'white',
@@ -133,8 +131,6 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
   },
 }));
 
-// --- Helper functions for sorting, reused from previous components ---
-// Define a new type for the sortable keys
 type SortableCategoryKeys = keyof Pick<CategoryType, 'name' | 'createAt' | 'status' | 'depth'>; // 🔴 'code' حذف شد
 
 const descendingComparator = <T, Key extends keyof T>(
@@ -185,17 +181,13 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
   });
   return stabilizedThis.map((el) => el[0]);
 };
-// --- End of Helper functions for sorting ---
 
 
 const ListCategory = () => {
   const navigate = useNavigate();
 
   const [name, setName] = useState<string>('');
-  // const [code, setCode] = useState<string>(''); // 🔴 حذف شد: State برای code
-  // داده‌های اصلی و کامل از API به صورت Nested
   const [rawApiCategories, setRawApiCategories] = useState<ApiCategoryType[]>([]);
-  // دسته‌بندی‌هایی که در جدول فعلی نمایش داده می‌شوند (فقط زیرمجموعه‌های مستقیم والد فعلی)
   const [displayedCategories, setDisplayedCategories] = useState<CategoryType[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingParentId, setEditingParentId] = useState<string | null>(null);
@@ -227,9 +219,7 @@ const ListCategory = () => {
 
   const [openDownloadModal, setOpenDownloadModal] = useState(false);
 
-  // دسته‌بندی والد فعلی که زیرمجموعه‌های آن نمایش داده می‌شوند
   const [currentParentCategory, setCurrentParentCategory] = useState<CategoryType | null>(null);
-  // مسیر Breadcrumb
   const [breadcrumbPath, setBreadcrumbPath] = useState<BreadcrumbItem[]>([
     { id: null, name: 'Tüm Kategoriler', depth: -1 },
   ]);
@@ -238,43 +228,20 @@ const ListCategory = () => {
 
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
-  // ✅ Added: State for sorting
-  const [orderBy, setOrderBy] = useState<SortableCategoryKeys>('createAt'); // Default sort column
-  const [order, setOrder] = useState<'asc' | 'desc'>('desc'); // Default sort direction
-
-  // ✅ Added: Ref for the category name input field
+  const [orderBy, setOrderBy] = useState<SortableCategoryKeys>('createAt');
+  const [order, setOrder] = useState<'asc' | 'desc'>('desc');
   const categoryNameInputRef = useRef<HTMLInputElement>(null);
 
-  // **State جدید برای مدیریت خطای ورودی نام**
   const [nameError, setNameError] = useState<boolean>(false);
   const [nameHelperText, setNameHelperText] = useState<string>('');
 
-
-  // const { allowedOperations } = useAuth();
-  // const hasCreatePermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-  // }, [allowedOperations]);
-
-  // const hasEditPermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-  // }, [allowedOperations]);
-
-  // const hasDeletePermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-  // }, [allowedOperations]);
-
-  // const hasDownloadPermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
-  // }, [allowedOperations]);
 
 
   const { menuItems, allowedOperations } = useAuth();
   const findMenuByHref = (items: any[], path: string): any => {
     for (const item of items) {
-      // اگر خود آیتم تطبیق داشت
       if (item.href === path) return item;
 
-      // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
       if (item.children && item.children.length > 0) {
         const found = findMenuByHref(item.children, path);
         if (found) return found;
@@ -283,24 +250,19 @@ const ListCategory = () => {
     return null;
   };
 
-  // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
   const currentMenu = useMemo(() => {
-    debugger
+
     return findMenuByHref(menuItems, location.pathname);
   }, [menuItems, location.pathname]);
 
-  // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
   const currentMenuOpIds = useMemo(() => {
-    // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
     if (!currentMenu || !currentMenu.menuOperations) return [];
 
     return currentMenu.menuOperations.map((op: any) => {
-      // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
       return String(op.id);
     });
   }, [currentMenu]);
 
-  // ۴. تابع نهایی بررسی دسترسی
   const hasPermission = (opName: string) => {
     return allowedOperations.some((op: any) =>
       op.systemOperationName === opName &&
@@ -820,7 +782,7 @@ const ListCategory = () => {
     return rows;
   };
   const addCompanyInfo = (worksheet: Excel.Worksheet) => {
-    worksheet.addRow([]); // یک سطر خالی برای فاصله
+    worksheet.addRow([]);
     const companyInfo = [
       'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
       'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
@@ -850,7 +812,6 @@ const ListCategory = () => {
         views: [{ rightToLeft: false }]
       });
 
-      // --- استایل‌های مشترک (می‌توانید از نمونه کد خود کپی کنید) ---
       const thinBorder: Partial<Excel.Border> = {
         style: 'thin',
         color: { argb: 'FFD3D3D3' }
@@ -880,24 +841,16 @@ const ListCategory = () => {
 
       const centerAlignment: Partial<Excel.Alignment> = {
         vertical: 'middle',
-        horizontal: 'center', // این مقدار به صورت یک لیترال تایپ 'center' شناخته می‌شود
+        horizontal: 'center',
         wrapText: true
       };
 
       const leftAlignment: Partial<Excel.Alignment> = {
         vertical: 'middle',
-        horizontal: 'left', // این مقدار به صورت یک لیترال تایپ 'left' شناخته می‌شود
+        horizontal: 'left',
         wrapText: true
       };
 
-      // const rightAlignment: Partial<Excel.Alignment> = {
-      //   vertical: 'middle',
-      //   horizontal: 'right', // این مقدار به صورت یک لیترال تایپ 'right' شناخته می‌شود
-      //   wrapText: true
-      // };
-
-
-      // تعریف fullHeaderStyle با Type Assertion
       const fullHeaderStyle = {
         border: border,
         alignment: centerAlignment,
@@ -906,14 +859,12 @@ const ListCategory = () => {
       } as Partial<Excel.Style>;
 
 
-      // تعریف bodyStyle
       const bodyStyle = {
         border: border,
-        alignment: leftAlignment, // از leftAlignment که یک شیء است استفاده کنید
+        alignment: leftAlignment,
         font: font
       } as Partial<Excel.Style>;
 
-      // --- هدر گزارش (اطلاعات کلی) ---
       worksheet.addRow(['', '', '']);
       const titleRow = worksheet.addRow(['Tüm Kategoriler Raporu']);
       if (titleRow) {
@@ -930,14 +881,12 @@ const ListCategory = () => {
       }
       worksheet.addRow([]);
 
-      // --- هدر جدول اصلی ---
       const tableHeaders = ['Kategori Adı', 'Oluşturulma Tarihi', 'Durum'];
       const headerRow = worksheet.addRow(tableHeaders);
       headerRow.eachCell((cell) => {
         cell.style = fullHeaderStyle;
       });
 
-      // --- اضافه کردن داده‌ها ---
       const rows = flattenAndPrepareCategoriesForExcel(rawApiCategories);
       rows.forEach(rowData => {
         const row = worksheet.addRow(rowData);
@@ -946,7 +895,6 @@ const ListCategory = () => {
         });
       });
 
-      // --- تنظیم عرض ستون‌ها ---
       worksheet.columns.forEach((column) => {
         let maxLength = 0;
         if (column.eachCell) {
@@ -960,7 +908,6 @@ const ListCategory = () => {
         column.width = Math.min(Math.max(maxLength + 2, 12), 50);
       });
       addCompanyInfo(worksheet);
-      // --- ذخیره فایل ---
       const buffer = await workbook.xlsx.writeBuffer();
       const fileName = `Tüm_Kategoriler_Raporu_${new Date().toLocaleDateString('tr-TR')}.xlsx`;
       saveAs(new Blob([buffer]), fileName);
@@ -994,106 +941,6 @@ const ListCategory = () => {
     return rows;
   };
 
-  // const handleDownloadAllCategoriesPDF = () => {
-  //   if (!rawApiCategories || rawApiCategories.length === 0) {
-  //     showAlert('PDF oluşturulacak kategori bulunamadı.', 'warning');
-  //     return;
-  //   }
-
-  //   const doc = new jsPDF();
-  //   const pageWidth = doc.internal.pageSize.getWidth();
-  //   const pageHeight = doc.internal.pageSize.getHeight();
-
-  //   try {
-  //     // Add fonts
-  //     doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-  //     doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-
-  //     // Assuming these variables contain the Base64 data for the fonts
-  //     doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
-  //     doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
-
-  //     doc.addFileToVFS('Arial.ttf', ArialFont);
-  //     doc.addFont('Arial.ttf', 'Arial', 'normal');
-
-  //     // Prepare rows from the flattened category data
-  //     const rows = flattenAndPrepareCategoriesForPdf(rawApiCategories);
-
-  //     autoTable(doc, {
-  //       startY: 65, // Start the table lower to make space for the new header layout
-  //       head: [['Kategori Adı', 'Oluşturulma Tarihi', 'Durum']],
-  //       body: rows,
-  //       theme: 'grid',
-  //       styles: {
-  //         font: 'Arial', // Use Arial font for the table content
-  //         fontStyle: 'normal',
-  //         fontSize: 8,
-  //         cellPadding: 2,
-  //         overflow: 'linebreak',
-  //       },
-  //       headStyles: {
-  //         fillColor: [242, 242, 242],
-  //         textColor: [0, 0, 0],
-  //         font: 'Arial',
-  //         fontSize: 9,
-  //       },
-  //       didDrawPage: () => {
-  //         // --- New Header Section ---
-  //         // 1. Title on the first row, centered
-  //         doc.setFont('Arial', 'bold');
-  //         doc.setFontSize(14);
-  //         doc.text('Tüm Kategoriler Raporu', pageWidth / 2, 15, { align: 'center' });
-
-  //         // 2. Date on the second row, left-aligned
-  //         doc.setFontSize(10);
-  //         doc.setFont('Times', 'bold');
-  //         doc.text(`Tarih:`, 15, 25);
-  //         doc.setFont('Times', 'normal');
-  //         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
-
-  //         // 3. Logo on the second row, right-aligned
-  //         doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
-
-  //         // --- End of New Header Section ---
-
-  //         // --- New Footer Section ---
-  //         // 1. Company information in the center with font size 8
-  //         doc.setFont('NotoSans', 'normal'); // Set NotoSans font for this text
-  //         doc.setFontSize(8);
-  //         doc.setTextColor(0);
-  //         const companyInfo = [
-  //           'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-  //           'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-  //           'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
-  //         ];
-  //         let footerY = pageHeight - 30;
-  //         companyInfo.forEach((line) => {
-  //           doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-  //           footerY += 4;
-  //         });
-
-  //         // 2. Page number on the left side
-  //         const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
-  //         const pageCount = (doc as any).internal.getNumberOfPages();
-  //         doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-
-  //         // 3. Signature on the right side
-  //         doc.setFont('NotoSans', 'normal'); // Set NotoSans font for "İmza"
-  //         doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-  //         doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15); // Add signature line
-  //       },
-  //       showHead: 'everyPage',
-  //       margin: { top: 50, bottom: 45 }, // Adjusted margins for new header and footer layout
-  //     });
-
-  //     doc.save('Tüm_Kategoriler_Raporu.pdf');
-  //     showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
-  //   } catch (error: any) {
-  //     console.error('PDF oluşturulurken hata:', error);
-  //     showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
-  //   }
-  // };
-
   const handleDownloadAllCategoriesPDF = () => {
     if (!rawApiCategories || rawApiCategories.length === 0) {
       showAlert('PDF oluşturulacak kategori bulunamadı.', 'warning');
@@ -1106,42 +953,34 @@ const ListCategory = () => {
     const reportTitle = 'Tüm Kategoriler Raporu';
 
     try {
-      // ۱. اضافه کردن فونت‌ها
       doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
       doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
 
       doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
       doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
 
-      // ۲. تعریف تابع هدر (دقیقاً مشابه ساختار شیک قبلی)
       const addPdfHeader = (pdfDoc: jsPDF, title: string) => {
-        // لوگو سمت راست بالا
         try {
           pdfDoc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
         } catch (e) {
           console.error("Logo yüklenemedi", e);
         }
 
-        // عنوان وسط
         pdfDoc.setFont('NotoSans', 'normal');
         pdfDoc.setFontSize(14);
         pdfDoc.setTextColor(0);
         pdfDoc.text(title, pageWidth / 2, 25, { align: 'center' });
 
-        // تاریخ گزارش سمت چپ
         pdfDoc.setFontSize(10);
         pdfDoc.setFont('NotoSans', 'bold');
         pdfDoc.text(`Rapor Tarihi:`, 15, 40);
         pdfDoc.setFont('NotoSans', 'normal');
         pdfDoc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
 
-        // خط جداکننده زیر هدر (مشابه کد قبلی)
-        // pdfDoc.setDrawColor(200, 200, 200);
         pdfDoc.setLineWidth(0.5);
         pdfDoc.line(15, 45, pageWidth - 15, 45);
       };
 
-      // ۳. تعریف تابع فوتر (مشابه ساختار شرکت SETAŞ)
       const addPdfFooter = (pdfDoc: jsPDF) => {
         pdfDoc.setFontSize(8);
         pdfDoc.setFont('NotoSans', 'normal');
@@ -1159,7 +998,6 @@ const ListCategory = () => {
           footerY += 4;
         });
 
-        // امضا و شماره صفحه
         pdfDoc.setTextColor(0);
         pdfDoc.setFontSize(10);
         pdfDoc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
@@ -1170,10 +1008,8 @@ const ListCategory = () => {
         pdfDoc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
       };
 
-      // ۴. آماده‌سازی داده‌ها
       const rows = flattenAndPrepareCategoriesForPdf(rawApiCategories);
 
-      // ۵. رسم جدول با رنگ‌بندی و استایل کد قبلی
       autoTable(doc, {
         startY: 55,
         head: [['Kategori Adı', 'Oluşturulma Tarihi', 'Durum']],
@@ -1416,30 +1252,24 @@ const ListCategory = () => {
                 aria-label="Status filter"
                 fullWidth
               >
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm kategorileri göster" : ""}> */}
                 <StyledToggleButton
                   value="all"
                   aria-label="all categories"
                 >
                   Tümü
                 </StyledToggleButton>
-                {/* </CustomTooltip> */}
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif kategorileri göster" : ""}> */}
                 <StyledToggleButton
                   value="active"
                   aria-label="active categories"
                 >
                   Aktif
                 </StyledToggleButton>
-                {/* </CustomTooltip> */}
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif kategorileri göster" : ""}> */}
                 <StyledToggleButton
                   value="inactive"
                   aria-label="inactive categories"
                 >
                   Pasif
                 </StyledToggleButton>
-                {/* </CustomTooltip> */}
               </ToggleButtonGroup>
             </Grid>
           </Grid>
@@ -1495,15 +1325,12 @@ const ListCategory = () => {
                   paginatedCategories.map((row) => (
                     <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                       <StyledTableCell>
-                        {/* بخش اول: نام */}
                         <Typography variant="body1">{row.name}</Typography>
                       </StyledTableCell>
                       <StyledTableCell>
-                        {/* بخش دوم: تاریخ */}
                         <Typography variant="body1">{formatDateDisplay(row.createAt)}</Typography>
                       </StyledTableCell>
                       <StyledTableCell>
-                        {/* بخش سوم: چیپ وضعیت */}
                         <Chip
                           label={row.status}
                           sx={{
@@ -1523,7 +1350,6 @@ const ListCategory = () => {
                         />
                       </StyledTableCell>
                       <StyledTableCell>
-                        {/* بخش چهارم: دکمه زیردسته */}
                         <CustomTooltip title={isTooltipGloballyEnabled ? `"${row.name}" için alt kategori ekle/gör` : ""}>
                           {(findCategoryById(rawApiCategories, row.id)?.categories || []).length > 0 ? (
                             <Button
@@ -1547,7 +1373,6 @@ const ListCategory = () => {
                         </CustomTooltip>
                       </StyledTableCell>
                       <StyledTableCell>
-                        {/* بخش پنجم: دکمه منو */}
                         <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
                           <IconButton
                             id={`basic-button-${row.id}`}
@@ -1657,7 +1482,7 @@ const ListCategory = () => {
               variant="contained"
               color="primary"
               startIcon={<IconFileDownload />}
-              onClick={handleDownloadAllCategoriesPDF} // تابع دانلود PDF
+              onClick={handleDownloadAllCategoriesPDF}
             >
               PDF Olarak İndir
             </Button>
@@ -1665,7 +1490,7 @@ const ListCategory = () => {
               variant="contained"
               color="success"
               startIcon={<IconFileDownload />}
-              onClick={handleExportExcel} // تابع دانلود Excel
+              onClick={handleExportExcel}
             >
               Excel Olarak İndir
             </Button>

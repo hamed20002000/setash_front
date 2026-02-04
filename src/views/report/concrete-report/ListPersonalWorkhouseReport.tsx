@@ -351,7 +351,7 @@ const ListPersonnelWorkhouseReport = () => {
             pageSize: filterParams.pageSize,
         };
 
-        debugger
+
 
         setLoadingData(true);
         try {

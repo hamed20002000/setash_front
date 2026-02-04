@@ -60,18 +60,16 @@ import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import { TimesNewRoman } from 'src/assets/fonts/Times';
-// import { ArialFont } from 'src/assets/fonts/Arial';
 import Logo from 'src/assets/images/logos/logo.png';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    fontFamily: 'NotoSans',
+    fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: {
-        fontSize: '1rem', // Masaüstünde daha büyük
+        fontSize: '1rem',
     },
 }));
 const formatDateDisplay = (dateString: string | null): string => {
@@ -247,31 +245,13 @@ const ListRegion = () => {
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
 
-    // const { allowedOperations } = useAuth();
-    // const hasCreatePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-    // }, [allowedOperations]);
-
-    // const hasEditPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-    // }, [allowedOperations]);
-
-    // const hasDeletePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-    // }, [allowedOperations]);
-
-    // const hasDownloadPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
-    // }, [allowedOperations]);
 
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -280,24 +260,19 @@ const ListRegion = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -499,7 +474,7 @@ const ListRegion = () => {
             setLoadingButton(false);
             return;
         }
-        debugger
+
         try {
             const regionParentId = currentParentRegion ? currentParentRegion.id : null;
 
@@ -801,7 +776,6 @@ const ListRegion = () => {
 
             const row = [
                 fullRegionName,
-                // getDepthName(region.depth),
                 formatDateDisplay(region.createAt),
                 region.recordStatus === 0 ? 'Aktif' : 'Pasif'
             ];
@@ -815,96 +789,6 @@ const ListRegion = () => {
         return rows;
     };
 
-    // const handleDownloadAllRegionsPDF = () => {
-    //     if (!rawApiRegions || rawApiRegions.length === 0) {
-    //         showAlert('PDF oluşturulacak bölge bulunamadı.', 'warning');
-    //         return;
-    //     }
-
-    //     const doc = new jsPDF();
-    //     const pageWidth = doc.internal.pageSize.getWidth();
-    //     const pageHeight = doc.internal.pageSize.getHeight();
-
-    //     try {
-    //         // Add fonts
-    //         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-    //         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-    //         doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
-    //         doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
-    //         doc.addFileToVFS('Arial.ttf', ArialFont);
-    //         doc.addFont('Arial.ttf', 'Arial', 'normal');
-    //         doc.setFont('Arial');
-
-    //         const rows = flattenAndPrepareRegionsForPdf(rawApiRegions);
-
-    //         autoTable(doc, {
-    //             startY: 65,
-    //             head: [['Bölge Adı', 'Oluşturulma Tarihi', 'Durum']],
-    //             body: rows,
-    //             theme: 'grid',
-    //             styles: {
-    //                 font: 'Arial',
-    //                 fontStyle: 'normal',
-    //                 fontSize: 8,
-    //                 cellPadding: 2,
-    //                 overflow: 'linebreak'
-    //             },
-    //             headStyles: {
-    //                 fillColor: [242, 242, 242],
-    //                 textColor: [0, 0, 0],
-    //                 font: 'Arial',
-    //                 fontSize: 9,
-    //             },
-    //             didDrawPage: () => {
-    //                 // --- Header Section ---
-    //                 doc.setFont('Arial', 'bold');
-    //                 doc.setFontSize(14);
-    //                 doc.text('Tüm Bölgeler Raporu', pageWidth / 2, 15, { align: 'center' });
-    //                 doc.setFontSize(10);
-    //                 doc.setFont('Times', 'bold');
-    //                 doc.text(`Tarih:`, 15, 25);
-    //                 doc.setFont('Times', 'normal');
-    //                 doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
-    //                 doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
-
-    //                 // --- Footer Section ---
-    //                 doc.setFont('NotoSans', 'normal');
-    //                 doc.setFontSize(8);
-    //                 doc.setTextColor(0);
-    //                 const companyInfo = [
-    //                     'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-    //                     'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-    //                     'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
-    //                 ];
-    //                 let footerY = pageHeight - 30;
-    //                 companyInfo.forEach(line => {
-    //                     doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-    //                     footerY += 4;
-    //                 });
-    //                 const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
-    //                 const pageCount = (doc as any).internal.getNumberOfPages();
-    //                 doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-    //                 doc.setFont('NotoSans', 'normal');
-    //                 doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-    //                 doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-    //             },
-    //             showHead: 'everyPage',
-    //             margin: { top: 50, bottom: 45 },
-    //         });
-
-    //         doc.save('Tüm_Bölgeler_Raporu.pdf');
-    //         showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
-    //     } catch (error: any) {
-    //         console.error('PDF oluşturulurken hata:', error);
-    //         showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
-    //     }
-    // };
-
-
-
-    // New Excel Download Function
-
-
     const handleDownloadAllRegionsPDF = () => {
         if (!rawApiRegions || rawApiRegions.length === 0) {
             showAlert('PDF oluşturulacak bölge bulunamadı.', 'warning');
@@ -917,14 +801,12 @@ const ListRegion = () => {
         const reportTitle = 'Tüm Bölgeler Raporu';
 
         try {
-            // ۱. اضافه کردن فونت‌ها
             doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
             doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
             doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
             doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
             doc.setFont('NotoSans');
 
-            // ۲. تابع هدر (لوگو راست، عنوان وسط، خط جداکننده)
             const addPdfHeader = (pdfDoc: jsPDF, title: string) => {
                 try {
                     pdfDoc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
@@ -942,13 +824,10 @@ const ListRegion = () => {
                 pdfDoc.setFont('NotoSans', 'normal');
                 pdfDoc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
 
-                // خط جداکننده خاکستری
-                // pdfDoc.setDrawColor(200, 200, 200);
                 pdfDoc.setLineWidth(0.5);
                 pdfDoc.line(15, 45, pageWidth - 15, 45);
             };
 
-            // ۳. تابع فوتر (مشخصات شرکت SETAŞ)
             const addPdfFooter = (pdfDoc: jsPDF) => {
                 pdfDoc.setFontSize(8);
                 pdfDoc.setFont('NotoSans', 'normal');
@@ -966,7 +845,6 @@ const ListRegion = () => {
                     footerY += 4;
                 });
 
-                // امضا و شماره صفحه
                 pdfDoc.setTextColor(0);
                 pdfDoc.setFontSize(10);
                 pdfDoc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
@@ -977,10 +855,8 @@ const ListRegion = () => {
                 pdfDoc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
             };
 
-            // ۴. آماده‌سازی ردیف‌ها (فلت کردن ساختار درختی مناطق)
             const rows = flattenAndPrepareRegionsForPdf(rawApiRegions);
 
-            // ۵. رسم جدول با استایل یکپارچه [66, 66, 66]
             autoTable(doc, {
                 startY: 55,
                 head: [['Bölge Adı', 'Oluşturulma Tarihi', 'Durum']],
@@ -993,15 +869,15 @@ const ListRegion = () => {
                     valign: 'middle'
                 },
                 headStyles: {
-                    fillColor: [66, 66, 66], // رنگ خاکستری تیره استاندارد پروژه شما
+                    fillColor: [66, 66, 66],
                     textColor: [255, 255, 255],
                     fontStyle: 'normal',
                     halign: 'left'
                 },
                 columnStyles: {
-                    0: { cellWidth: 'auto' }, // Region Name (Breadcrumb style)
-                    1: { halign: 'left', cellWidth: 45 }, // Date
-                    2: { halign: 'left', cellWidth: 35 }  // Status
+                    0: { cellWidth: 'auto' },
+                    1: { halign: 'left', cellWidth: 45 },
+                    2: { halign: 'left', cellWidth: 35 }
                 },
                 margin: { top: 55, bottom: 30 },
                 didDrawPage: () => {
@@ -1033,7 +909,6 @@ const ListRegion = () => {
             const workbook = new Excel.Workbook();
             const worksheet = workbook.addWorksheet('Bölgeler Raporu', { views: [{ rightToLeft: false }] });
 
-            // Define styles
             const thinBorder = { style: 'thin', color: { argb: 'FFD3D3D3' } };
             const border = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
             const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
@@ -1056,7 +931,7 @@ const ListRegion = () => {
             } as Partial<Excel.Style>;
 
             const addCompanyInfo = (ws: Excel.Worksheet) => {
-                ws.addRow([]); // Blank row for spacing
+                ws.addRow([]);
                 const companyInfo = [
                     'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
                     'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
@@ -1073,7 +948,6 @@ const ListRegion = () => {
                 });
             };
 
-            // Report Header
             worksheet.addRow(['', '', '']);
             const titleRow = worksheet.addRow(['Tüm Bölgeler Raporu']);
             if (titleRow) {
@@ -1090,14 +964,12 @@ const ListRegion = () => {
             }
             worksheet.addRow([]);
 
-            // Table Headers
             const tableHeaders = ['Bölge Adı', 'Oluşturulma Tarihi', 'Durum'];
             const headerRow = worksheet.addRow(tableHeaders);
             headerRow.eachCell((cell) => {
                 cell.style = fullHeaderStyle;
             });
 
-            // Add data
             const rows = flattenAndPrepareRegionsForPdf(rawApiRegions);
             rows.forEach(rowData => {
                 const row = worksheet.addRow(rowData);
@@ -1106,10 +978,8 @@ const ListRegion = () => {
                 });
             });
 
-            // Add company info at the end
             addCompanyInfo(worksheet);
 
-            // Adjust column widths
             worksheet.columns.forEach((column) => {
                 let maxLength = 0;
                 if (column.eachCell) {
@@ -1123,7 +993,6 @@ const ListRegion = () => {
                 column.width = Math.min(Math.max(maxLength + 2, 12), 50);
             });
 
-            // Save file
             const buffer = await workbook.xlsx.writeBuffer();
             const fileName = `Tüm_Bölgeler_Raporu_${new Date().toLocaleDateString('tr-TR')}.xlsx`;
             saveAs(new Blob([buffer]), fileName);
@@ -1160,7 +1029,7 @@ const ListRegion = () => {
                                     color="primary"
                                     onClick={() => setIsFormVisible(true)}
                                     isBlinking={isBlinking}
-                                    fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                                    fullWidth={false}
                                 >
                                     Yeni Bölge Kaydet
                                 </BlinkingButton>
@@ -1172,7 +1041,6 @@ const ListRegion = () => {
                                     variant="contained"
                                     color="error"
                                     onClick={resetFormAndState}
-                                    // disabled={loadingButton}
                                     fullWidth={false}
                                     startIcon={<IconX size={20} />}
                                 >
@@ -1301,7 +1169,7 @@ const ListRegion = () => {
                                     <Button
                                         variant="contained"
                                         color="primary"
-                                        onClick={() => setOpenDownloadModal(true)} // Open modal on click
+                                        onClick={() => setOpenDownloadModal(true)}
                                         startIcon={<IconFileDownload />}
                                     >
                                         Tümünü İndir
@@ -1554,7 +1422,6 @@ const ListRegion = () => {
                 onDeleteSuccess={() => fetchRegions()}
                 showAlert={showAlert}
             />
-            {/* Download Modal */}
             <Dialog
                 open={openDownloadModal}
                 onClose={() => setOpenDownloadModal(false)}

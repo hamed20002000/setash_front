@@ -43,7 +43,6 @@ import DeleteConsignment from './DeleteConsignment';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
-// @ts-ignore
 import autoTable from 'jspdf-autotable';
 import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
@@ -51,7 +50,6 @@ import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
 
 
-// --- Helper Functions and Styles (Türkçe metinler korundu) ---
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "-";
     try {
@@ -102,7 +100,6 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
 
 
 
-// --- 1. Styled Component for Hover Effect ---
 const StyledHoverBox = styled(Box)(({ theme }) => ({
     position: 'absolute',
     top: 0,
@@ -119,7 +116,6 @@ const StyledHoverBox = styled(Box)(({ theme }) => ({
     '&:hover': { opacity: 1 },
 }));
 
-// --- 2. Custom Image Slider Component (for better encapsulation) ---
 interface ImageSlideAndHoverDownloadProps {
     attachments: AttachmentType[];
     currentSlideIndex: number;
@@ -144,7 +140,6 @@ const ImageSlideAndHoverDownload: React.FC<ImageSlideAndHoverDownloadProps> = ({
                 <IconArrowLeft size={30} />
             </IconButton>
 
-            {/* Viewer Box */}
             <Box sx={{
                 flexGrow: 1,
                 height: '100%',
@@ -156,11 +151,10 @@ const ImageSlideAndHoverDownload: React.FC<ImageSlideAndHoverDownloadProps> = ({
                 justifyContent: 'center',
                 p: 2,
             }}>
-                {/* Image & Hover Effect Container */}
                 <Box
                     sx={{
                         width: '100%',
-                        maxHeight: 'calc(100% - 40px)', // Leave space for counter
+                        maxHeight: 'calc(100% - 40px)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -178,7 +172,6 @@ const ImageSlideAndHoverDownload: React.FC<ImageSlideAndHoverDownloadProps> = ({
                             boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                         }}
                     />
-                    {/* Hover Overlay for Download Button */}
                     <StyledHoverBox>
                         <Button
                             variant="contained"
@@ -192,7 +185,6 @@ const ImageSlideAndHoverDownload: React.FC<ImageSlideAndHoverDownloadProps> = ({
                     </StyledHoverBox>
                 </Box>
 
-                {/* Counter */}
                 <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
                     {currentSlideIndex + 1} / {attachments.length}
                 </Typography>
@@ -206,7 +198,6 @@ const ImageSlideAndHoverDownload: React.FC<ImageSlideAndHoverDownloadProps> = ({
 };
 
 
-// --- Data Interfaces (Consignment) ---
 interface WarehouseType { id: number; name: string; }
 interface WorkhouseType { id: number; name: string; }
 interface CarWarehouseType { id: number; name: string; }
@@ -242,12 +233,11 @@ interface QrDataType {
     id: number;
     code: string;
     name: string;
-    url: string; // این فیلد جدید، آدرس کامل است
+    url: string;
 }
 
 type SortableKeys = 'id' | 'name' | 'code' | 'placeName' | 'createAt';
 
-// --- Sorting Helpers (Unchanged) ---
 const descendingComparator = <T, Key extends keyof T>(a: T, b: T, orderBy: Key): number => {
     const valA = a[orderBy];
     const valB = b[orderBy];
@@ -273,7 +263,6 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilizedThis.map((el) => el[0]);
 };
 
-// --- Custom File Upload Component ---
 const ConsignmentFileUpload: React.FC<{ files: File[]; setFiles: (f: File[]) => void; error: boolean; currentAttachments: AttachmentType[]; setCurrentAttachments: (a: AttachmentType[]) => void; }> = ({ files, setFiles, error, currentAttachments, setCurrentAttachments }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const supportedTypes = "image/*";
@@ -309,7 +298,6 @@ const ConsignmentFileUpload: React.FC<{ files: File[]; setFiles: (f: File[]) => 
                     Resim Seç
                 </Button>
             </Stack>
-            {/* Display Existing Attachments */}
             {currentAttachments.length > 0 && (
                 <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
                     <Typography variant="caption" sx={{ color: 'gray' }}>Mevcut ({currentAttachments.length}):</Typography>
@@ -331,7 +319,6 @@ const ConsignmentFileUpload: React.FC<{ files: File[]; setFiles: (f: File[]) => 
                 </Stack>
             )}
 
-            {/* Display New Files to Upload */}
             {files.length > 0 && (
                 <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
                     {files.map((file, index) => (
@@ -354,7 +341,6 @@ const ConsignmentFileUpload: React.FC<{ files: File[]; setFiles: (f: File[]) => 
     );
 };
 
-// تابع آپلود فایل
 const uploadFiles = async (
     files: File[],
     authToken: string,
@@ -368,7 +354,7 @@ const uploadFiles = async (
     const formData = new FormData();
     files.forEach(file => formData.append('files', file));
 
-    debugger
+
 
     try {
         const uploadResponse = await axios.post(
@@ -394,99 +380,6 @@ const uploadFiles = async (
     }
 };
 
-
-// const resizeImageBase64 = (base64String: string, maxWidth: number = 600, maxHeight: number = 600, quality: number = 0.7): Promise<string> => {
-//     return new Promise((resolve) => {
-//         const img = new Image();
-
-//         img.onload = () => {
-//             let width = img.width;
-//             let height = img.height;
-
-//             // محاسبه ابعاد جدید با حفظ نسبت
-//             if (width > height) {
-//                 if (width > maxWidth) {
-//                     height *= maxWidth / width;
-//                     width = maxWidth;
-//                 }
-//             } else {
-//                 if (height > maxHeight) {
-//                     width *= maxHeight / height;
-//                     height = maxHeight;
-//                 }
-//             }
-
-//             // اگر تصویر کوچک بود، ابعاد اصلی را حفظ می‌کند
-//             if (width < 1 || height < 1) {
-//                 resolve(base64String);
-//                 return;
-//             }
-
-//             const canvas = document.createElement('canvas');
-//             canvas.width = width;
-//             canvas.height = height;
-//             const ctx = canvas.getContext('2d');
-
-//             if (ctx) {
-//                 // پر کردن پس‌زمینه با سفید (برای جلوگیری از پس‌زمینه سیاه در صورت شفافیت)
-//                 ctx.fillStyle = 'white';
-//                 ctx.fillRect(0, 0, width, height);
-//                 ctx.drawImage(img, 0, 0, width, height);
-
-//                 // تبدیل مجدد به Base64 با کیفیت پایین‌تر (JPEG برای فشرده‌سازی بهتر)
-//                 resolve(canvas.toDataURL('image/jpeg', quality));
-//             } else {
-//                 // اگر Canvas در دسترس نباشد، Base64 اصلی را برمی‌گرداند
-//                 resolve(base64String);
-//             }
-//         };
-
-//         img.onerror = () => {
-//             console.error("Image loading failed for Base64 resizing.");
-//             resolve(base64String); // در صورت خطا Base64 اصلی را برمی‌گرداند
-//         };
-
-//         // شروع بارگذاری تصویر
-//         img.src = base64String;
-//     });
-// };
-
-// const urlToBase64 = async (url: string, _mimeType: string, authToken: string): Promise<string | null> => {
-//     try {
-//         const fullUrl = url.startsWith('http') ? url : `${server.urldpwonload}${url}`;
-
-//         const response =
-//             await fetch(fullUrl, {
-//                 method: 'GET',
-//                 headers: {
-//                     'Authorization': `Bearer ${authToken}`
-//                 }
-//             });
-
-//         if (!response.ok) {
-//             console.error(`Fetch error: ${response.status} ${response.statusText}`);
-//             return null;
-//         }
-
-//         const blob = await response.blob();
-//         const base64Result = await new Promise<string>((resolve, reject) => {
-//             const reader = new FileReader();
-//             reader.onloadend = () => resolve(reader.result as string);
-//             reader.onerror = () => reject(new Error("FileReader failed to convert blob to Base64."));
-//             reader.readAsDataURL(blob);
-//         });
-
-//         const optimizedBase64 = await resizeImageBase64(base64Result);
-
-//         return optimizedBase64;
-
-//     } catch (e: any) {
-//         console.error("Error converting and optimizing image for PDF (Fetch API):", e?.message || e);
-//         return null;
-//     }
-// };
-
-
 const useQueryParams = () => {
     const { search } = useLocation();
     return useMemo(() => new URLSearchParams(search), [search]);
@@ -494,21 +387,12 @@ const useQueryParams = () => {
 
 const ListConsignments: React.FC = () => {
     const navigate = useNavigate();
-    // const { allowedOperations } = useAuth();
-
-    // // Permissions
-    // const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
-    // const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
-    // const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -517,24 +401,19 @@ const ListConsignments: React.FC = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -554,9 +433,6 @@ const ListConsignments: React.FC = () => {
 
     const nameInputRef = useRef<HTMLInputElement>(null);
 
-    // ------------------------------------
-    // States Form
-    // ------------------------------------
     const [editingId, setEditingId] = useState<number | null>(null);
     const [consignmentName, setConsignmentName] = useState<string>('');
     const [description, setDescription] = useState<string>('');
@@ -566,12 +442,10 @@ const ListConsignments: React.FC = () => {
     const [selectedStoreId, setSelectedStoreId] = useState<number | ''>('');
     const [selectedCarWarehouseId, setSelectedCarWarehouseId] = useState<number | ''>('');
 
-    // State های مربوط به فایل‌ها 
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [currentAttachments, setCurrentAttachments] = useState<AttachmentType[]>([]);
     const [attachmentError, setAttachmentError] = useState(false);
 
-    // لیست‌های مرجع
     const [warehousesList, setWarehousesList] = useState<WarehouseType[]>([]);
     const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
     const [carWarehousesList, setCarWarehousesList] = useState<CarWarehouseType[]>([]);
@@ -585,9 +459,6 @@ const ListConsignments: React.FC = () => {
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
-    // ------------------------------------
-    // States Table/Filter
-    // ------------------------------------
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
@@ -595,7 +466,6 @@ const ListConsignments: React.FC = () => {
     const [orderBy, setOrderBy] = useState<SortableKeys>('createAt');
     const [order, setOrder] = useState<'asc' | 'desc'>('desc');
 
-    // Date Filters for 'createAt'
     const [startFilter, setStartFilter] = useState<Date | null>(null);
     const [endFilter, setEndFilter] = useState<Date | null>(null);
 
@@ -621,7 +491,6 @@ const ListConsignments: React.FC = () => {
     const [qrData, setQrData] = useState<QrDataType | null>(null);
     const [downloadLoading, setDownloadLoading] = useState(false);
 
-    // State های مودال پیوست ها
     const [rowForAttachments, setRowForAttachments] = useState<Consignment | null>(null);
     const [openAttachmentsModal, setOpenAttachmentsModal] = useState(false);
     const [attachmentsToView, setAttachmentsToView] = useState<AttachmentType[]>([]);
@@ -642,7 +511,6 @@ const ListConsignments: React.FC = () => {
     const initialId = query.get('id');
     const initialCode = query.get('code');
 
-    // --- Alert & Initialization Logic ---
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -656,9 +524,6 @@ const ListConsignments: React.FC = () => {
     useEffect(() => { const t = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(t); }, []);
 
 
-
-
-    // --- Data Fetching: Reference Lists ---
     const fetchWarehouses = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         const role = localStorage.getItem('activeUserRoleName') || '';
@@ -737,7 +602,6 @@ const ListConsignments: React.FC = () => {
             requestParams = { rolename: role };
         }
         try {
-            // API: get-car-warehouses
             const response = await axios.get(`${server.baseurl}${server.initialoperations}get-car-warehouses`,
                 {
                     headers: { Authorization: `Bearer ${authToken}` },
@@ -746,10 +610,10 @@ const ListConsignments: React.FC = () => {
             if (response.data.httpStatusCode === 200) {
                 const all = response.data.data as any[];
                 const mapped = all
-                    .filter((item: any) => item.recordStatus === 0) // فقط رکوردهای فعال
+                    .filter((item: any) => item.recordStatus === 0)
                     .map((item: any) => ({
                         id: Number(item.id),
-                        name: `${item.name} (${item.code})`, // نمایش نام و کد
+                        name: `${item.name} (${item.code})`,
                     })) as CarWarehouseType[];
                 setCarWarehousesList(mapped);
             } else { showAlert(response.data.message || 'Filo listesi alınamadı.', 'error'); }
@@ -787,7 +651,6 @@ const ListConsignments: React.FC = () => {
         }
     }, [navigate]);
 
-    // در کنار fetchWorkhouses و fetchWarehouses
     const fetchAllStores = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         const role = localStorage.getItem('activeUserRoleName') || '';
@@ -926,18 +789,10 @@ const ListConsignments: React.FC = () => {
             setLoadingStatus(false);
         }
     };
-
-    // useEffect(() => {
-    //     fetchWarehouses();
-    //     fetchWorkhouses();
-    //     fetchCarWarehouses();
-    // }, [fetchWarehouses, fetchWorkhouses, fetchCarWarehouses]);
-
     useEffect(() => {
         fetchWarehouses();
         fetchWorkhouses();
         fetchCarWarehouses();
-        // ⭐️ اضافه کردن واکشی تمام Stores
         fetchAllStores();
     }, [fetchWarehouses, fetchWorkhouses, fetchCarWarehouses, fetchAllStores]);
 
@@ -968,7 +823,6 @@ const ListConsignments: React.FC = () => {
                             handleOpenAttachmentsModal(consignment);
                             showAlert(`Kod: ${initialCode} kaydı başarıyla yüklendi.`, 'success');
 
-                            // ⭐️ مهم: پارامترها را از آدرس پاک کن
                             window.history.replaceState({}, document.title, window.location.pathname);
                         } else {
                             showAlert(`Mal kaydı bulunamadı (ID: ${initialId}).`, 'warning');
@@ -994,9 +848,7 @@ const ListConsignments: React.FC = () => {
     }, [fetchConsignments, warehousesList, workhousesList, carWarehousesList, storesList]);
 
 
-    // --- Form Logic (Cont.) ---
     useEffect(() => {
-        // Mantık, önceki kontrolde olduğu gibi kaldı
         if (placeKind === 'WORKHOUSE_STORE') {
             setSelectedWarehouseId(''); setSelectedCarWarehouseId('');
             if (selectedWorkhouseId && typeof selectedWorkhouseId === 'number') {
@@ -1035,7 +887,7 @@ const ListConsignments: React.FC = () => {
                             typeNum === 4 ? 'CENTER' :
                                 'UNKNOWN';
 
-        debugger
+
 
         if (typeNum === 0) {
             name = warehousesList.find(w => w.id === placeIdNum)?.name || 'Depo   ';
@@ -1068,7 +920,6 @@ const ListConsignments: React.FC = () => {
 
 
     const QR_BASE_URL = "https://setasportal.com/hr/list-consignments";
-    // --- QR Code Logic (for New Record) ---
     const fetchLastConsignmentAndOpenQRModal = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) return;
@@ -1080,16 +931,13 @@ const ListConsignments: React.FC = () => {
             if (res.data.httpStatusCode === 200 && res.data.data.length > 0) {
                 const rawRows = res.data.data as any[];
 
-                // find the latest record based on createAt
                 const latestRecord = rawRows.sort((a, b) =>
                     new Date(b.createAt).getTime() - new Date(a.createAt).getTime())[0];
 
                 if (latestRecord && latestRecord.code && latestRecord.name) {
-                    // const fullUrl = `${QR_BASE_URL}${latestRecord.code}`;
                     const fullUrl = `${QR_BASE_URL}?id=${latestRecord.id}&code=${latestRecord.code}`;
-                    // setQrData({ code: latestRecord.code, name: latestRecord.name, url: fullUrl }); // افزودن url
                     setQrData({
-                        id: Number(latestRecord.id), // 👈 اینجا id را تنظیم می‌کنیم
+                        id: Number(latestRecord.id),
                         code: latestRecord.code,
                         name: latestRecord.name,
                         url: fullUrl
@@ -1146,7 +994,7 @@ const ListConsignments: React.FC = () => {
     const resetForm = () => {
         setEditingId(null);
         setConsignmentName('');
-        setDescription(''); // ✨ تغییر: ریست کردن توضیحات
+        setDescription('');
         setPlaceKind('CENTER');
         setSelectedWarehouseId('');
         setSelectedWorkhouseId('');
@@ -1249,7 +1097,6 @@ const ListConsignments: React.FC = () => {
         setCurrentAttachments(r.attachments);
         setSelectedFiles([]);
 
-        // Set Place ID based on type
         if (r.type === 0) {
             setSelectedWarehouseId(r.placeId); setSelectedWorkhouseId(''); setSelectedStoreId(''); setSelectedCarWarehouseId('');
         } else if (r.type === 1) {
@@ -1293,13 +1140,10 @@ const ListConsignments: React.FC = () => {
 
     const filteredConsignments = useMemo(() => {
         const list = consignments.filter(r => {
-            // 1. Search Filter
             const matchesSearch = r.name.toLowerCase().includes(searchTerm.toLowerCase()) || r.placeName.toLowerCase().includes(searchTerm.toLowerCase()) || r.code.toLowerCase().includes(searchTerm.toLowerCase());
 
-            // 2. Status Filter
             const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' && r.recordStatus === 0) || (statusFilter === 'inactive' && r.recordStatus === 1);
 
-            // 3. Date Filter
             const cDate = r.createAt ? new Date(r.createAt) : null;
             const inRange = (!startFilter || (cDate && cDate >= startFilter)) && (!endFilter || (cDate && cDate <= endFilter));
 
@@ -1311,7 +1155,6 @@ const ListConsignments: React.FC = () => {
 
     const paginatedRows = useMemo(() => filteredConsignments.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage), [filteredConsignments, page, rowsPerPage]);
 
-    // Menu Handlers
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: Consignment) => { setAnchorEl(event.currentTarget); setSelectedRowForMenu(row); };
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
 
@@ -1369,12 +1212,10 @@ const ListConsignments: React.FC = () => {
         showAlert(`"${fileUrl.split('/').pop()}" dosyası indiriliyor.`, 'info');
     };
 
-    // --- Export Functions (PDF/Excel) ---
     const exportToPdf = async (rows: Consignment[], isFiltered: boolean) => {
         if (!rows || rows.length === 0) { showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning'); return; }
         setLoadingData(true); showAlert('Rapor oluşturuluyor...', 'info');
 
-        // @ts-ignore
         const doc = new jsPDF();
         const docAny = doc as any;
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -1508,7 +1349,6 @@ const ListConsignments: React.FC = () => {
 
             worksheet.columns.forEach((column) => {
                 let maxLength = 0;
-                // @ts-ignore
                 if (column.eachCell) {
                     // @ts-ignore
                     column.eachCell({ includeEmpty: true }, (cell) => {
@@ -1531,138 +1371,6 @@ const ListConsignments: React.FC = () => {
             setLoadingData(false);
         }
     };
-
-    // const exportRowWithImagesToPdf = async (row: Consignment) => {
-    //     if (!row) return;
-    //     setLoadingData(true);
-    //     showAlert('Malzeme ve resimler PDF olarak hazırlanıyor...', 'info');
-
-    //     const authToken = localStorage.getItem('authToken');
-    //     if (!authToken) {
-    //         showAlert('Kimlik doğrulama hatası: Lütfen tekrar giriş yapın.', 'error');
-    //         setLoadingData(false);
-    //         return;
-    //     }
-
-    //     // @ts-ignore
-    //     const doc = new jsPDF();
-    //     const docAny = doc as any;
-    //     const pageWidth = doc.internal.pageSize.getWidth();
-    //     const pageHeight = doc.internal.pageSize.getHeight();
-    //     const margin = 10;
-    //     let currentY = 15;
-
-    //     try {
-    //         // ... (تنظیمات فونت و هدر و جدول مشخصات - بدون تغییر) ...
-    //         try { docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular); docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal'); } catch (e) { }
-    //         docAny.setFont('NotoSans');
-    //         docAny.setFontSize(14);
-    //         docAny.text('Malzeme Kayıt Detayı ve Resim Raporu', pageWidth / 2, currentY, { align: 'center' });
-    //         currentY += 10;
-
-    //         const mainColumns = [['Alan', 'Değer']];
-    //         const mainBody = [
-    //             ['Mal Adı:', row.name || '-'],
-    //             ['Kod:', row.code || '-'],
-    //             ['Yer Türü:', getPlaceKindText(row.placeKind)],
-    //             ['Yer Adı:', row.placeName || '-'],
-    //             ['Kayıt Tarihi:', formatDateDisplay(row.createAt || null)],
-    //         ];
-
-    //         // فرض می‌کنیم autoTable قبلاً تعریف شده
-    //         autoTable(docAny, {
-    //             head: mainColumns,
-    //             body: mainBody,
-    //             startY: currentY,
-    //             theme: 'grid',
-    //             styles: { font: 'NotoSans', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
-    //             headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0] },
-    //             margin: { top: 15, left: margin, right: margin }
-    //         });
-    //         currentY = docAny.lastAutoTable.finalY + 10;
-
-    //         // 3. بخش عکس‌ها (منطق جدید برای مدیریت MimeType)
-    //         if (row.attachments && row.attachments.length > 0) {
-    //             docAny.setFontSize(12);
-    //             docAny.text(`Ekli Resimler (${row.attachments.length} adet):`, margin, currentY);
-    //             currentY += 5;
-
-    //             // تبدیل URL عکس‌ها به Base64 و استخراج MimeType
-    //             const imagesBase64Promises = row.attachments.map(att => {
-    //                 const fileName = att.fileUrl.split('/').pop()?.toLowerCase() || '';
-    //                 // تخمین MimeType بر اساس پسوند (می‌تواند از سرور دقیق‌تر باشد)
-    //                 const mimeType = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
-
-    //                 // واکشی Base64
-    //                 return urlToBase64(att.fileUrl, mimeType, authToken).then(base64 => ({ base64, mimeType, fileUrl: att.fileUrl }));
-    //             });
-
-    //             // دریافت Base64 و MimeType های موفقیت‌آمیز
-    //             const imageResults = (await Promise.all(imagesBase64Promises)).filter(img => img.base64 !== null) as { base64: string; mimeType: string; fileUrl: string }[];
-
-    //             if (imageResults.length === 0) {
-    //                 showAlert('Resimler yüklenirken bir sorun oluştu (Kimlik doğrulama veya sunucu hatası).', 'error');
-    //                 setLoadingData(false);
-    //                 return;
-    //             }
-
-    //             const imgWidth = 55;
-    //             const imgHeight = 40;
-    //             const padding = 5;
-    //             const imagesPerRow = Math.floor((pageWidth - 2 * margin) / (imgWidth + padding));
-    //             let x = margin;
-
-    //             for (let i = 0; i < imageResults.length; i++) {
-    //                 const { base64, mimeType, fileUrl } = imageResults[i];
-
-    //                 // 💡 مهم: استخراج فرمت تصویر (JPEG, PNG,...) برای آرگومان دوم addImage
-    //                 const imageType = mimeType.toUpperCase().split('/')[1] || 'JPEG';
-
-    //                 // بررسی صفحه‌بندی
-    //                 if (currentY + imgHeight + padding > pageHeight - margin) {
-    //                     docAny.addPage();
-    //                     currentY = margin;
-    //                     x = margin;
-    //                 }
-
-    //                 // بررسی اتمام ردیف
-    //                 if ((i > 0 && i % imagesPerRow === 0)) {
-    //                     currentY += imgHeight + 10;
-    //                     x = margin;
-    //                 }
-
-    //                 // افزودن عکس به PDF با استفاده از imageType صحیح
-    //                 docAny.addImage(base64, imageType, x, currentY, imgWidth, imgHeight);
-
-    //                 // افزودن نام فایل زیر عکس
-    //                 docAny.setFontSize(7);
-    //                 docAny.text(fileUrl.split('/').pop() || 'Dosya Adı', x, currentY + imgHeight + 3);
-
-    //                 x += imgWidth + padding;
-    //             }
-    //         } else {
-    //             docAny.setFontSize(10);
-    //             docAny.text('Bu kayıt için ekli resim bulunmamaktadır.', margin, currentY);
-    //         }
-
-    //         const fileName = `Mal_Raporu_ve_Resimler_${row.code}_${format(new Date(), 'yyyyMMdd')}.pdf`;
-    //         docAny.save(fileName);
-    //         showAlert('Malzeme ve Resimler PDF olarak başarıyla indirildi.', 'success');
-    //     } catch (e) {
-    //         showAlert('Resimli PDF oluşturulurken kritik bir hata oluştu.', 'error');
-    //         console.error("Resimli PDF Hatası:", e);
-    //     } finally {
-    //         setLoadingData(false);
-    //     }
-    // };
-
-    // const handleDownloadRowWithImages = () => {
-    //     if (selectedRowForMenu) {
-    //         exportRowWithImagesToPdf(selectedRowForMenu);
-    //         handleCloseMenu();
-    //     }
-    // };
-
     const handleOpenDownloadAllModal = () => setOpenDownloadAllModal(true);
     const handleCloseDownloadAllModal = () => setOpenDownloadAllModal(false);
     const handleOpenDownloadFilteredModal = () => setOpenDownloadFilteredModal(true);
@@ -1674,7 +1382,6 @@ const ListConsignments: React.FC = () => {
     const handleDownloadFiltered = (format: 'pdf' | 'excel') => { format === 'pdf' ? exportToPdf(filteredConsignments, true) : exportToExcel(filteredConsignments, true); handleCloseDownloadFilteredModal(); };
     const handleDownloadRow = (format: 'pdf' | 'excel') => { if (!selectedRowForDownload) return; const rows = [selectedRowForDownload]; format === 'pdf' ? exportToPdf(rows, false) : exportToExcel(rows, false); handleCloseRowDownloadModal(); };
 
-    // --- QR Code Logic (Download) ---
     const downloadQRCodeAsPNG = (elementId: string, filename: string) => {
         const canvas = document.getElementById(elementId) as HTMLCanvasElement;
         if (canvas) {
@@ -1716,12 +1423,10 @@ const ListConsignments: React.FC = () => {
 
     const handleOpenQrModal = (row: Consignment) => {
         if (row.code && row.name) {
-            // const fullUrl = `${QR_BASE_URL}${row.code}`; // ساخت آدرس
             const fullUrl = `${QR_BASE_URL}?id=${row.id}&code=${row.code}`;
 
-            // setQrData({ code: row.code, name: row.name, url: fullUrl }); // افزودن url
             setQrData({
-                id: row.id, // 👈 اینجا id را تنظیم می‌کنیم
+                id: row.id,
                 code: row.code,
                 name: row.name,
                 url: fullUrl
@@ -1768,7 +1473,6 @@ const ListConsignments: React.FC = () => {
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                         <Grid container spacing={2}>
 
-                            {/* Consignment Name */}
                             <Grid item xs={12} sm={4}>
                                 <CustomFormLabel required>Mal Kayıt İsmi</CustomFormLabel>
                                 <CustomTextField placeholder="Adı Girin" size="small" fullWidth value={consignmentName}
@@ -1783,7 +1487,6 @@ const ListConsignments: React.FC = () => {
                                 />
                             </Grid>
 
-                            {/* Place Kind Selector */}
                             <Grid item xs={12} sm={4}>
                                 <CustomFormLabel required>Yer Türü</CustomFormLabel>
                                 <FormControl size="small" sx={{ width: '100%' }}>
@@ -1799,34 +1502,27 @@ const ListConsignments: React.FC = () => {
 
                                 </FormControl>
                             </Grid>
-
-                            {/* Dynamic Place Selectors (Depo) */}
-                            {/* کد جایگزین با Autocomplete: */}
                             {placeKind === 'WAREHOUSE' && (
                                 <Grid item xs={12} sm={4}>
                                     <CustomFormLabel required>Depo</CustomFormLabel>
                                     <Autocomplete
-                                        // 1. لیست گزینه‌ها
                                         options={warehousesList}
-                                        // 2. تنظیمات کلیدی
                                         getOptionLabel={(option) => option.name}
                                         isOptionEqualToValue={(option, value) => option.id === value.id}
-                                        // 3. مقدار فعلی
+
                                         value={warehousesList.find(w => w.id === selectedWarehouseId) || null}
-                                        // 4. تغییر مقدار
+
                                         onChange={(_, newValue) => {
                                             const newId = newValue ? newValue.id : '';
                                             setSelectedWarehouseId(newId);
                                             if (placeError) setPlaceError(false);
                                         }}
-                                        // 5. نمایش TextField
                                         renderInput={(params) => (
                                             <TextField
                                                 {...params}
                                                 label="Depo Seçin"
                                                 size="small"
                                                 fullWidth
-                                                // 💡 حالت خطا برای اعتبارسنجی
                                                 error={placeError}
                                                 helperText={placeError ? 'Bu alan zorunludur!' : ''}
                                             />
@@ -1835,14 +1531,12 @@ const ListConsignments: React.FC = () => {
                                 </Grid>
                             )}
 
-                            {/* Dynamic Place Selectors (Şantiye) */}
                             {placeKind === 'WORKHOUSE' && (
                                 <Grid item xs={12} sm={4}>
                                     <CustomFormLabel required>Şantiye</CustomFormLabel>
                                     <Autocomplete
                                         options={workhousesList}
                                         size="small"
-                                        // یافتن مقدار فعلی بر اساس ID ذخیره شده در State
                                         value={workhousesList.find(w => w.id === selectedWorkhouseId) || null}
                                         getOptionLabel={(option) => option.name}
                                         isOptionEqualToValue={(option, value) => option.id === value.id}
@@ -1862,11 +1556,8 @@ const ListConsignments: React.FC = () => {
                                     />
                                 </Grid>
                             )}
-
-                            {/* Dynamic Place Selectors (Şantiyenin Deposu) */}
                             {placeKind === 'WORKHOUSE_STORE' && (
                                 <>
-                                    {/* Şantiye (İlişkili) - این فیلد باید Autocomplete باشد تا به راحتی انتخاب شود */}
                                     <Grid item xs={12} sm={4}>
                                         <CustomFormLabel required>Şantiye (İlişkili)</CustomFormLabel>
                                         <Autocomplete
@@ -1878,7 +1569,6 @@ const ListConsignments: React.FC = () => {
                                             onChange={(_, newValue) => {
                                                 const newId = newValue ? newValue.id : '';
                                                 setSelectedWorkhouseId(newId);
-                                                // 💡 با تغییر شانتيه، Depo باید ریست شود
                                                 setSelectedStoreId('');
                                             }}
                                             renderInput={(params) => (
@@ -1887,13 +1577,11 @@ const ListConsignments: React.FC = () => {
                                         />
                                     </Grid>
 
-                                    {/* Şantiyenin Deposu (Stores) - این فیلد وابسته به انتخاب شانتيه است */}
                                     <Grid item xs={12} sm={4}>
                                         <CustomFormLabel required>Şantiyenin Deposu</CustomFormLabel>
                                         <Autocomplete
                                             options={storesList}
                                             size="small"
-                                            // 💡 در حالت ویرایش، اگر storesList هنوز لود نشده باشد، آیتم موجود را نشان می‌دهد
                                             value={storesList.find(s => s.id === selectedStoreId) || null}
                                             getOptionLabel={(option) => option.name}
                                             isOptionEqualToValue={(option, value) => option.id === value.id}
@@ -1930,7 +1618,6 @@ const ListConsignments: React.FC = () => {
                                         isOptionEqualToValue={(option, value) => option.id === value.id}
 
                                         onChange={(_, newValue) => {
-                                            // 💡 ID ذخیره شده در State شما number است
                                             const newId = newValue ? newValue.id : '';
                                             setSelectedCarWarehouseId(newId);
                                             if (placeError) setPlaceError(false);
@@ -1955,7 +1642,6 @@ const ListConsignments: React.FC = () => {
                                     multiline rows={4}
                                 />
                             </Grid>
-                            {/* Attachments (for Images only) */}
                             <Grid item xs={12} >
                                 <CustomFormLabel>Ekler (Sadece Resim)</CustomFormLabel>
                                 <ConsignmentFileUpload
@@ -1967,7 +1653,6 @@ const ListConsignments: React.FC = () => {
                                 />
                             </Grid>
 
-                            {/* Form Actions */}
                             <Grid item xs={12}>
                                 <Stack direction="row" spacing={1} justifyContent="flex-end">
                                     {editingId !== null ? (
@@ -2028,7 +1713,6 @@ const ListConsignments: React.FC = () => {
                             <TextField label="Ara (Ad / Kod / Yer)" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange} InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }} />
                         </Grid>
 
-                        {/* NEW: Date Filters (Start Date) */}
                         <Grid item xs={12} sm={6} md={3}>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                 <DatePicker label="Kayıt Başlangıç"
@@ -2040,7 +1724,6 @@ const ListConsignments: React.FC = () => {
                             </LocalizationProvider>
                         </Grid>
 
-                        {/* NEW: Date Filters (End Date) */}
                         <Grid item xs={12} sm={6} md={3}>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                 <Stack direction="row" spacing={1} alignItems="center">
@@ -2123,30 +1806,9 @@ const ListConsignments: React.FC = () => {
                                             </StyledTableCell>
                                             <StyledTableCell>{row.placeName}</StyledTableCell>
                                             <StyledTableCell>{formatDateDisplay(row.createAt || null)}</StyledTableCell>
-                                            {/* <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
-                                                <Box sx={{
-                                                    maxHeight: '5em',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    display: '-webkit-box',
-                                                    WebkitLineClamp: 2,
-                                                    WebkitBoxOrient: 'vertical',
-                                                }}>
-                                                    <div dangerouslySetInnerHTML={{ __html: row.description }} />
-                                                </Box>
-                                                {row.description.length > 50 && (
-                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
-                                                            handleOpenDescriptionModal(row.description);
-                                                        }}>
-                                                            Açıklamanı Oku
-                                                        </Button>
-                                                    </CustomTooltip>
-                                                )}
-                                            </StyledTableCell> */}
+
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 {row.description && row.description.trim().length > 0 ? (
-                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button
                                                             variant="text"
@@ -2157,7 +1819,6 @@ const ListConsignments: React.FC = () => {
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (
-                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
                                                     <Typography variant="body2" align="center">
                                                         -
                                                     </Typography>
@@ -2206,16 +1867,6 @@ const ListConsignments: React.FC = () => {
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
-                                                    {/* {(
-                                                        selectedRowForMenu?.attachments.length || 0) > 0 &&
-                                                         hasDownloadPermission && (
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Malzeme bilgilerini ve resimleri PDF olarak indir" : ""}>
-                                                            <MuiMenuItem onClick={handleDownloadRowWithImages}>
-                                                                <ListItemIcon><IconFileText width={18} /></ListItemIcon>
-                                                                Mal ve Resim PDF İndir
-                                                            </MuiMenuItem>
-                                                        </CustomTooltip>
-                                                    )} */}
                                                     {(selectedRowForMenu) && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kayıt detaylarını ve eklerini görüntüle" : ""}>
                                                             <MuiMenuItem onClick={() => handleOpenAttachmentsModal(selectedRowForMenu!)}>
@@ -2241,9 +1892,6 @@ const ListConsignments: React.FC = () => {
                 <TablePagination rowsPerPageOptions={[5, 10, 25]} component="div" count={filteredConsignments.length} rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage} labelRowsPerPage="Satır başına düşen:" labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`} />
             </BlankCard>
 
-
-
-            {/* Download Modals */}
             <Dialog open={openDownloadAllModal} onClose={handleCloseDownloadAllModal} maxWidth="xs">
                 <DialogTitle>Tüm Kayıtları İndir</DialogTitle>
                 <DialogContent>
@@ -2288,7 +1936,7 @@ const ListConsignments: React.FC = () => {
                             <Box sx={{ p: 2, border: '1px solid #ddd', borderRadius: 2, mb: 3 }}>
                                 <QRCodeCanvas
                                     id="qr-code-canvas"
-                                    value={qrData.url} // 👈 استفاده از آدرس کامل
+                                    value={qrData.url}
                                     size={200}
                                     level="H"
                                 />
@@ -2347,7 +1995,6 @@ const ListConsignments: React.FC = () => {
 
             <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="lg" fullWidth>
 
-                {/* ⭐️ عنوان کلی مودال ⭐️ */}
                 <DialogTitle sx={{ bgcolor: 'primary.light', color: 'primary.main', py: 1.5 }}>
                     <Stack direction="row" alignItems="center" spacing={1}>
                         <IconBox />
@@ -2359,7 +2006,6 @@ const ListConsignments: React.FC = () => {
 
                     <Grid container spacing={0} sx={{ height: { xs: 'auto', md: '100%' } }}>
 
-                        {/* ⭐️⭐️ ستون سمت چپ: اطلاعات کامل (5/12) ⭐️⭐️ */}
                         <Grid item
                             xs={12}
                             md={5}
@@ -2372,7 +2018,6 @@ const ListConsignments: React.FC = () => {
                             <Box sx={{ p: 3 }}>
                                 <Typography variant="h5" mb={3} color="primary.dark">Genel Bilgiler</Typography>
 
-                                {/* ⭐️ اطلاعات یکجا شده در ستون چپ ⭐️ */}
                                 <Grid container spacing={2}>
                                     <Grid item xs={12}>
                                         <Typography variant="body1" sx={{ fontWeight: 'bold' }}>Mal Adı:</Typography>
@@ -2392,7 +2037,6 @@ const ListConsignments: React.FC = () => {
                                     </Grid>
                                 </Grid>
 
-                                {/* Açıklama */}
                                 <Box mt={3} p={2} sx={{ bgcolor: '#eee', borderRadius: 1 }}>
                                     <Typography variant="body1" sx={{ fontWeight: 'bold' }}>Açıklama:</Typography>
                                     <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{rowForAttachments?.description || 'Açıklama yok'}</Typography>
@@ -2401,7 +2045,6 @@ const ListConsignments: React.FC = () => {
                             </Box>
                         </Grid>
 
-                        {/* ⭐️⭐️ ستون سمت راست: اسلایدر (7/12) ⭐️⭐️ */}
                         <Grid item xs={12} md={7} sx={{ height: { xs: 400, md: '100%' } }}>
 
                             {attachmentsToView.length > 0 ? (
@@ -2498,8 +2141,6 @@ const ListConsignments: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-
-            {/* Delete Modal */}
             <DeleteConsignment
                 openModal={openDeleteModal}
                 onClose={handleCloseDeleteModal}

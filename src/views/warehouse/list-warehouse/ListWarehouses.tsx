@@ -367,25 +367,6 @@ const ListWarehouses = () => {
     const [openAllDownloadModal, setOpenAllDownloadModal] = useState(false);
     const [openFilteredDownloadModal, setOpenFilteredDownloadModal] = useState(false);
 
-    // const { allowedOperations } = useAuth();
-
-
-    // const hasCreatePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-    // }, [allowedOperations]);
-
-    // const hasEditPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-    // }, [allowedOperations]);
-
-    // const hasDeletePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-    // }, [allowedOperations]);
-
-    // const hasDownloadPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
-    // }, [allowedOperations]);
-
 
 
     const { menuItems, allowedOperations } = useAuth();
@@ -405,7 +386,7 @@ const ListWarehouses = () => {
 
     // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 

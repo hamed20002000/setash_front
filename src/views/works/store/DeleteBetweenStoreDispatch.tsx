@@ -39,7 +39,6 @@ const DeleteBetweenStoreDispatch = ({ openModal, dispatchIdToDelete, dispatchCod
 
         setLoading(true);
         try {
-            // API endpoint updated from "warehouse" to "store"
             const response = await axios.delete(
                 `${server.baseurl}${server.warehouse}delete-between-store-dispatch/${dispatchIdToDelete}`,
                 {

@@ -170,7 +170,7 @@ const ListReceipts = () => {
 
     // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
@@ -424,7 +424,7 @@ const ListReceipts = () => {
                 firm: item.firm
             }))
         };
-        debugger
+
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); setLoadingData(false); return; }
 

@@ -52,7 +52,6 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: 'transform 0.3s ease-in-out',
 }));
 
-// --- Type Definitions ---
 interface Work { id: string; title: string; startDate: string; endDate: string; createAt: string; recordStatus: number; }
 interface Network { id: string; createAt: string; recordStatus: number; title: string; description: string; work: Work; }
 interface UnitType { id: string; title: string; recordStatus: number; createAt: string; }
@@ -87,7 +86,6 @@ interface RequestInfo {
     subject: string;
 }
 
-// ✅ 1. اضافه کردن اینترفیس WorkhouseType
 interface WorkhouseType {
     id: number;
     name: string;
@@ -97,11 +95,10 @@ interface WorkhouseType {
     recordStatus: number;
 }
 
-// ✅ 2. آپدیت کردن OrderType برای شامل کردن workhouse
 interface OrderType {
     id: number;
     network: { id: string; title: string; };
-    workhouse: WorkhouseType | null; // اضافه شد
+    workhouse: WorkhouseType | null;
     docDate: string;
     requestId?: number | null;
     description: string,
@@ -118,7 +115,6 @@ interface OrderDetailType {
     price: number
 }
 
-// Table Style and Functions
 type SortableOrderKeys = 'id' | 'network.title' | 'workhouse.name' | 'docDate' | 'status' | 'createAt'; // workhouse.name اضافه شد
 
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
@@ -202,7 +198,6 @@ const ManualEntryForm = () => {
     const idsSet = new Set<number>(notifIds);
 
     const [network, setNetwork] = useState('');
-    // ✅ 3. State‌های مربوط به Workhouse (Şantiye)
     const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
     const [selectedWorkhouseId, setSelectedWorkhouseId] = useState<number | null>(null);
 
@@ -225,7 +220,6 @@ const ManualEntryForm = () => {
     const [historyData, setHistoryData] = useState<OrderStatusHistory[]>([]);
 
     const [generalDescription, setGeneralDescription] = useState('');
-    // Table States
     const [ordersList, setOrdersList] = useState<OrderType[]>([]);
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -235,7 +229,6 @@ const ManualEntryForm = () => {
     const [order, setOrder] = useState<'asc' | 'desc'>('desc');
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedOrderForMenu, setSelectedOrderForMenu] = useState<OrderType | null>(null);
-    // const openMenu = Boolean(anchorEl);
     const [openModal, setOpenModal] = useState(false);
     const [modalDetails, setModalDetails] = useState<OrderDetailType[]>([]);
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -267,35 +260,12 @@ const ManualEntryForm = () => {
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
-    // const { allowedOperations } = useAuth();
-    // const hasCreatePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-    // }, [allowedOperations]);
-
-    // const hasEditPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-    // }, [allowedOperations]);
-
-    // const hasDeletePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-    // }, [allowedOperations]);
-
-    // const hasDownloadPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
-    // }, [allowedOperations]);
-
-    // const hasStatusPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Onaylamak');
-    // }, [allowedOperations]);
-
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -303,25 +273,19 @@ const ManualEntryForm = () => {
         }
         return null;
     };
-
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -371,59 +335,12 @@ const ManualEntryForm = () => {
         const doc = new DOMParser().parseFromString(htmlString, 'text/html');
         return doc.body.textContent || "";
     };
-
-
-    // const addPdfHeader = (doc: jsPDF, title: string) => {
-    //     const pageWidth = doc.internal.pageSize.getWidth();
-    //     const logoWidth = 50;
-    //     const logoHeight = 25;
-    //     const margin = 10;
-    //     const topMargin = 20;
-    //     const logoX = pageWidth - logoWidth - margin;
-
-    //     doc.addImage(Logo, 'PNG', logoX, topMargin, logoWidth, logoHeight);
-    //     doc.setFont('Arial', 'normal');
-    //     doc.setFontSize(14);
-    //     doc.text(title, pageWidth / 2, 15, { align: 'center' });
-    //     doc.setFontSize(10);
-    //     doc.setFont('Arial', 'normal');
-    //     doc.text(`Tarih:`, 15, 25);
-    //     doc.setFont('Arial', 'normal');
-    //     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
-    // };
-
-    // const addPdfFooter = (doc: jsPDF) => {
-    //     const pageWidth = doc.internal.pageSize.getWidth();
-    //     const pageHeight = doc.internal.pageSize.getHeight();
-
-    //     doc.setFontSize(8);
-    //     doc.setFont('Arial', 'normal');
-    //     const companyInfo = [
-    //         'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-    //         'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-    //         'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
-    //     ];
-    //     let footerY = pageHeight - 30;
-    //     companyInfo.forEach(line => {
-    //         doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-    //         footerY += 4;
-    //     });
-
-    //     doc.setFontSize(10);
-    //     doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-    //     doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-    //     const docAny = doc as any;
-    //     const pageCount = docAny.internal.getNumberOfPages();
-    //     doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-    // };
-
-
     const addPdfHeader = (doc: jsPDF, title: string) => {
         const pageWidth = doc.internal.pageSize.getWidth();
-        const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+        const logoWidth = 35;
         const logoHeight = 18;
         const margin = 15;
-        const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+        const logoX = pageWidth - logoWidth - margin;
 
         try {
             doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -433,7 +350,7 @@ const ManualEntryForm = () => {
 
         doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
-        doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+        doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
         doc.setFontSize(10);
         doc.setFont('NotoSans', 'bold');
@@ -441,8 +358,6 @@ const ManualEntryForm = () => {
         doc.setFont('NotoSans', 'normal');
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
 
-        // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-        // doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
         doc.line(15, 45, pageWidth - 15, 45);
     };
@@ -479,9 +394,8 @@ const ManualEntryForm = () => {
 
 
     const exportToPdf = (orderData: OrderType) => {
-        debugger
+
         const doc = new jsPDF();
-        // بارگذاری فونت‌ها
         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
@@ -490,7 +404,6 @@ const ManualEntryForm = () => {
         doc.addFont('Arial.ttf', 'Arial', 'normal');
         doc.setFont('Arial');
 
-        // داده‌های جدول اصلی
         const rows = orderData.orderDetails.map(detail => [
             detail.item.name || '-',
             Number(detail.quantity).toFixed(2) || '-',
@@ -499,7 +412,6 @@ const ManualEntryForm = () => {
             cleanAndFormatPrice(detail.price),
         ]);
 
-        // رسم جدول اصلی
         autoTable(doc, {
             startY: 105,
             head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
@@ -514,9 +426,9 @@ const ManualEntryForm = () => {
                     doc.setFontSize(10);
                     doc.text(`Sipariş No: ${orderData.id}`, 15, 54);
                     doc.text(`Şebeke: ${orderData.network ? orderData.network.title : '-'}`, 15, 60);
-                    doc.text(`Şantiye: ${orderData.workhouse ? orderData.workhouse.name : '-'}`, 15, 67); // تغییر Y coordinate بقیه
-                    doc.text(`Tarih: ${formatDateDisplay(orderData.docDate)}`, 15, 75); // Y += 7
-                    doc.text(`İlişkili Talep No: ${orderData.request ? '#' + orderData.request.id + orderData.request.subject : '-'}`, 15, 82); // Y += 7
+                    doc.text(`Şantiye: ${orderData.workhouse ? orderData.workhouse.name : '-'}`, 15, 67);
+                    doc.text(`Tarih: ${formatDateDisplay(orderData.docDate)}`, 15, 75);
+                    doc.text(`İlişkili Talep No: ${orderData.request ? '#' + orderData.request.id + orderData.request.subject : '-'}`, 15, 82);
                     doc.text(`Genel Açıklama: ${orderData.description || '-'}`, 15, 90);
                 }
                 addPdfFooter(doc);
@@ -527,7 +439,6 @@ const ManualEntryForm = () => {
 
         const finalY = (doc as any).lastAutoTable.finalY;
 
-        // --- محاسبات جدول خلاصه ---
         const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
         let grandTotalPrice = 0;
 
@@ -535,11 +446,10 @@ const ManualEntryForm = () => {
             const unitTitle = detail.item.unit.title;
             const qty = Number(detail.quantity);
 
-            // تمیز کردن قیمت
             const rawPriceString = String(detail.price).replace(/[$,]/g, '');
             const unitPrice = parseFloat(rawPriceString) || 0;
 
-            const lineTotal = qty * unitPrice; // قیمت کل این ردیف
+            const lineTotal = qty * unitPrice;
 
             const currentData = summaryData.get(unitTitle) || { totalQty: 0, totalPrice: 0 };
             summaryData.set(unitTitle, {
@@ -550,24 +460,22 @@ const ManualEntryForm = () => {
             grandTotalPrice += lineTotal;
         });
 
-        // رسم جدول خلاصه
         if (summaryData.size > 0) {
             const summaryRows = Array.from(summaryData.entries()).map(([unit, data]) => [
                 unit,
                 data.totalQty.toFixed(2),
-                cleanAndFormatPrice(data.totalPrice) // جمع قیمت واحد
+                cleanAndFormatPrice(data.totalPrice)
             ]);
 
             autoTable(doc, {
                 startY: finalY + 10,
-                head: [['Birim', 'Toplam Miktar', 'Toplam Tutar']], // ستون سوم اضافه شد
+                head: [['Birim', 'Toplam Miktar', 'Toplam Tutar']],
                 body: summaryRows,
                 theme: 'grid',
                 styles: { font: 'Arial', fontSize: 10 },
                 headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0] },
             });
 
-            // نمایش جمع کل نهایی
             const priceSummaryY = (doc as any).lastAutoTable.finalY + 10;
             doc.setFontSize(12);
             doc.setFont('Arial', 'normal');
@@ -604,9 +512,9 @@ const ManualEntryForm = () => {
             doc.setFontSize(10);
             doc.text(`Sipariş No: ${order.id}`, 15, 54);
             doc.text(`Şebeke: ${order.network ? order.network.title : '-'}`, 15, 60);
-            doc.text(`Şantiye: ${order.workhouse ? order.workhouse.name : '-'}`, 15, 66); // تغییر Y coordinate بقیه
-            doc.text(`Tarih: ${formatDateDisplay(order.docDate)}`, 15, 75); // Y += 7
-            doc.text(`İlişkili Talep No: ${order.request ? '#' + order.request.id + order.request.subject : '-'}`, 15, 82); // Y += 7
+            doc.text(`Şantiye: ${order.workhouse ? order.workhouse.name : '-'}`, 15, 66);
+            doc.text(`Tarih: ${formatDateDisplay(order.docDate)}`, 15, 75);
+            doc.text(`İlişkili Talep No: ${order.request ? '#' + order.request.id + order.request.subject : '-'}`, 15, 82);
             doc.text(`Genel Açıklama: ${order.description || '-'}`, 15, 90);
 
             const rows = order.orderDetails.map(detail => [
@@ -633,7 +541,6 @@ const ManualEntryForm = () => {
 
             const finalY = (doc as any).lastAutoTable.finalY;
 
-            // --- محاسبات جدول خلاصه ---
             const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
             let grandTotalPrice = 0;
 
@@ -753,7 +660,6 @@ const ManualEntryForm = () => {
             ]);
         });
 
-        // تنظیم عرض ستون‌ها
         worksheet.columns.forEach((column) => {
             let maxLength = 0;
             if (column && typeof column.eachCell === 'function') {
@@ -767,7 +673,6 @@ const ManualEntryForm = () => {
             column.width = Math.min(Math.max(maxLength + 2, 15), 50);
         });
 
-        // --- محاسبات جدول خلاصه ---
         const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
         let grandTotalPrice = 0;
 
@@ -839,7 +744,6 @@ const ManualEntryForm = () => {
             const worksheet = workbook.addWorksheet(`Sipariş_${order.id}`);
             worksheet.views = [{ rightToLeft: false }];
 
-            // هدر گزارش
             worksheet.addRow([`Sipariş Detayları`]).font = { name: 'Arial', size: 12, bold: true };
             worksheet.mergeCells('A1:E1');
             worksheet.getCell('A1').alignment = { horizontal: 'center' };
@@ -848,7 +752,6 @@ const ManualEntryForm = () => {
             worksheet.getCell('A2').alignment = { horizontal: 'left' };
             worksheet.addRow([]);
 
-            // جزئیات سفارش
             worksheet.addRow(['Sipariş No', order.id]);
             worksheet.addRow(['Şebeke', order.network ? order.network.title : '-']);
             worksheet.addRow(['Şantiye', order.workhouse ? order.workhouse.name : '-']);
@@ -857,7 +760,6 @@ const ManualEntryForm = () => {
             worksheet.addRow(['Genel Açıklama', order.description || '-']);
             worksheet.addRow([]);
 
-            // هدرهای جدول
             const tableHeaders = ['Ürün', 'ÖLÇÜ', 'Miktar', 'Açıklama', 'Fiyat'];
             const headerRow = worksheet.addRow(tableHeaders);
             headerRow.font = { name: 'Arial', bold: true };
@@ -869,7 +771,6 @@ const ManualEntryForm = () => {
                 };
             });
 
-            // اقلام سفارش
             order.orderDetails.forEach(detail => {
                 worksheet.addRow([
                     detail.item.name,
@@ -879,8 +780,6 @@ const ManualEntryForm = () => {
                     cleanAndFormatPrice(detail.price)
                 ]);
             });
-
-            // تنظیم عرض ستون‌ها
             worksheet.columns.forEach((column) => {
                 let maxLength = 0;
                 if (column && typeof column.eachCell === 'function') {
@@ -894,7 +793,6 @@ const ManualEntryForm = () => {
                 column.width = Math.min(Math.max(maxLength + 2, 15), 50);
             });
 
-            // --- محاسبات جدول خلاصه ---
             const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
             let grandTotalPrice = 0;
 
@@ -1003,7 +901,6 @@ const ManualEntryForm = () => {
         return () => { clearTimeout(timer); };
     }, [alertMessage]);
 
-    // ✅ 4. API برای دریافت لیست شانتیه‌ها
     const getWorkhousesList = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         const role = localStorage.getItem('activeUserRoleName') || '';
@@ -1111,7 +1008,7 @@ const ManualEntryForm = () => {
         getListItem();
         getListOrders();
         fetchRequestsList();
-        getWorkhousesList(); // ✅ 5. فراخوانی تابع getWorkhousesList
+        getWorkhousesList();
     }, [getWorkhousesList]);
 
 
@@ -1155,7 +1052,7 @@ const ManualEntryForm = () => {
 
     const resetForm = () => {
         setNetwork('');
-        setSelectedWorkhouseId(null); // ✅ Reset workhouse
+        setSelectedWorkhouseId(null);
         setDocDate(new Date());
         setRequestId(null);
         setGeneralDescription('');
@@ -1173,8 +1070,8 @@ const ManualEntryForm = () => {
         const orderData = {
             docDate: docDate?.toISOString(),
             description: generalDescription,
-            networkId: network == "" ? 0 : Number(network), // Updated to 0 if empty based on your example, usually null is better but following request
-            workhouseId: selectedWorkhouseId ? Number(selectedWorkhouseId) : 0, // ✅ 6. اضافه کردن workhouseId به payload
+            networkId: network == "" ? 0 : Number(network),
+            workhouseId: selectedWorkhouseId ? Number(selectedWorkhouseId) : 0,
             requestId: requestId || 0,
             status: 0,
             orderDetails: orderItems.map(item => ({
@@ -1209,7 +1106,7 @@ const ManualEntryForm = () => {
             docDate: docDate?.toISOString(),
             description: generalDescription,
             networkId: network == "" ? 0 : Number(network),
-            workhouseId: selectedWorkhouseId ? Number(selectedWorkhouseId) : 0, // ✅ 7. اضافه کردن workhouseId به payload ویرایش
+            workhouseId: selectedWorkhouseId ? Number(selectedWorkhouseId) : 0,
             requestId: requestId || 0,
             orderDetails: orderItems.map(item => ({
                 itemId: Number(item.item),
@@ -1257,20 +1154,17 @@ const ManualEntryForm = () => {
             setSelectedWork(null);
         }
 
-        // ✅ 8. مقداردهی اولیه workhouse هنگام ویرایش
         if (row.workhouse) {
             setSelectedWorkhouseId(row.workhouse.id);
         } else {
             setSelectedWorkhouseId(null);
         }
 
-        // setRequestId(row.requestId || null);
         const reqId = row.requestId ? Number(row.requestId) : (row.request?.id ? Number(row.request.id) : null);
         setRequestId(reqId);
         setDocDate(new Date(row.docDate));
 
-        setGeneralDescription(row.description || ''); // مقداردهی توضیحات
-
+        setGeneralDescription(row.description || '');
         const itemsToEdit: OrderItem[] = row.orderDetails.map(detail => {
             const fullItem = itemsList.find(item => item.id === detail.item.id);
             let priceValue = 0;
@@ -1296,7 +1190,6 @@ const ManualEntryForm = () => {
         setIsFormVisible(true);
         clearAlert();
     };
-    // Table Handlers
     const handleStatusFilterChange = (_event: React.MouseEvent<HTMLElement>, newFilter: 'all' | 'pending' | 'approved' | 'rejected' | null) => {
         if (newFilter !== null) { setStatusFilter(newFilter); setPage(0); }
     };
@@ -1321,7 +1214,6 @@ const ManualEntryForm = () => {
     };
     const handleCloseMenu = () => {
         setAnchorEl(null);
-        // setSelectedOrderForMenu(null); 
     };
     const handleClickOpenDeleteModal = (id: number, title: string) => {
         setOrderIdToDelete(id); setOrderTitleToDelete(title); setOpenDeleteModal(true); handleCloseMenu();
@@ -1390,7 +1282,6 @@ const ManualEntryForm = () => {
     const filteredOrders = ordersList.filter(order => {
         const networkTitle = order.network ? order.network.title : '';
         const workhouseName = order.workhouse ? order.workhouse.name : '';
-        // جستجو در نام شبکه و نام شانتیه
         const matchesSearch = networkTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
             workhouseName.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -1425,13 +1316,7 @@ const ManualEntryForm = () => {
         setPage(0);
     };
 
-    // const handleOpenHistoryModal = (row: OrderType) => {
-    //     setHistoryData(row.orderHeaderStatusHistories || []);
-    //     setOpenHistoryModal(true);
-    // };
-
     const handleOpenHistoryModal = (row: OrderType) => {
-        // گرفتن کپی از آرایه و مرتب‌سازی آن بر اساس تاریخ (نزولی)
         const sortedHistory = row.orderHeaderStatusHistories
             ? [...row.orderHeaderStatusHistories].sort((a, b) =>
                 new Date(b.createAt).getTime() - new Date(a.createAt).getTime()
@@ -1471,16 +1356,11 @@ const ManualEntryForm = () => {
         modalDetails.forEach((detail) => {
             const unitTitle = detail.item?.unit?.title || "Diğer";
             const qty = Number(detail.quantity) || 0;
-
-            // راه حل خطا: تبدیل اجباری به رشته و سپس تمیزسازی
-            // این خط هم برای عدد کار می‌کند و هم برای رشته‌های دارای علامت مثل $
             const rawPrice = String(detail.price);
             const cleanPrice = rawPrice.replace(/[^0-9.-]/g, '');
             const priceVal = parseFloat(cleanPrice) || 0;
 
             const lineTotal = qty * priceVal;
-
-            // اضافه کردن به جمع واحد مربوطه
             summary[unitTitle] = (summary[unitTitle] || 0) + lineTotal;
             grandTotal += lineTotal;
         });
@@ -1551,7 +1431,6 @@ const ManualEntryForm = () => {
                                 {selectedWork && (<Chip label={selectedWork.title} color="primary" variant="outlined" />)}
                             </Box>
                         </Grid>
-                        {/* ✅ 9. اضافه کردن UI برای انتخاب Workhouse (Şantiye) */}
                         <Grid item xs={12} md={3}>
                             <CustomFormLabel htmlFor="workhouse-autocomplete" sx={{ mt: 0, mb: { xs: 0, sm: 0 } }}>
                                 Şantiye
@@ -1664,7 +1543,6 @@ const ManualEntryForm = () => {
             <BlankCard>
                 <Grid item xs={12} mt={2} mr={2}>
                     <Stack direction="row" spacing={2} justifyContent="flex-end">
-                        {/* ... Download buttons ... */}
                         {hasDownloadPermission && isFilterActive && (
                             <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Satın Alma indirin" : ""}>
                                 <BlinkingButton
@@ -1694,7 +1572,6 @@ const ManualEntryForm = () => {
                     </Stack>
                 </Grid>
                 <Box sx={{ p: 2 }}>
-                    {/* ... Filters ... */}
                     <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>
                         Sipariş Listesi
                         {notifIds.length > 0 && (
@@ -1779,7 +1656,6 @@ const ManualEntryForm = () => {
                                         <Typography variant="h6">Şebeke Adı</Typography>
                                     </TableSortLabel>
                                 </StyledTableCell>
-                                {/* ✅ 10. اضافه کردن ستون Workhouse به جدول */}
                                 <StyledTableCell>
                                     <TableSortLabel active={orderBy === 'workhouse.name'} direction={orderBy === 'workhouse.name' ? order : 'asc'} onClick={() => handleRequestSort('workhouse.name')}>
                                         <Typography variant="h6">Şantiye</Typography>
@@ -1817,7 +1693,6 @@ const ManualEntryForm = () => {
                                                 <Typography variant="body1">#{row.id}</Typography>
                                             </StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.network ? row.network.title : "-"}</Typography></StyledTableCell>
-                                            {/* ✅ 11. نمایش Workhouse در ردیف‌ها */}
                                             <StyledTableCell><Typography variant="body1">{row.workhouse ? row.workhouse.name : "-"}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 <Typography variant="body1">
@@ -1827,7 +1702,6 @@ const ManualEntryForm = () => {
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 {row.description && row.description.trim().length > 0 ? (
-                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button
 
@@ -1839,7 +1713,6 @@ const ManualEntryForm = () => {
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (
-                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
                                                     <Typography variant="body2" align="center">
                                                         -
                                                     </Typography>
@@ -1880,7 +1753,6 @@ const ManualEntryForm = () => {
                                                 >
                                                     <IconDots size={20} />
                                                 </IconButton>
-                                                {/* ... MENU CODE (همان کد قبلی) ... */}
                                                 <Menu
                                                     id="basic-menu"
                                                     anchorEl={anchorEl}
@@ -1934,7 +1806,7 @@ const ManualEntryForm = () => {
 
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sipariş raporunu indirin" : ""}>
                                                             <MuiMenuItem onClick={() => {
-                                                                debugger
+
                                                                 if (selectedOrderForMenu) {
                                                                     setOpenDownloadSingleModal(true);
                                                                 }
@@ -2056,7 +1928,6 @@ const ManualEntryForm = () => {
                                                     </StyledTableCell>
                                                 </TableRow>
                                             ))}
-                                            {/* نمایش جمع کل نهایی (اختیاری) */}
                                             <TableRow sx={{ bgcolor: '#e3f2fd' }}>
                                                 <StyledTableCell sx={{ fontWeight: 'bold' }}>GENEL TOPLAM</StyledTableCell>
                                                 <StyledTableCell align="right" sx={{ fontWeight: 'bold' }}>
@@ -2114,7 +1985,7 @@ const ManualEntryForm = () => {
                             variant="contained"
                             color="primary"
                             onClick={() => {
-                                debugger
+
                                 if (selectedOrderForMenu) {
                                     exportToPdf(selectedOrderForMenu);
                                 }

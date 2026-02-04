@@ -4,26 +4,21 @@ import { Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogAc
 
 import axios from 'axios';
 // @ts-ignore
-import server from '../../../assets/address.json'; // فرض می‌کنیم آدرس صحیح است
+import server from '../../../assets/address.json';
 // @ts-ignore
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // فرض می‌کنیم Context وجود دارد
-
-// Define the component props for type safety
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 type DeleteProps = {
     openModal: boolean;
-    idToDelete: number | string | null; // ID می‌تواند string یا number باشد
+    idToDelete: number | string | null;
     nameToDelete: string;
     onClose: () => void;
     onDeleteSuccess: () => void;
-    // تابع نمایش هشدار که از کامپوننت والد می‌آید
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
 const DeleteCarFuels = ({ openModal, idToDelete, nameToDelete, onClose, onDeleteSuccess, showAlert }: DeleteProps) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
-    // 💡 توجه: اگر 'useTooltip' نیاز به تعریف در این فایل دارد، باید واردات آن را بررسی کنید.
-    // در این نمونه، فرض می‌کنیم 'useTooltip' به درستی در دسترس است.
     const { isTooltipGloballyEnabled } = useTooltip();
 
     const handleDelete = async () => {
@@ -36,7 +31,6 @@ const DeleteCarFuels = ({ openModal, idToDelete, nameToDelete, onClose, onDelete
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             showAlert('Lütfen giriş yapın.', 'warning');
-            // در صورت نبود توکن، بهتر است به صفحه لاگین هدایت شود
             navigate('/');
             return;
         }
@@ -51,16 +45,14 @@ const DeleteCarFuels = ({ openModal, idToDelete, nameToDelete, onClose, onDelete
             );
 
             if (response.data.httpStatusCode === 200) {
-                // ⭐️ اصلاح پیام موفقیت ⭐️
                 showAlert('Yakıt Kaydı başarıyla silindi!', 'success');
-                onDeleteSuccess(); // فراخوانی تابع واکشی مجدد داده‌ها در والد
+                onDeleteSuccess();
                 onClose();
             } else {
                 showAlert(response.data.message || 'Kayıt silinirken bir hata oluştu.', 'error');
                 onClose();
             }
         } catch (e: any) {
-            // مدیریت خطاهای رایج
             if (e.response && e.response.status === 500) {
                 showAlert('Bu kayıt başka bir işlemde kullanıldığı için silinemez.', 'error');
             } else if (e.response && e.response.status === 401) {

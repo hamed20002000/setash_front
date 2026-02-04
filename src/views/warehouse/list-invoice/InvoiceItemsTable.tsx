@@ -131,7 +131,7 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
             const res = await axios.get(server.baseurl + server.initialoperations + "get-orders", {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            debugger
+
             if (res.data?.httpStatusCode === 200) {
                 const all = (res.data.data as OrderSourceType[]) || [];
 

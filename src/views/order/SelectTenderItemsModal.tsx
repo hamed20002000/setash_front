@@ -44,7 +44,6 @@ const SelectTenderItemsModal: React.FC<SelectTenderItemsModalProps> = ({
     const [tenderItems, setTenderItems] = useState<OrderItem[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
 
-    // Fetch items for the selected tender
     useEffect(() => {
         if (selectedTender) {
             const fetchTenderItems = async () => {
@@ -55,7 +54,7 @@ const SelectTenderItemsModal: React.FC<SelectTenderItemsModalProps> = ({
                     setLoading(false);
                     return;
                 }
-                debugger
+
                 try {
                     const response = await axios.get(
                         `${server.baseurl + server.initialoperations}get-tender-by-id/${Number(selectedTender)}`,
@@ -69,19 +68,12 @@ const SelectTenderItemsModal: React.FC<SelectTenderItemsModalProps> = ({
                         const parsedItems: OrderItem[] = [];
 
                         allTenderDetails.forEach((detail: any, index: number) => {
-                            // ✅ فیلتر کردن بر اساس ourProcuredItemQuantities
                             if (detail.ourProcuredItemQuantities && Number(detail.ourProcuredItemQuantities) > 0) {
-                                // ✅ قیمت را از ourProcuredItemPrice استخراج کرده و کاراکتر '$' و ',' را حذف می‌کنیم
 
-
-                                // const fullItem = itemsList.find(i => i.id === detail.item.id);
-                                // 👈 اینجا تغییرات اعمال شده است
                                 const tenderItemId = String(detail.item.id);
                                 console.log('Tender Item ID:', tenderItemId);
 
                                 const fullItem = itemsList.find(i => String(i.id) === tenderItemId);
-
-                                // 👈 این خط را برای دیباگ کردن اضافه کنید
                                 console.log('Found in itemsList:', !!fullItem);
 
                                 parsedItems.push({
@@ -92,7 +84,7 @@ const SelectTenderItemsModal: React.FC<SelectTenderItemsModalProps> = ({
                                     isEditing: false,
                                     unit: fullItem ? fullItem.unit : detail.item.unit,
                                     isRegistered: !!fullItem,
-                                    price: 0, // ✅ قیمت اضافه شد
+                                    price: 0,
                                 });
                             }
                         });
@@ -157,13 +149,11 @@ const SelectTenderItemsModal: React.FC<SelectTenderItemsModalProps> = ({
                                 </TableHead>
                                 <TableBody>
                                     {tenderItems.map((item) => {
-                                        // ✅ جستجوی نام آیتم بر اساس id
                                         const matchedItem = itemsList.find(i => i.id === String(item.item));
                                         const itemName = matchedItem ? matchedItem.name : item.item;
 
                                         return (
                                             <TableRow key={item.id}>
-                                                {/* ✅ نمایش نام آیتم پیدا شده یا نام پیش‌فرض */}
                                                 <TableCell>{itemName}</TableCell>
                                                 <TableCell>{item.unit?.title}</TableCell>
                                                 <TableCell>{item.quantity}</TableCell>

@@ -3,13 +3,11 @@ import axios from 'axios';
 import server from '../../../assets/address.json';
 import { IconAward, IconFileCertificate, IconCertificate, IconClockHour3, IconSearch } from '@tabler/icons-react';
 
-// MUI bileşenlerini ekliyoruz (Projenizde zaten kurulu olmalıdır)
 import { Autocomplete, TextField, CircularProgress, Box, Button, Stack, Typography } from '@mui/material';
 
 import { tr } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-// فرض می‌کنیم NotoSansRegular و Logo در دسترس هستند
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
 import { format } from 'date-fns';
@@ -45,10 +43,10 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -58,7 +56,7 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
@@ -66,8 +64,6 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     doc.setFont('NotoSans', 'normal');
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -110,14 +106,11 @@ const ListParticipationCertificate: React.FC = () => {
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isPersonnelLoading, setIsPersonnelLoading] = useState<boolean>(false);
 
-    // ... (fetchPersonnels, fetchCourses, useEffect, handlePrint kodları burada kalır)
-
-    // Seçilen personelin tam adını bulma
     const selectedPersonnel = personnels.find(p => p.id === selectedPersonnelId);
     const selectedPersonnelFullName = selectedPersonnel ? `${selectedPersonnel.name} ${selectedPersonnel.family}` : 'Personel Seçiniz';
 
     const fetchPersonnels = useCallback(async () => {
-        debugger
+
         setIsPersonnelLoading(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate('/'); return; }
@@ -178,7 +171,6 @@ const ListParticipationCertificate: React.FC = () => {
 
     useEffect(() => { fetchPersonnels(); }, [fetchPersonnels]);
 
-    // Handler جدید برای Autocomplete
     const handlePersonnelChange = (newValue: PersonnelLite | null) => {
         const personnelId = newValue ? newValue.id : null;
         setSelectedPersonnelId(personnelId);
@@ -188,229 +180,45 @@ const ListParticipationCertificate: React.FC = () => {
             fetchCourses(personnelId);
         }
     };
-
-
-    // const createParticipationCertificatePdf = (
-    //     personnel: PersonnelLite,
-    //     course: Course,
-    //     showAlert: (m: string, s: 'success' | 'error' | 'warning') => void
-    // ) => {
-    //     // 1. Dökümanı Hazırla
-    //     const doc = new jsPDF();
-    //     const pageWidth = doc.internal.pageSize.getWidth();
-    //     let finalY = 50;
-
-    //     // 2. Başlık
-    //     const title = "KATILIM SERTİFİKASI (BAŞARI BELGESİ)";
-    //     doc.setFont('NotoSans', 'normal');
-
-    //     const boldText11 = `${course.courseTitle}`;
-    //     addPdfHeader(doc, title); // فقط عنوان اصلی را پاس دهید
-
-    //     // نمایش زیرنویس سفارشی شده با bold
-    //     const sideMargin = 10;
-    //     const subtitleY = 55;
-    //     const textPrefix = "Kurs Adı: ";
-    //     const docAny = doc as any; // برای دسترسی به متد addFont/setFont
-
-    //     // تنظیم فونت برای بخش اول
-    //     doc.setFontSize(10);
-    //     doc.setFont('NotoSans', 'normal');
-    //     doc.text(textPrefix, doc.internal.pageSize.getWidth() / 2 - 5, subtitleY, { align: "right" });
-    //     let cursorX1 = doc.internal.pageSize.getWidth() / 2 - 20 + doc.getStringUnitWidth(textPrefix) * doc.getFontSize() / doc.internal.scaleFactor + 1;
-
-    //     let cursorX = sideMargin;
-    //     // تنظیم فونت برای بخش بُلد
-    //     doc.setFont('NotoSans', 'bold');
-    //     doc.text(boldText11, cursorX1, subtitleY, { align: "left" });
-
-    //     // بازگشت به فونت عادی برای بقیه سند
-    //     doc.setFont('NotoSans', 'normal');
-    //     doc.setFontSize(14);
-    //     doc.setFont('NotoSans', 'normal');
-    //     doc.setTextColor(0, 0, 0);
-    //     doc.text(`Sayın ${personnel.name} ${personnel.family},`, sideMargin, finalY);
-    //     finalY += 15; // فاصله بیشتر از عنوان
-
-    //     // شروع متن اصلی گواهی
-    //     doc.setFontSize(11);
-    //     let lineY = finalY;
-    //     const space = 2; // فاصله بین کلمات/بخش‌ها
-
-    //     // --- خط اول ---
-    //     const text1 = `T.C. Kimlik Numaralı`;
-    //     doc.text(text1, cursorX, lineY);
-    //     cursorX += doc.getStringUnitWidth(text1) * doc.getFontSize() / doc.internal.scaleFactor + space;
-
-    //     // بُلد: Kimlik Numarası
-    //     const boldText1 = `(${personnel.identityNumber})`;
-    //     doc.setFont('NotoSans', 'bold');
-    //     doc.text(boldText1, cursorX, lineY);
-    //     cursorX += doc.getStringUnitWidth(boldText1) * doc.getFontSize() / doc.internal.scaleFactor + space;
-
-    //     // عادی: personelimiz, Şirketimiz bünyesinde düzenlenen
-    //     doc.setFont('NotoSans', 'normal');
-    //     const text2 = `personelimiz, Şirketimiz bünyesinde düzenlenen`;
-    //     doc.text(text2, cursorX, lineY);
-    //     cursorX += doc.getStringUnitWidth(text2) * doc.getFontSize() / doc.internal.scaleFactor + space;
-
-
-    //     lineY += 10;
-    //     cursorX = sideMargin;
-
-    //     // بُلد: Course Title
-    //     const boldText2 = `${course.courseTitle}`;
-
-    //     doc.setFont('NotoSans', 'bold');
-    //     doc.text(boldText2, cursorX, lineY);
-    //     cursorX += doc.getStringUnitWidth(boldText2) * doc.getFontSize() / doc.internal.scaleFactor + space;
-
-    //     // عادی: adlı eğitime başarıyla katılım sağlamış ve toplam
-    //     doc.setFont('NotoSans', 'normal');
-    //     const text3 = `adlı eğitime başarıyla katılım sağlamış ve toplam`;
-    //     doc.text(text3, cursorX, lineY);
-    //     cursorX += doc.getStringUnitWidth(text3) * doc.getFontSize() / doc.internal.scaleFactor + space;
-
-
-    //     lineY += 10;
-    //     cursorX = sideMargin;
-
-    //     // بُلد: Total Hours
-    //     const boldText3 = `${formatHours(course.totalHours)}`;
-    //     doc.setFont('NotoSans', 'bold');
-    //     doc.text(boldText3, cursorX, lineY);
-    //     cursorX += doc.getStringUnitWidth(boldText3) * doc.getFontSize() / doc.internal.scaleFactor + space;
-
-    //     doc.setFont('NotoSans', 'normal');
-    //     const text4 = `süre ile eğitim almıştır.`;
-    //     doc.text(text4, cursorX, lineY);
-    //     cursorX += doc.getStringUnitWidth(text4) * doc.getFontSize() / doc.internal.scaleFactor + space;
-
-
-    //     lineY += 10;
-    //     cursorX = sideMargin;
-
-    //     doc.setFont('NotoSans', 'normal');
-    //     const text6 = `Gerekli yeterlilikleri yerine getirdiği için bu belgeyi almaya hak kazanmıştır.`;
-    //     doc.text(text6, cursorX, lineY);
-    //     cursorX += doc.getStringUnitWidth(text6) * doc.getFontSize() / doc.internal.scaleFactor + space;
-
-
-    //     // --- خط چهارم ---
-    //     lineY += 10;
-    //     cursorX = sideMargin;
-
-    //     // عادی: Bu belge, personelin kariyer gelişimine katkıda bulunmak amacıyla düzenlenmiştir.
-    //     doc.setFont('NotoSans', 'normal');
-    //     const text5 = `Bu belge, personelin kariyer gelişimine katkıda bulunmak amacıyla düzenlenmiştir.`;
-    //     doc.text(text5, cursorX, lineY);
-
-
-    //     finalY = lineY + 20; // به‌روزرسانی مکان نهایی برای شروع جدول
-
-    //     // const splitText = doc.splitTextToSize(certificateText, pageWidth - 2);
-
-    //     // doc.text(splitText, sideMargin, finalY + 5);
-    //     // finalY += splitText.length * 3 + 30;
-
-    //     // 4. Detay Tablosu
-    //     doc.setFontSize(14);
-    //     doc.text("Detay Bilgileri", sideMargin, finalY);
-    //     finalY += 10;
-
-    //     const detailBody = [
-    //         ["Personel Adı Soyadı", `${personnel.name} ${personnel.family}`],
-    //         ["Kimlik Numarası", personnel.identityNumber || 'Belirtilmemiş'],
-    //         ["Kurs Adı", course.courseTitle],
-    //         ["Eğitim Süresi", formatHours(course.totalHours)],
-    //         ["Sertifika Tarihi", new Date().toLocaleDateString('tr-TR')],
-    //     ];
-
-    //     autoTable(docAny, {
-    //         startY: finalY,
-    //         head: [["Alan", "Değer"]],
-    //         body: detailBody,
-    //         theme: "grid",
-    //         styles: { font: "NotoSans", fontStyle: "normal", fontSize: 10, cellPadding: 5, overflow: 'linebreak' },
-    //         headStyles: { fillColor: [200, 220, 250], textColor: [0, 0, 0] },
-    //         columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 'auto' } }, // Genişlik ayarı
-    //         margin: { left: sideMargin, right: sideMargin },
-    //     });
-    //     finalY = (docAny.lastAutoTable.finalY || finalY) + 25;
-
-    //     // 5. İmza Alanları (Mühür ve Yetkili Onayı)
-    //     doc.setFontSize(10);
-
-    //     // Sol İmza
-    //     doc.text("Eğitmen / İSG Yetkilisi", sideMargin, finalY);
-    //     doc.line(sideMargin, finalY + 10, sideMargin + 60, finalY + 10);
-
-    //     // Sağ İmza
-    //     doc.text("Kurum Yetkilisi / Genel Müdür", pageWidth - sideMargin - 70, finalY);
-    //     doc.line(pageWidth - sideMargin - 70, finalY + 10, pageWidth - sideMargin, finalY + 10);
-
-    //     // 6. Footer'ı tüm sayfalara ekle
-    //     const pageCount = docAny.internal.getNumberOfPages();
-    //     for (let i = 1; i <= pageCount; i++) {
-    //         doc.setPage(i);
-    //         addPdfFooter(doc); // Footer'ı her sayfaya ekler
-    //     }
-
-    //     // 7. Kaydetme
-    //     const fileName = `Sertifika_${personnel.name}_${course.courseId}_${new Date().getFullYear()}.pdf`;
-    //     doc.save(fileName);
-    //     showAlert('Sertifika başarıyla oluşturuldu ve indiriliyor.', 'success');
-    // };
-
-
     const createParticipationCertificatePdf = (
         personnel: PersonnelLite,
         course: Course,
         showAlert: (m: string, s: 'success' | 'error' | 'warning') => void
     ) => {
-        // 1. آماده‌سازی سند
         const doc = new jsPDF();
         const docAny = doc as any;
         const pageWidth = doc.internal.pageSize.getWidth();
-        const sideMargin = 20; // حاشیه استاندارد برای خوانایی بهتر
+        const sideMargin = 20;
         const maxWidth = pageWidth - (sideMargin * 2);
         let finalY = 55;
 
-        // بارگذاری فونت (مطمئن شوید NotoSans-Regular شامل کاراکترهای ترکی هست)
         docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
 
-        // 2. هدر
         const title = "KATILIM SERTİFİKASI (BAŞARI BELGESİ)";
         addPdfHeader(doc, title);
 
-        // 3. متن خوش‌آمدگویی
         doc.setFontSize(14);
         doc.setTextColor(0, 0, 0);
         doc.text(`Sayın ${personnel.name} ${personnel.family},`, sideMargin, finalY);
         finalY += 15;
 
-        // 4. متن اصلی با قابلیت Justify
-        // نکته: برای اینکه کاراکترهای ترکی به‌هم نریزند، متن به صورت یکپارچه ارسال می‌شود
         doc.setFontSize(11);
         doc.setFont('NotoSans', 'normal');
 
         const certificateText = `T.C. Kimlik Numaralı (${personnel.identityNumber}) personelimiz, Şirketimiz bünyesinde düzenlenen "${course.courseTitle}" adlı eğitime başarıyla katılım sağlamış ve toplam ${formatHours(course.courseHours)} süre ile eğitim almıştır. Gerekli yeterlilikleri yerine getirdiği için bu belgeyi almaya hak kazanmıştır. Bu belge, personelin kariyer gelişimine katkıda bulunmak amacıyla düzenlenmiştir.`;
-        // چاپ متن به صورت Justify
-        // پارامترهای maxWidth و align باعث تراز شدن خودکار می‌شوند
+
         doc.text(certificateText, sideMargin, finalY, {
             align: 'justify',
             maxWidth: maxWidth,
             lineHeightFactor: 1.6
         });
 
-        // محاسبه خودکار ارتفاع متن برای قرارگیری جدول در جای درست
         const textLines = doc.splitTextToSize(certificateText, maxWidth);
         const textHeight = (textLines.length * doc.getLineHeight() / doc.internal.scaleFactor);
         finalY += textHeight + 20;
 
-        // 5. جدول جزئیات (Detay Tablosu)
         doc.setFontSize(13);
         doc.setFont('NotoSans', 'bold');
         doc.text("Detay Bilgileri", sideMargin, finalY);
@@ -420,7 +228,6 @@ const ListParticipationCertificate: React.FC = () => {
             ["Personel Adı Soyadı", `${personnel.name} ${personnel.family}`],
             ["Kimlik Numarası", personnel.identityNumber || 'Belirtilmemiş'],
             ["Kurs Adı", course.courseTitle],
-            // ["Eğitim Süresi", formatHours(course.totalHours)],
             ["Eğitim Süresi", formatHours(course.courseHours)],
             ["Sertifika Tarihi", format(new Date(), 'dd MMMM yyyy', { locale: tr })],
         ];
@@ -435,7 +242,7 @@ const ListParticipationCertificate: React.FC = () => {
                 fontStyle: "normal",
                 fontSize: 10,
                 cellPadding: 4,
-                halign: 'left' // در جدول معمولاً چپ‌چین برای ترکی بهتر است
+                halign: 'left'
             },
             headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'normal' },
             columnStyles: { 0: { cellWidth: 50, fillColor: [250, 250, 250] } },
@@ -444,26 +251,21 @@ const ListParticipationCertificate: React.FC = () => {
 
         finalY = (docAny.lastAutoTable.finalY || finalY) + 30;
 
-        // 6. بخش امضا
         doc.setFontSize(10);
         doc.setFont('NotoSans', 'normal');
 
-        // امضا چپ
         doc.text("Eğitmen / İSG Yetkilisi", sideMargin, finalY);
         doc.line(sideMargin, finalY + 2, sideMargin + 50, finalY + 2);
 
-        // امضا راست
         doc.text("Kurum Yetkilisi / Genel Müdür", pageWidth - sideMargin, finalY, { align: 'right' });
         doc.line(pageWidth - sideMargin - 50, finalY + 2, pageWidth - sideMargin, finalY + 2);
 
-        // 7. افزودن فوتر به تمامی صفحات
         const totalPages = docAny.internal.getNumberOfPages();
         for (let i = 1; i <= totalPages; i++) {
             doc.setPage(i);
             addPdfFooter(doc);
         }
 
-        // 8. ذخیره‌سازی
         const fileName = `Sertifika_${personnel.name}_${personnel.family}.pdf`;
         doc.save(fileName);
         showAlert('Sertifika başarıyla oluşturuldu.', 'success');
@@ -481,7 +283,6 @@ const ListParticipationCertificate: React.FC = () => {
             return;
         }
 
-        // 4. PDF Oluşturma Fonksiyonunu Çağır
         createParticipationCertificatePdf(currentPersonnel, currentCourse, showAlert);
     };
 
@@ -493,7 +294,6 @@ const ListParticipationCertificate: React.FC = () => {
                 <IconAward size={30} style={{ marginLeft: '10px', color: '#007BFF' }} />
                 Katılım Sertifikası Yönetimi
             </Typography>
-            {/* بخش انتخاب پرسنل (Autocomplete) */}
             <Box sx={{ marginBottom: '30px', marginTop: '20px' }}>
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
                     Personel Seçiniz:
@@ -531,7 +331,6 @@ const ListParticipationCertificate: React.FC = () => {
                 />
             </Box>
 
-            {/* بخش نمایش دوره‌ها */}
             {selectedPersonnelId !== null && (
                 <div style={{ marginTop: '30px' }}>
                     <h2 style={{ borderBottom: '2px solid #eee', paddingBottom: '10px' }}>
@@ -555,7 +354,6 @@ const ListParticipationCertificate: React.FC = () => {
                         </div>
                     )}
 
-                    {/* Kurs Kartları (Card View) */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
                         {!isLoading && courses.map((course) => (
                             <div
@@ -574,7 +372,6 @@ const ListParticipationCertificate: React.FC = () => {
                                 onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
                                 onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                             >
-                                {/* داخل حلقه نمایش کورس‌ها */}
                                 <div style={{ marginBottom: '15px' }}>
                                     <h3 style={{ margin: '0 0 10px 0', display: 'flex', alignItems: 'center', color: '#0056b3' }}>
                                         <IconCertificate size={22} style={{ marginLeft: '8px', marginRight: '8px', color: '#0787ffff' }} />
@@ -585,7 +382,6 @@ const ListParticipationCertificate: React.FC = () => {
                                             <IconClockHour3 size={18} style={{ marginLeft: '8px', marginRight: '8px', color: '#ff0707ff' }} />
                                             Katılım Süresi: {formatHours(course.totalHours)}
                                         </p>
-                                        {/* فیلد جدید برای ساعت کلی دوره */}
                                         <p style={{ margin: '0', color: '#666', display: 'flex', alignItems: 'center', fontSize: '0.9rem' }}>
                                             <IconClockHour3 size={18} style={{ marginLeft: '8px', marginRight: '8px', color: '#757575' }} />
                                             Toplam Kurs Süresi: {formatHours(course.courseHours)}
@@ -593,7 +389,6 @@ const ListParticipationCertificate: React.FC = () => {
                                     </Stack>
                                 </div>
 
-                                {/* Sertifika Yazdırma Düğmesi */}
                                 <Button
                                     variant="contained"
                                     color="success"

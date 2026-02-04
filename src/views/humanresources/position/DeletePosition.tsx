@@ -17,7 +17,6 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type Props = {
     openModal: boolean;
-    // تغییر: positionIdToDelete به جای forceMajorIdToDelete
     positionIdToDelete: number | null;
     onClose: () => void;
     onDeleteSuccess: () => void;
@@ -29,13 +28,8 @@ const DeletePosition = ({ openModal, positionIdToDelete, onClose, onDeleteSucces
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-
-    // **********************************
-    // ** تغییر: منطق حذف سمت (Position) **
-    // **********************************
     const handleDeletePosition = async () => {
         if (positionIdToDelete === null) {
-            // تغییر متن هشدار
             showAlert('Silinecek Pozisyon seçilmedi.', 'warning');
             onClose();
             return;
@@ -50,7 +44,6 @@ const DeletePosition = ({ openModal, positionIdToDelete, onClose, onDeleteSucces
         setLoading(true);
         try {
             const response = await axios.delete(
-                // تغییر: استفاده از آدرس API جدید
                 `${server.baseurl}${server.hr}delete-position/${positionIdToDelete}`,
                 {
                     headers: {
@@ -61,12 +54,10 @@ const DeletePosition = ({ openModal, positionIdToDelete, onClose, onDeleteSucces
             );
 
             if (response.data.httpStatusCode === 200) {
-                // تغییر متن موفقیت
                 showAlert('Pozisyon başarıyla silindi!', 'success');
                 onDeleteSuccess();
                 onClose();
             } else {
-                // تغییر متن خطا
                 showAlert(response.data.message || 'Pozisyon silinirken bir hata oluştu.', 'error');
                 onClose();
             }
@@ -99,7 +90,6 @@ const DeletePosition = ({ openModal, positionIdToDelete, onClose, onDeleteSucces
                 aria-labelledby="alert-dialog-title"
                 aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">
-                    {/* تغییر متن عنوان */}
                     {"Bu Pozisyonu silmek istediğinizden emin misiniz?"}
                 </DialogTitle>
                 <DialogContent>
@@ -117,7 +107,7 @@ const DeletePosition = ({ openModal, positionIdToDelete, onClose, onDeleteSucces
                         <Button
                             color="error"
                             variant="contained"
-                            onClick={handleDeletePosition} // تغییر نام تابع
+                            onClick={handleDeletePosition}
                             autoFocus
                             disabled={loading}
                         >

@@ -60,7 +60,6 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     },
 }));
 
-// === Type Definitions ===
 interface ItemUnitType {
     id: string;
     title: string;
@@ -161,7 +160,6 @@ interface StatusUpdatePayload {
     description: string;
 }
 
-// === Utility Functions ===
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
     try {
@@ -231,7 +229,6 @@ const ListStoreDispatchToCenter = () => {
     const hasIdsFilter = notifIds.length > 0;
     const idsSet = new Set<number>(notifIds);
 
-    // === State Variables ===
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
     const [selectedDestinationWarehouseId, setSelectedDestinationWarehouseId] = useState<number | null>(null);
@@ -262,7 +259,6 @@ const ListStoreDispatchToCenter = () => {
     const [docDateError, setDocDateError] = useState<boolean>(false);
     const [driverIdError, setDriverIdError] = useState<boolean>(false);
     const [destinationWarehouseIdError, setDestinationWarehouseIdError] = useState<boolean>(false);
-    // const [dispatchDetailsError, setDispatchDetailsError] = useState<boolean>(false);
 
     const [drivers, setDrivers] = useState<DriverType[]>([]);
     const [warehouses, setWarehouses] = useState<StoreType[]>([]);
@@ -281,7 +277,6 @@ const ListStoreDispatchToCenter = () => {
     const [detailsToShow, setDetailsToShow] = useState<DispatchDetailType[]>([]);
     const [totalQuantityInDetailsModal, setTotalQuantityInDetailsModal] = useState<number>(0);
 
-    // === Status Description Modal States (NEW) ===
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [currentStatusDescription, setCurrentStatusDescription] = useState<string | null>(null);
 
@@ -315,7 +310,6 @@ const ListStoreDispatchToCenter = () => {
     const { isTooltipGloballyEnabled } = useTooltip();
     const { allowedOperations } = useAuth();
 
-    // === Permissions ===
     const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
     const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
     const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
@@ -323,55 +317,6 @@ const ListStoreDispatchToCenter = () => {
     const hasApproveRejectPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Onaylamak/Reddetmek' || op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
 
 
-    // const { menuItems, allowedOperations } = useAuth();
-    // const findMenuByHref = (items: any[], path: string): any => {
-    //     for (const item of items) {
-    //         // اگر خود آیتم تطبیق داشت
-    //         if (item.href === path) return item;
-
-    //         // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
-    //         if (item.children && item.children.length > 0) {
-    //             const found = findMenuByHref(item.children, path);
-    //             if (found) return found;
-    //         }
-    //     }
-    //     return null;
-    // };
-
-    // // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
-    // const currentMenu = useMemo(() => {
-    //     debugger
-    //     return findMenuByHref(menuItems, location.pathname);
-    // }, [menuItems, location.pathname]);
-
-    // // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
-    // const currentMenuOpIds = useMemo(() => {
-    //     // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
-    //     if (!currentMenu || !currentMenu.menuOperations) return [];
-
-    //     return currentMenu.menuOperations.map((op: any) => {
-    //         // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
-    //         return String(op.id);
-    //     });
-    // }, [currentMenu]);
-
-    // // ۴. تابع نهایی بررسی دسترسی
-    // const hasPermission = (opName: string) => {
-    //     return allowedOperations.some((op: any) =>
-    //         op.systemOperationName === opName &&
-    //         currentMenuOpIds.includes(String(op.menuOperationId))
-    //     );
-    // };
-
-    // const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
-    // const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
-    // const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
-    // const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
-
-    // const hasApproveRejectPermission = useMemo(() => hasPermission("Onaylamak/Reddetmek"), [allowedOperations, currentMenuOpIds]);
-
-
-    // === Form Handlers ===
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -427,54 +372,6 @@ const ListStoreDispatchToCenter = () => {
             setLoadingData(false);
         }
     }, [showAlert, authToken]);
-
-    // const fetchDispatchItemsByDestination = useCallback(async () => {
-    //     if (!authToken || !selectedDestinationWarehouseId) return;
-
-    //     setLoadingButton(true);
-    //     try {
-    //         const response = await axios.get<any>(
-    //             `${server.baseurl}${server.warehouse}get-store-all-items-balance/${Number(storeId)}`,
-    //             { headers: { Authorization: `Bearer ${authToken}` } }
-    //         );
-    //         if (response.data.httpStatusCode === 200) {
-    //             // const itemDetails: DispatchDetailType[] = response.data.data || [];
-    //             const itemBalances: ItemBalanceType[] = response.data.data || [];
-
-
-    //             const formattedDetails: FormDispatchDetail[] = itemBalances.map((d: ItemBalanceType) => {
-    //                 const itemBalance = storeItems.find(item => Number(item.itemId) === Number(d.itemId));
-
-    //                 return {
-    //                     itemId: Number(d.itemId),
-    //                     quantity: Number(d.balance) > 0 ? Number(d.balance) : 0,
-    //                     description: '',
-    //                     item: d.name as any,
-    //                     balance: itemBalance ? Number(itemBalance.balance) : 0,
-    //                     unit: '' as any,
-    //                 };
-    //             });
-
-    //             setDispatchDetails(formattedDetails);
-    //             showAlert('Sevk detayları başarıyla yüklendi. Lütfen miktarları stok durumuna göre kontrol ediniz.', 'success');
-    //         } else {
-    //             setDispatchDetails([]);
-    //             showAlert('Bu merkez için önceden tanımlanmış iade detayı bulunamadı', 'warning');
-    //         }
-    //     } catch (e: any) {
-    //         if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
-    //         else if (e.response?.status === 401) {
-    //             localStorage.removeItem('authToken');
-    //             showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
-    //         }
-    //         else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
-    //     } finally {
-    //         setLoadingButton(false);
-    //     }
-    // }, [authToken, selectedDestinationWarehouseId, showAlert, storeItems]);
-
-    // Fetch all store items balance
-
 
     const fetchStoreItems = useCallback(async () => {
         if (!authToken) { navigate("/"); return; }
@@ -614,7 +511,6 @@ const ListStoreDispatchToCenter = () => {
         }
 
         if (dispatchDetails.length === 0) {
-            // setDispatchDetailsError(true);
             isValid = false;
         } else {
             const isDetailsValid = dispatchDetails.every((detail) => {
@@ -629,7 +525,6 @@ const ListStoreDispatchToCenter = () => {
 
                 let maxAllowedQuantity = currentStockBalance;
 
-                // اگر در حالت ویرایش هستیم، مقدار اصلی آیتم را به موجودی اضافه می‌کنیم.
                 if (editingId) {
                     const initialDetail = initialDispatchDetails.find(d => d.itemId === detail.itemId);
                     if (initialDetail && Number(initialDetail.itemId) === Number(detail.itemId)) {
@@ -646,10 +541,8 @@ const ListStoreDispatchToCenter = () => {
             });
 
             if (!isDetailsValid) {
-                // setDispatchDetailsError(true);
                 isValid = false;
             } else {
-                // setDispatchDetailsError(false);
             }
         }
 
@@ -672,7 +565,6 @@ const ListStoreDispatchToCenter = () => {
         setDocDateError(false);
         setDriverIdError(false);
         setDestinationWarehouseIdError(false);
-        // setDispatchDetailsError(false);
         setSelectedVehicleId(null);
         setSelectedVehicleName(null);
         setRemovedDispatchDetails([]);
@@ -680,7 +572,6 @@ const ListStoreDispatchToCenter = () => {
         setIsBlinking(true);
     };
 
-    // **NEW**: Insert Dispatch
     const insertDispatch = async () => {
         if (!validateForm()) return;
         setLoadingButton(true);
@@ -721,7 +612,6 @@ const ListStoreDispatchToCenter = () => {
         }
     };
 
-    // API Actions (Edit)
     const editDispatch = async () => {
         if (!validateForm() || !editingId) return;
         setLoadingButton(true);
@@ -828,7 +718,6 @@ const ListStoreDispatchToCenter = () => {
         handleCloseMenu();
     };
 
-    // === RESTORE/REMOVE LOGIC ===
     const handleRestoreDispatchDetail = (indexToRestore: number) => {
         const itemToRestore = removedDispatchDetails[indexToRestore];
         if (itemToRestore) {
@@ -930,13 +819,11 @@ const ListStoreDispatchToCenter = () => {
         }
     };
 
-    // تابع جدید برای باز کردن Modal توضیحات وضعیت
     const handleOpenDescriptionModal = (description: string) => {
         setCurrentStatusDescription(description);
         setOpenDescriptionModal(true);
     };
 
-    // تابع برای محاسبه جمع مقادیر و باز کردن Modal جزئیات
     const handleOpenDetailsModal = (details: DispatchDetailType[]) => {
         setDetailsToShow(details);
         const total = details.reduce((sum, detail) => sum + Number(detail.quantity || 0), 0);
@@ -944,7 +831,6 @@ const ListStoreDispatchToCenter = () => {
         setOpenDetailsModal(true);
     };
 
-    // === PDF/Excel Export Logic (Unchanged) ===
     const exportDispatchesToPdf = (data: StoreDispatchToCenterType[], title: string, subtitle?: string) => {
         if (!data || data.length === 0) { showAlert('PDF oluşturulacak sevk belgesi bulunamadı.', 'warning'); return; }
 
@@ -963,10 +849,10 @@ const ListStoreDispatchToCenter = () => {
             docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
             doc.setFont('NotoSans');
             const pageWidth = doc.internal.pageSize.getWidth();
-            const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+            const logoWidth = 35;
             const logoHeight = 18;
             const margin = 15;
-            const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+            const logoX = pageWidth - logoWidth - margin;
 
             try {
                 doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -976,7 +862,7 @@ const ListStoreDispatchToCenter = () => {
 
             doc.setFont('NotoSans', 'normal');
             doc.setFontSize(14);
-            doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+            doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
             doc.setFontSize(10);
             doc.setFont('NotoSans', 'bold');
@@ -985,8 +871,6 @@ const ListStoreDispatchToCenter = () => {
             doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
             if (subtitle) doc.text(subtitle, 70, 52);
 
-            // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-            // doc.setDrawColor(200, 200, 200);
             doc.setLineWidth(0.5);
             doc.line(15, 40, pageWidth - 15, 40);
         };
@@ -1215,7 +1099,6 @@ const ListStoreDispatchToCenter = () => {
     };
 
     const handleAddNewRow = () => {
-        // اگر لیست به صورت خودکار پر شده بود، آن را پاک کن تا تکی اضافه شود
         if (dispatchDetails.length === storeItems.length && storeItems.length > 0) {
             setDispatchDetails([]);
         }
@@ -1227,7 +1110,6 @@ const ListStoreDispatchToCenter = () => {
         });
     };
 
-    // تایید آیتم تکی و اضافه کردن به لیست اصلی
     const confirmNewItem = () => {
         if (newItem && newItem.itemId && Number(newItem.quantity) > 0) {
             const exists = dispatchDetails.some(d => d.itemId === newItem.itemId);
@@ -1236,20 +1118,17 @@ const ListStoreDispatchToCenter = () => {
                 return;
             }
             setDispatchDetails(prev => [...prev, newItem]);
-            setNewItem({ itemId: null, quantity: '', description: '', balance: 0 }); // ریست برای آیتم بعدی
+            setNewItem({ itemId: null, quantity: '', description: '', balance: 0 });
         } else {
             showAlert("Lütfen geçerli bir ürün ve miktar girin.", "warning");
         }
     };
 
-    // تابع افزودن/حذف یکجای تمام آیتم‌ها
     const handleToggleAllItems = () => {
         if (dispatchDetails.length > 0) {
-            // اگر لیست پر است و دکمه "Tümünü Kaldır" زده شد:
-            setDispatchDetails([]); // لیست اصلی خالی شود
-            setRemovedDispatchDetails([]); // لیست محصولات حذف شده (آرشیو) هم کاملاً پاک و مخفی شود ✨
+            setDispatchDetails([]);
+            setRemovedDispatchDetails([]);
         } else {
-            // اگر لیست خالی است و دکمه "Tümünü Ekle" زده شد:
             setNewItem(null);
             const allItems = storeItems.map(item => ({
                 itemId: Number(item.itemId),
@@ -1264,7 +1143,7 @@ const ListStoreDispatchToCenter = () => {
                 balance: Number(item.balance)
             }));
             setDispatchDetails(allItems);
-            setRemovedDispatchDetails([]); // اطمینان از خالی بودن آرشیو هنگام پر کردن مجدد
+            setRemovedDispatchDetails([]);
         }
     };
 
@@ -1390,7 +1269,6 @@ const ListStoreDispatchToCenter = () => {
                                     }
                                     onChange={(_, newValue) => {
                                         setSelectedDestinationWarehouseId(newValue ? Number(newValue.id) : null);
-                                        // Reset dispatch details when destination changes in create mode
                                         if (!editingId) setDispatchDetails([]);
                                         if (destinationWarehouseIdError && newValue) setDestinationWarehouseIdError(false);
                                     }}
@@ -1442,12 +1320,11 @@ const ListStoreDispatchToCenter = () => {
                                     multiline
                                     rows={3}
                                     variant="outlined"
-                                    value={generalDescription} // ⬅️ استفاده از نام جدید
-                                    onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                    value={generalDescription}
+                                    onChange={(e) => setGeneralDescription(e.target.value)}
                                 />
                             </Grid>
                         </Grid>
-                        {/* === Silinen Ürünler (Restore Logic) === */}
                         {removedDispatchDetails.length > 0 && (
                             <Box sx={{
                                 border: '1px dashed',
@@ -1481,7 +1358,6 @@ const ListStoreDispatchToCenter = () => {
                                 </Stack>
                             </Box>
                         )}
-                        {/* === پایان Silinen Ürünler === */}
                         <Box mt={4}>
                             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                                 <Typography variant="h6">Sevk Detayları</Typography>
@@ -1508,7 +1384,6 @@ const ListStoreDispatchToCenter = () => {
                             </Stack>
 
                             <Grid container spacing={2}>
-                                {/* ردیف ورودی آیتم جدید (تکی) */}
                                 {newItem && (
                                     <Grid item xs={12} sx={{ bgcolor: 'rgba(0,0,0,0.03)', p: 2, borderRadius: 1, border: '1px dashed #ccc', mb: 2 }}>
                                         <Grid container spacing={2} alignItems="center">
@@ -1565,7 +1440,6 @@ const ListStoreDispatchToCenter = () => {
                                     </Grid>
                                 )}
 
-                                {/* لیست آیتم‌های اضافه شده */}
                                 {dispatchDetails.map((detail, index) => {
                                     const selectedItem = storeItems.find(item => Number(item.itemId) === Number(detail.itemId));
                                     const maxAllowed = (selectedItem ? Number(selectedItem.balance) : 0) +
@@ -1774,7 +1648,6 @@ const ListStoreDispatchToCenter = () => {
                                                     <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                                     <StyledTableCell sx={{ maxWidth: 150 }}>
                                                         {row.description && row.description.trim().length > 0 ? (
-                                                            // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                             <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                                 <Button
 
@@ -1785,8 +1658,7 @@ const ListStoreDispatchToCenter = () => {
                                                                     Açıklamayı Oku
                                                                 </Button>
                                                             </CustomTooltip>
-                                                        ) : (
-                                                            // حالت دوم: اگر توضیحات نال یا خالی بود
+                                                        ) : (                                                            // حالت دوم: اگر توضیحات نال یا خالی بود
                                                             <Typography variant="body2" align="center">
                                                                 -
                                                             </Typography>
@@ -1798,7 +1670,6 @@ const ListStoreDispatchToCenter = () => {
                                                                 label={statusInfo.text}
                                                                 color={statusInfo.color}
                                                             />
-                                                            {/* آیکون Info برای نمایش توضیحات وضعیت در Modal */}
                                                             {row.statusDescription && (
                                                                 <IconButton
                                                                     size="small"
@@ -1849,7 +1720,6 @@ const ListStoreDispatchToCenter = () => {
                                                                 <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>
                                                             )}
 
-                                                            {/* Status Update Logic */}
                                                             {hasApproveRejectPermission && (
                                                                 <>
                                                                     {row.status === 0 && (
@@ -1911,7 +1781,6 @@ const ListStoreDispatchToCenter = () => {
                 </BlankCard>
             </Box>
 
-            {/* Vehicle Selection Modal (Unchanged) */}
             <Dialog open={openVehicleModal} onClose={() => setOpenVehicleModal(false)}>
                 <DialogTitle>Araç Seçin</DialogTitle>
                 <DialogContent>
@@ -1950,7 +1819,6 @@ const ListStoreDispatchToCenter = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Status Update Modal (Unchanged) */}
             <Dialog open={openStatusModal} onClose={() => { setOpenStatusModal(false); setStatusDescriptionError(false); }} maxWidth="sm" fullWidth>
                 <DialogTitle>{statusAction === 'approve' ? 'Sevk Belgesini Onayla' : 'Sevk Belgesini Reddet'}</DialogTitle>
                 <DialogContent dividers>
@@ -1984,7 +1852,6 @@ const ListStoreDispatchToCenter = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* NEW: Status Description Modal */}
             <Dialog open={openDescriptionModal} onClose={() => setOpenDescriptionModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Durum Açıklaması</DialogTitle>
                 <DialogContent dividers>
@@ -1998,7 +1865,6 @@ const ListStoreDispatchToCenter = () => {
             </Dialog>
 
 
-            {/* Details Modal (Modified to show Total Quantity) */}
             <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Sevk Detayları</DialogTitle>
                 <DialogContent>
@@ -2030,7 +1896,6 @@ const ListStoreDispatchToCenter = () => {
                             Bu sevk belgesi için detay bulunamadı.
                         </Typography>
                     )}
-                    {/* نمایش جمع کل مقادیر */}
                     {detailsToShow.length > 0 && (
                         <Box sx={{ mt: 2, p: 1, borderTop: '1px solid #eee' }}>
                             <Typography variant="h6" align="right">
@@ -2041,18 +1906,17 @@ const ListStoreDispatchToCenter = () => {
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <Stack
-                        direction={{ xs: 'column', sm: 'row' }} // ستونی در موبایل، ردیفی در دسکتاپ
+                        direction={{ xs: 'column', sm: 'row' }}
                         spacing={2}
                         sx={{ width: '100%' }}
                     >
                         <Stack direction="row" spacing={2} sx={{ flexGrow: 1 }}>
                             <Button
-                                fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                                fullWidth
                                 sx={{ flex: 1 }}
                                 variant="contained"
                                 color="error"
                                 startIcon={<IconFileText />}
-                                // استفاده از تابع موجود در کد شما برای خروجی PDF
                                 onClick={() => {
                                     if (selectedRowForMenu) {
                                         exportDispatchesToPdf([selectedRowForMenu], `Sevk_${selectedRowForMenu.code}`);
@@ -2063,12 +1927,11 @@ const ListStoreDispatchToCenter = () => {
                             </Button>
 
                             <Button
-                                fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                                fullWidth
                                 sx={{ flex: 1 }}
                                 variant="contained"
                                 color="success"
                                 startIcon={<IconFileSpreadsheet />}
-                                // استفاده از تابع موجود در کد شما برای خروجی Excel
                                 onClick={() => {
                                     if (selectedRowForMenu) {
                                         exportDispatchesToExcel([selectedRowForMenu], `Sevk_${selectedRowForMenu.code}`);
@@ -2083,7 +1946,7 @@ const ListStoreDispatchToCenter = () => {
                             onClick={() => setOpenDetailsModal(false)}
                             color="secondary"
                             variant="outlined"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }}
                         >
                             Kapat
@@ -2092,7 +1955,6 @@ const ListStoreDispatchToCenter = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Download Modals (Unchanged) */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
                 <DialogTitle>Tüm Sevk Belgelerini İndir</DialogTitle>
                 <DialogContent>

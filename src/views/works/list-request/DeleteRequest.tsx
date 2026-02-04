@@ -21,7 +21,7 @@ type Props = {
     onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
-debugger
+
 const DeleteRequest: React.FC<Props> = ({ openModal, itemToDelete, onClose, onDeleteSuccess, showAlert }) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState<boolean>(false);
@@ -32,7 +32,7 @@ const DeleteRequest: React.FC<Props> = ({ openModal, itemToDelete, onClose, onDe
     const requestIdToDelete = itemToDelete?.id || null;
 
     const handleDeleteRequest = async () => {
-        debugger
+
         if (requestIdToDelete === null) {
             showAlert('Silinecek talep seçilmedi.', 'warning');
             onClose();

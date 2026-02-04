@@ -16,7 +16,6 @@ import { keyframes, styled } from "@mui/material/styles";
 import BoltIcon from "@mui/icons-material/Bolt";
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
-// IconFile برای نمایش مدارک جدید اضافه شد
 import { IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconX, IconRefresh, IconUpload, IconFile, IconCurrencyDollar } from "@tabler/icons-react";
 import BlankCard from "src/components/shared/BlankCard";
 import CustomFormLabel from "src/components/forms/theme-elements/CustomFormLabel";
@@ -28,27 +27,21 @@ import server from "src/assets/address.json";
 import { tr } from "date-fns/locale";
 import { format, parseISO, isValid as isValidDate } from "date-fns";
 
-// ----- MUI v5 date pickers -----
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
-// ----- Exporting -----
 import jsPDF from "jspdf";
-// @ts-ignore
 import { autoTable } from "jspdf-autotable";
 import { NotoSansRegular } from "src/assets/fonts/NotoSans-Regular";
-// import { ArialFont } from "src/assets/fonts/Arial";
 import Logo from "src/assets/images/logos/logo.png";
 import Excel from "exceljs";
 import { saveAs } from "file-saver";
 
 import imagedefault from '../../../assets/images/profile/user-d.svg';
 
-// ----- Delete Personnel -----
 import DeletePersonnel from "./DeletePersonnel";
 
-/* ---------------- styles ---------------- */
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: "NotoSans",
     fontSize: "0.8rem",
@@ -71,11 +64,10 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: "transform 0.3s ease-in-out",
 }));
 
-/* ---------------- types ---------------- */
-type RecordStatus = 0 | 1 | 2; // 0=Aktif, 1=Pasif, 2=Silindi
+type RecordStatus = 0 | 1 | 2;
 enum EducationStatus { Ilkokul = 0, Ortaokul, Lise, OnLisans, Lisans, YuksekLisans, Doktora }
 interface Position { id: number; title: string; }
-export interface Attachment { fileUrl: string; } // NEW
+export interface Attachment { fileUrl: string; }
 export interface PersonnelType {
     id: number;
     name: string;
@@ -104,17 +96,17 @@ export interface PersonnelType {
     createAt: string;
     positionId?: number | null;
     statusText?: string;
-    imageSrc?: string; // URL of the image
-    hasISG?: boolean; // NEW: İş Güvenliği Sertifikası
-    attachments?: Attachment[]; // NEW: Ek Belgeler
+    imageSrc?: string;
+    hasISG?: boolean;
+    attachments?: Attachment[];
 }
 type PositionOption = { id: number; title: string };
 
 
 export interface CarConsignment {
-    id: string; // شناسه امانت خودرو
+    id: string;
     carWarhouseDetailId: number;
-    plaque: string; // پلاک خودرو
+    plaque: string;
     model: string;
     brand: string;
     description: string;
@@ -170,9 +162,9 @@ const TEMPLATE_HEADERS = [
     "Tahakkuk (Brüt|Net|0|1)", "Grup (Emekli|Normal|Engelli|0|1|2)", "Doğum Yeri",
     "Doğum Tarihi (yyyy-MM-dd)", "Medeni (Bekâr|Evli|Dul|0|1|2)", "Kan Grubu (A+|A-|B+|B-|AB+|AB-|O+|O-|0..7)",
     "Baba Adı", "Adres", "Eğitim (İlkokul|Ortaokul|Lise|Ön Lisans|Lisans|Yüksek Lisans|Doktora|0..6)",
-    "Maaş (Sadece Sayısal)", // ✅ جدید: ستون حقوق اضافه شد
+    "Maaş (Sadece Sayısal)",
     "IBAN", "Telefon", "Cep Telefon",
-    "ISG (Var|Yok|True|False|0|1)", // YENİ
+    "ISG (Var|Yok|True|False|0|1)",
 ] as const;
 
 type ImportedRow = {
@@ -216,7 +208,7 @@ const uploadFiles = async (
 
     try {
         const uploadResponse = await axios.post(
-            server.baseurl + server.baseinfo + "upload-files", // 'server.baseinfo' is assumed to be the correct endpoint base
+            server.baseurl + server.baseinfo + "upload-files",
             formData,
             {
                 headers: {
@@ -244,7 +236,7 @@ const convertUrlToBase64 = async (imageUrl: string, authToken: string): Promise<
         const apiUrl = `${server.baseurl}${server.baseinfo}to-base64`;
 
         const response = await axios.get(apiUrl, {
-            params: { url: imageUrl }, // ارسال URL به عنوان پارامتر کوئری
+            params: { url: imageUrl },
             headers: { Authorization: `Bearer ${authToken}` },
         });
         if (response.data && response.data.data && response.data.data.base64) {
@@ -272,21 +264,12 @@ const ListPersonnel: React.FC = () => {
     const idsSet = new Set<number>(notifIds);
 
     const { isTooltipGloballyEnabled } = useTooltip();
-    // const { allowedOperations } = useAuth();
-
-    // const hasCreatePermission = useMemo(() => allowedOperations.some((op) => op.systemOperationName === "Eklemek"), [allowedOperations]);
-    // const hasEditPermission = useMemo(() => allowedOperations.some((op) => op.systemOperationName === "Düzenlemek"), [allowedOperations]);
-    // const hasDeletePermission = useMemo(() => allowedOperations.some((op) => op.systemOperationName === "Silmek"), [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => allowedOperations.some((op) => op.systemOperationName === "İndirmek ve Yazdırmak"), [allowedOperations]);
-
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -295,24 +278,19 @@ const ListPersonnel: React.FC = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -326,7 +304,6 @@ const ListPersonnel: React.FC = () => {
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
 
 
-    /* alerts */
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<"success" | "error" | "warning" | "info">("info");
     useEffect(() => {
@@ -336,17 +313,14 @@ const ListPersonnel: React.FC = () => {
     }, [alertMessage]);
     const showAlert = (m: string, s: typeof alertSeverity) => { setAlertMessage(m); setAlertSeverity(s); };
 
-    /* top form */
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [loadingButton, setLoadingButton] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
 
-    /* stepper */
     const [activeStep, setActiveStep] = useState(0);
     const [showStepErrors, setShowStepErrors] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
 
-    /* lists & filters */
     const [personnelList, setPersonnelList] = useState<PersonnelType[]>([]);
     const [positions, setPositions] = useState<PositionOption[]>([]);
     const [loadingData, setLoadingData] = useState<boolean>(true);
@@ -358,7 +332,6 @@ const ListPersonnel: React.FC = () => {
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
 
-    /* menus & dialogs */
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<PersonnelType | null>(null);
     const openMenu = Boolean(anchorEl);
@@ -369,9 +342,8 @@ const ListPersonnel: React.FC = () => {
     const [openDownloadModal, setOpenDownloadModal] = useState(false);
     const [downloadScope, setDownloadScope] = useState<"all" | "row">("all");
     const [rowForDownload, setRowForDownload] = useState<PersonnelType | null>(null);
-    const [openAttachmentsModal, setOpenAttachmentsModal] = useState(false); // NEW
+    const [openAttachmentsModal, setOpenAttachmentsModal] = useState(false);
     const [attachmentsToView, setAttachmentsToView] = useState<Attachment[]>([]);
-    // const [rowForAttachments, setRowForAttachments] = useState<PersonnelType | null>(null); // NEW
 
     const [openPersonnelFilesModal, setOpenPersonnelFilesModal] = useState(false);
     const [personnelFilesToDownload, setPersonnelFilesToDownload] = useState<Attachment[]>([]);
@@ -379,32 +351,31 @@ const ListPersonnel: React.FC = () => {
 
     const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
     const [selectedRowForDetails, setSelectedRowForDetails] = useState<PersonnelType | null>(null);
-    const [openEndCooperationModal, setOpenEndCooperationModal] = useState(false); // NEW
-    const [personnelToEndCooperation, setPersonnelToEndCooperation] = useState<PersonnelType | null>(null); // NEW
-    const [endDate, setEndDate] = useState<string | null>(null); // NEW
+    const [openEndCooperationModal, setOpenEndCooperationModal] = useState(false);
+    const [personnelToEndCooperation, setPersonnelToEndCooperation] = useState<PersonnelType | null>(null);
+    const [endDate, setEndDate] = useState<string | null>(null);
 
     /* -------- IMPORT state -------- */
     const [isProcessingImport, setIsProcessingImport] = useState(false);
     const [validRows, setValidRows] = useState<ImportedRow[]>([]);
     const [invalidRows, setInvalidRows] = useState<ImportedRow[]>([]);
     const [invalidIndex, setInvalidIndex] = useState(0);
-    const fileInputRef = useRef<HTMLInputElement>(null); // for excel import
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [openAnnualLeaveModal, setOpenAnnualLeaveModal] = useState(false);
     const [annualLeaveData, setAnnualLeaveData] = useState<any>(null);
     const [loadingAnnualLeave, setLoadingAnnualLeave] = useState(false);
 
-    const [personnelForAnnualLeave, setPersonnelForAnnualLeave] = useState<PersonnelType | null>(null); // NEW/UPDATED State
+    const [personnelForAnnualLeave, setPersonnelForAnnualLeave] = useState<PersonnelType | null>(null);
 
-    /* -------- IMAGE & ATTACHMENTS state -------- */
-    const profileImageInputRef = useRef<HTMLInputElement>(null); // NEW: for profile picture
-    const attachmentsInputRef = useRef<HTMLInputElement>(null); // NEW: for attachments
-    const [profileRawFile, setProfileRawFile] = useState<File | null>(null); // NEW: raw file for upload
-    const [attachmentsRawFiles, setAttachmentsRawFiles] = useState<File[]>([]); // NEW: raw files for upload
-    const [profileImageUrl, setProfileImageUrl] = useState<string>(DEFAULT_IMAGE_URL); // for display
+    const profileImageInputRef = useRef<HTMLInputElement>(null);
+    const attachmentsInputRef = useRef<HTMLInputElement>(null);
+    const [profileRawFile, setProfileRawFile] = useState<File | null>(null);
+    const [attachmentsRawFiles, setAttachmentsRawFiles] = useState<File[]>([]);
+    const [profileImageUrl, setProfileImageUrl] = useState<string>(DEFAULT_IMAGE_URL);
 
 
-    const [openActiveConsignmentsModal, setOpenActiveConsignmentsModal] = useState(false); // NEW
+    const [openActiveConsignmentsModal, setOpenActiveConsignmentsModal] = useState(false);
     const [activeConsignments, setActiveConsignments] = useState<any[]>([]);
     const [activeCarConsignment, setActiveCarConsignment] = useState<any[]>([]);;
 
@@ -429,13 +400,12 @@ const ListPersonnel: React.FC = () => {
         educationStatus: EducationStatus.Ilkokul, iban: "", telephone: "", mobile: "",
         salary: null,
         recordStatus: 0, createAt: "", positionId: null, statusText: undefined,
-        imageSrc: undefined, // NEW
-        hasISG: false, // NEW
-        attachments: [], // NEW
+        imageSrc: undefined,
+        hasISG: false,
+        attachments: [],
     };
     const [form, setForm] = useState<PersonnelType>(initialForm);
 
-    /* -------- API helpers -------- */
     const authToken = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
 
     const getAllPositions = async () => {
@@ -478,10 +448,10 @@ const ListPersonnel: React.FC = () => {
                 recordStatus: Number(x.recordStatus ?? 0) as RecordStatus,
                 createAt: x.createAt ?? "", position: x.position ?? { id: -1, title: "Pozisyon yok" },
                 statusText: statusText(x.recordStatus),
-                imageSrc: x.imageSrc ?? undefined, // NEW
-                hasISG: x.hasISG ?? false, // NEW
+                imageSrc: x.imageSrc ?? undefined,
+                hasISG: x.hasISG ?? false,
                 salary: x.salary ?? null,
-                attachments: x.attachments ?? [], // NEW
+                attachments: x.attachments ?? [],
             }));
             setPersonnelList(list);
         } catch (e: any) {
@@ -498,7 +468,6 @@ const ListPersonnel: React.FC = () => {
     useEffect(() => { getAllPersonnels(); getAllPositions(); }, []);
 
 
-    // NEW: Handle Image Change for Profile (sets raw file)
     const handleImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         setProfileRawFile(file || null);
@@ -513,7 +482,6 @@ const ListPersonnel: React.FC = () => {
         }
     }, []);
 
-    // NEW: Handle Attachments Change (sets raw files)
     const handleAttachmentsChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
         setAttachmentsRawFiles(files);
@@ -521,12 +489,11 @@ const ListPersonnel: React.FC = () => {
 
 
     const handleAnnualLeaveClick = async (row: PersonnelType) => {
-        // 1. ذخیره اطلاعات هویتی قبل از فراخوانی API
         setPersonnelForAnnualLeave(row);
-        handleCloseMenu(); // منو را می‌بندد و selectedRowForMenu را پاک می‌کند
+        handleCloseMenu();
 
         setLoadingAnnualLeave(true);
-        setAnnualLeaveData(null); // پاک کردن داده‌های قبلی
+        setAnnualLeaveData(null);
 
         try {
             const response = await axios.get(`${server.baseurl}${server.hr}get-remaining-leave-by-personnelId/${row.id}`, {
@@ -551,14 +518,12 @@ const ListPersonnel: React.FC = () => {
         }
     };
 
-    // تابع بستن Modal:
     const handleCloseAnnualLeaveModal = () => {
         setOpenAnnualLeaveModal(false);
-        setPersonnelForAnnualLeave(null); // پاکسازی State موقت
+        setPersonnelForAnnualLeave(null);
         setAnnualLeaveData(null);
     }
 
-    /* -------- Filters / sorting -------- */
     const handleStatusFilterChange = (_: any, v: "all" | "active" | "inactive" | null) => { if (v) { setStatusFilter(v); setPage(0); } };
     const handleChangePage = (_: unknown, newPage: number) => setPage(newPage);
     const handleChangeRowsPerPage = (e: React.ChangeEvent<HTMLInputElement>) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); };
@@ -587,7 +552,6 @@ const ListPersonnel: React.FC = () => {
 
     useEffect(() => { const timer = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(timer); }, []);
 
-    /* -------- edit / delete / details -------- */
     const handleClickMenu = (e: React.MouseEvent<HTMLButtonElement>, row: PersonnelType) => { setAnchorEl(e.currentTarget); setSelectedRowForMenu(row); };
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
 
@@ -599,7 +563,6 @@ const ListPersonnel: React.FC = () => {
         setShowStepErrors(false);
         setForm(prevForm => ({ ...prevForm, positionId: row.position?.id ?? null }));
 
-        // Resim/dosya state'lerini sıfırla/doldur
         setProfileRawFile(null);
         setProfileImageUrl(getFullImageUrl(row.imageSrc));
         setAttachmentsRawFiles([]);
@@ -626,7 +589,6 @@ const ListPersonnel: React.FC = () => {
         setAttachmentsRawFiles([]);
     };
 
-    // isStepValid: WorkEndDate kaldırıldı
     const isStepValid = (step: number) => {
         switch (step) {
             case 0: return Boolean(form.name?.trim()) && Boolean(form.family?.trim()) && Boolean(form.identityNumber?.trim()) && form.positionId != null;
@@ -640,13 +602,11 @@ const ListPersonnel: React.FC = () => {
     const handleNextStep = () => { if (!isStepValid(activeStep)) { setShowStepErrors(true); return; } setShowStepErrors(false); setActiveStep((s) => Math.min(3, s + 1)); };
     const handlePrevStep = () => { setShowStepErrors(false); setActiveStep((s) => Math.max(0, s - 1)); };
 
-    // NEW: File Upload Logic integrated into submitCreate/submitUpdate
     const submitCreate = async () => {
         if (!isStepValid(3)) { setShowStepErrors(true); return; }
         if (!authToken) { navigate("/"); return; }
         setLoadingButton(true);
 
-        // 1. Upload Profile Image
         let profileImageUrlToSend: string | undefined = undefined;
         if (profileRawFile) {
             const uploadedUrls = await uploadFiles([profileRawFile], authToken, showAlert);
@@ -654,7 +614,6 @@ const ListPersonnel: React.FC = () => {
             profileImageUrlToSend = uploadedUrls[0];
         }
 
-        // 2. Upload Attachments
         let attachmentPayload: Attachment[] = [];
         if (attachmentsRawFiles.length > 0) {
             const uploadedUrls = await uploadFiles(attachmentsRawFiles, authToken, showAlert);
@@ -666,7 +625,7 @@ const ListPersonnel: React.FC = () => {
             const payload = {
                 name: form.name, family: form.family, identityNumber: form.identityNumber,
                 workStartDate: form.workStartDate,
-                workEndDate: null, // YENİ KURAL: Her zaman null gönderilir
+                workEndDate: null,
                 insuranceNumber: form.insuranceNumber, sex: form.sex,
                 salaryType: form.salaryType, salaryAccrualMethod: form.salaryAccrualMethod,
                 group: form.group, birthPlace: form.birthPlace, birthDate: form.birthDate,
@@ -674,9 +633,9 @@ const ListPersonnel: React.FC = () => {
                 bloodType: form.bloodType, address: form.address, educationStatus: form.educationStatus,
                 iban: form.iban, telephone: form.telephone, mobile: form.mobile,
                 positionId: Number(form.positionId) ?? null,
-                imageSrc: profileImageUrlToSend, // NEW
-                hasISG: form.hasISG ?? false, // NEW
-                attachments: attachmentPayload, // NEW
+                imageSrc: profileImageUrlToSend,
+                hasISG: form.hasISG ?? false,
+                attachments: attachmentPayload,
                 salary: form.salary ? Number(form.salary) : null,
             };
             const res = await axios.post(`${server.baseurl}${server.hr}create-personnel`, payload, {
@@ -703,33 +662,28 @@ const ListPersonnel: React.FC = () => {
         if (!authToken) { navigate("/"); return; }
         setLoadingButton(true);
 
-        // 1. Upload Profile Image (if raw file exists)
         let profileImageUrlToSend: string | undefined = undefined;
         if (profileRawFile) {
             const uploadedUrls = await uploadFiles([profileRawFile], authToken, showAlert);
             if (!uploadedUrls) { setLoadingButton(false); return; }
             profileImageUrlToSend = uploadedUrls[0];
         } else {
-            // Keep existing image URL if not changed and not the default placeholder
             profileImageUrlToSend = (profileImageUrl !== DEFAULT_IMAGE_URL ? form.imageSrc : undefined);
         }
 
-        // 2. Upload Attachments (new files)
         let attachmentPayload: Attachment[] = form.attachments ?? [];
         if (attachmentsRawFiles.length > 0) {
             const uploadedUrls = await uploadFiles(attachmentsRawFiles, authToken, showAlert);
             if (!uploadedUrls) { setLoadingButton(false); return; }
-            // Yeni yüklenen dosyalar, mevcut dosyalara eklenmelidir veya onları değiştirmelidir.
-            // Bu örnekte, yeni yüklenenler mevcut olanların YERİNE geçer varsayılır (API davranışına bağlı olarak değişebilir)
             attachmentPayload = uploadedUrls.map(url => ({ fileUrl: url }));
         }
-        debugger
+
         try {
             const payload = {
                 id: editingId,
                 name: form.name, family: form.family, identityNumber: form.identityNumber,
                 workStartDate: form.workStartDate,
-                workEndDate: form.workEndDate, // WorkEndDate mevcutsa veya sonlandırmada set edilmişse gönderilir
+                workEndDate: form.workEndDate,
                 insuranceNumber: form.insuranceNumber, sex: form.sex,
                 salaryType: form.salaryType, salaryAccrualMethod: form.salaryAccrualMethod,
                 group: form.group, birthPlace: form.birthPlace, birthDate: form.birthDate,
@@ -737,9 +691,9 @@ const ListPersonnel: React.FC = () => {
                 bloodType: form.bloodType, address: form.address, educationStatus: form.educationStatus,
                 iban: form.iban, telephone: form.telephone, mobile: form.mobile,
                 positionId: Number(form.positionId) ?? null,
-                imageSrc: profileImageUrlToSend, // NEW LOGIC
-                hasISG: form.hasISG ?? false, // NEW
-                attachments: attachmentPayload, // NEW
+                imageSrc: profileImageUrlToSend,
+                hasISG: form.hasISG ?? false,
+                attachments: attachmentPayload,
             };
             const res = await axios.put(`${server.baseurl}${server.hr}update-personnel`, payload, {
                 headers: { Authorization: `Bearer ${authToken}` },
@@ -787,13 +741,12 @@ const ListPersonnel: React.FC = () => {
         } finally { handleCloseMenu(); }
     };
 
-    // NEW: Submit End Cooperation
     const submitEndCooperation = async () => {
         if (!personnelToEndCooperation || !endDate) return;
         if (!authToken) { navigate("/"); return; }
 
         setLoadingButton(true);
-        debugger
+
 
         try {
             const payload = {
@@ -831,10 +784,10 @@ const ListPersonnel: React.FC = () => {
         docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
         const pageWidth = doc.internal.pageSize.getWidth();
-        const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+        const logoWidth = 35;
         const logoHeight = 18;
         const margin = 15;
-        const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+        const logoX = pageWidth - logoWidth - margin;
 
         try {
             doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -844,16 +797,13 @@ const ListPersonnel: React.FC = () => {
 
         doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
-        doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
-
+        doc.text(title, pageWidth / 2, 25, { align: 'center' });
         doc.setFontSize(10);
         doc.setFont('NotoSans', 'bold');
         doc.text(`Rapor Tarihi:`, 15, 35);
         doc.setFont('NotoSans', 'normal');
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
 
-        // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-        // doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
         doc.line(15, 40, pageWidth - 15, 40);
     };
@@ -887,36 +837,18 @@ const ListPersonnel: React.FC = () => {
         const pageCount = (doc as any).internal.getNumberOfPages();
         doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
     };
-
-    // const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
-    //     if (priceInput === null || priceInput === undefined) {
-    //         return '₺0';
-    //     }
-    //     const cleanedString = String(priceInput).replace(/[$,]/g, '');
-    //     const numericValue = parseFloat(cleanedString);
-    //     if (isNaN(numericValue)) {
-    //         return '₺0';
-    //     }
-    //     const formattedPrice = numericValue.toLocaleString('tr-TR', {
-    //         style: 'currency',
-    //         currency: 'TRY',
-    //         minimumFractionDigits: 0,
-    //         maximumFractionDigits: 0
-    //     });
-    //     return formattedPrice;
-    // };
     const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
         if (priceInput === null || priceInput === undefined) {
-            return '₺0'; // تغییر از $0 به ₺0
+            return '₺0';
         }
-        const cleanedString = String(priceInput).replace(/[₺$,]/g, ''); // حذف علامت لیر قدیمی یا دلار
+        const cleanedString = String(priceInput).replace(/[₺$,]/g, '');
         const numericValue = parseFloat(cleanedString);
         if (isNaN(numericValue)) {
             return '₺0';
         }
         const formattedPrice = numericValue.toLocaleString('tr-TR', {
             style: 'currency',
-            currency: 'TRY', // تنظیم روی لیر ترکیه
+            currency: 'TRY',
             minimumFractionDigits: 0,
             maximumFractionDigits: 0
         });
@@ -930,9 +862,9 @@ const ListPersonnel: React.FC = () => {
             ["Soyad", p.family || "—"],
             ["TC Kimlik", p.identityNumber || "—"],
             ["Pozisyon", positionTitle],
-            ["İş Güvenliği (ISG)", p.hasISG ? "Var" : "Yok"], // NEW
+            ["İş Güvenliği (ISG)", p.hasISG ? "Var" : "Yok"],
             ["Başlangıç", formatDateDisplay(p.workStartDate)],
-            ["Bitiş", formatDateDisplay(p.workEndDate)], // Bitiş tarihi raporda gösterilir
+            ["Bitiş", formatDateDisplay(p.workEndDate)],
             ["Maaş", cleanAndFormatPrice(p.salary)],
             ["Sigorta No", p.insuranceNumber || "—"],
             ["Cinsiyet", SEX_LABELS[p.sex] ?? "—"],
@@ -953,63 +885,9 @@ const ListPersonnel: React.FC = () => {
             ["Oluşturulma", formatDateDisplay(p.createAt?.slice(0, 10) || null)],
         ];
     };
-
-    // const pdfForRows = (rows: PersonnelType[], filename: string) => {
-    //     const doc = new jsPDF("p", "pt", "a4");
-    //     (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
-    //     (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
-    //     doc.setFont("NotoSans", "normal");
-
-    //     const headerSpace = 100; // فضای رزرو شده برای هدر (100pt)
-    //     const sideMargin = 40;
-    //     const bottomMargin = 70; // فضای رزرو شده برای فوتر (70pt)
-    //     const imageSize = 100;    // اندازه تصویر (عرض و ارتفاع)
-    //     const imageStartX = sideMargin;
-    //     const imageStartY = headerSpace + 10;
-
-    //     rows.forEach((p, idx) => {
-    //         if (idx > 0) doc.addPage();
-
-    //         const pairs = toPairsForPerson(p);
-    //         const img = getFullImageUrl(p.imageSrc);
-    //         let startY = headerSpace;
-    //         if (img && img !== DEFAULT_IMAGE_URL && img.startsWith('data:')) {
-    //             try {
-    //                 doc.addImage(img, 'PNG', imageStartX, imageStartY, imageSize, imageSize, undefined, 'FAST');
-    //                 startY = imageStartY + imageSize + 20;
-    //             } catch (error) {
-    //                 startY = headerSpace;
-    //             }
-    //         } else {
-    //             startY = imageStartY + 10;
-    //         }
-
-    //         autoTable((doc as any), {
-    //             startY: startY,
-    //             head: [["Alan", "Değer"]],
-    //             body: pairs,
-    //             theme: "grid",
-    //             styles: { font: "NotoSans", fontStyle: "normal", fontSize: 10, cellPadding: 4, overflow: "linebreak" },
-    //             headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0], font: "NotoSans", fontStyle: "normal" },
-    //             columnStyles: { 0: { cellWidth: 150, font: "NotoSans", fontStyle: "normal" }, 1: { cellWidth: "auto" } },
-    //             margin: { top: headerSpace, bottom: bottomMargin, left: sideMargin, right: sideMargin },
-
-    //             didDrawPage: (_data: any) => {
-    //                 addPdfHeader(doc, "Personel Detay Raporu");
-    //                 addPdfFooter(doc);
-    //             },
-    //             showHead: "everyPage",
-    //         });
-    //     });
-
-    //     doc.save(filename);
-    // };
-
     const pdfForRows = async (rows: PersonnelType[], filename: string) => {
-        // 1. تنظیمات اولیه PDF
         const doc = new jsPDF("p", "pt", "a4");
 
-        // تنظیمات فونت (مطابق با کدهای قبلی شما)
         (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
         (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
         doc.setFont("NotoSans", "normal");
@@ -1017,18 +895,17 @@ const ListPersonnel: React.FC = () => {
         const headerSpace = 100;
         const sideMargin = 40;
         const bottomMargin = 70;
-        const imageSize = 100; // قطر دایره
-        const radius = imageSize / 2; // شعاع
+        const imageSize = 100;
+        const radius = imageSize / 2;
         const pageWidth = doc.internal.pageSize.getWidth();
-        const imageX = (pageWidth / 2) - radius; // محاسبه وسط صفحه
+        const imageX = (pageWidth / 2) - radius;
         const imageY = 70;
         const token = authToken || "";
 
-        // پیمایش روی ردیف‌ها (پرسنل)
         for (const [idx, p] of rows.entries()) {
             if (idx > 0) doc.addPage();
 
-            const pairs = toPairsForPerson(p); // جزئیات پرسنل
+            const pairs = toPairsForPerson(p);
             const rawImageUrl = getFullImageUrl(p.imageSrc);
             let base64Image = null;
             let startY = headerSpace;
@@ -1049,11 +926,9 @@ const ListPersonnel: React.FC = () => {
                     startY = imageY + 10;
                 }
             } else {
-                // اگر تصویری وجود نداشت یا Base64 نشد
                 startY = imageY + 10;
             }
 
-            // 3. افزودن جدول جزئیات
             autoTable((doc as any), {
                 startY: startY,
                 head: [["Alan", "Değer"]],
@@ -1064,7 +939,6 @@ const ListPersonnel: React.FC = () => {
                 columnStyles: { 0: { cellWidth: 150, font: "NotoSans", fontStyle: "normal" }, 1: { cellWidth: "auto" } },
                 margin: { top: headerSpace, bottom: bottomMargin, left: sideMargin, right: sideMargin },
 
-                // هوک برای رسم هدر و فوتر در هر صفحه
                 didDrawPage: (_data: any) => {
                     addPdfHeader(doc, "Personel Detay Raporu");
                     addPdfFooter(doc);
@@ -1097,7 +971,6 @@ const ListPersonnel: React.FC = () => {
     const handleDownloadChoosePDFTable = () => {
         const doc = new jsPDF("landscape", "pt", "a4");
 
-        // (Aynı font ayarları)
         (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
         (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
         doc.setFont("NotoSans", "normal");
@@ -1105,11 +978,10 @@ const ListPersonnel: React.FC = () => {
         const topMargin = 100, sideMargin = 40, bottomMargin = 70;
         const rows = paginated;
 
-        // 1. ISG başlığı eklendi
         const headerRow = [
             "Ad", "Soyad", "TC Kimlik", "Başlangıç", "Bitiş", "Pozisyon",
             "Cinsiyet", "Ücret Tipi", "Tahakkuk", "Grup", "Doğum Tarihi",
-            "Medeni Durum", "Baba Adı", "Eğitim", "ISG", // <--- NEW: ISG eklendi
+            "Medeni Durum", "Baba Adı", "Eğitim", "ISG",
             "Telefon", "Cep Telefon"
         ];
 
@@ -1130,14 +1002,13 @@ const ListPersonnel: React.FC = () => {
                 MARITAL_LABELS[p.maritalStatus] ?? "—",
                 p.fatherName || "—",
                 EDU_LABELS[p.educationStatus] ?? "—",
-                p.hasISG ? "Var" : "Yok", // <--- NEW: ISG değeri eklendi
+                p.hasISG ? "Var" : "Yok",
                 p.telephone || "—",
                 p.mobile || "—"
             ];
             allData.push(row);
         });
 
-        // AutoTable oluşturma
         autoTable(doc, {
             startY: topMargin,
             head: [headerRow],
@@ -1146,7 +1017,6 @@ const ListPersonnel: React.FC = () => {
             styles: { font: "NotoSans", fontStyle: "normal", fontSize: 8, cellPadding: 3, overflow: "linebreak" },
             headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0], font: "NotoSans", fontStyle: "normal" },
             margin: { top: topMargin, bottom: bottomMargin, left: sideMargin, right: sideMargin },
-            // didDrawPage hook'u ile her sayfaya başlık ve altbilgi eklenir.
             didDrawPage: () => { addPdfHeader(doc, "Personel Detay Raporu"); addPdfFooter(doc); },
             showHead: "everyPage",
         });
@@ -1164,15 +1034,14 @@ const ListPersonnel: React.FC = () => {
             { width: 16 }, { width: 16 }, { width: 16 }, { width: 12 },
             { width: 16 }, { width: 16 }, { width: 16 }, { width: 18 },
             { width: 16 }, { width: 16 }, { width: 28 }, { width: 18 },
-            { width: 16 }, // ✅ عرض ستون Maaş
-            { width: 22 }, { width: 16 }, { width: 16 }, { width: 16 }, // IBAN, Telefon, Mobil, ISG (عرض‌ها کمی تغییر کرد)
+            { width: 16 },
+            { width: 22 }, { width: 16 }, { width: 16 }, { width: 16 },
         ];
         ws.addRow([
             "Ali", "Yılmaz", "12345678901", "Yazılım Uzmanı",
             "2023-01-10",
             "SGK-0001", "Erkek", "Aylık", "Brüt", "Normal", "İzmir",
             "1992-05-15", "Evli", "A+", "Mehmet", "İzmir/...", "Lisans",
-            // ✅ نمونه داده برای Maaş
             "15000",
             "TR00 0000 0000 0000 0000 0000 00", "0232...", "05..",
             "Var"
@@ -1184,14 +1053,12 @@ const ListPersonnel: React.FC = () => {
     const pdfForAnnualLeave = (p: PersonnelType, leaveData: any, filename: string) => {
         const doc = new jsPDF("p", "pt", "a4");
 
-        // تنظیمات فونت
         (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
         (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
         doc.setFont("NotoSans", "normal");
 
         addPdfHeader(doc, "Yıllık İzin Detay Raporu");
 
-        // آماده‌سازی رشته Çalışma Yılı
         const workDurationText = leaveData.personnelWorkYearsAndMonths
             ? `${leaveData.personnelWorkYearsAndMonths.years} Yıl, ${leaveData.personnelWorkYearsAndMonths.months} Ay, ${leaveData.personnelWorkYearsAndMonths.days} Gün`
             : `${leaveData.yearOfWork || 0} Yıl`;
@@ -1201,7 +1068,7 @@ const ListPersonnel: React.FC = () => {
             ["Başlangıç Tarihi", formatDateDisplay(p.workStartDate)],
             ["Bitiش Tarihi", formatDateDisplay(p.workEndDate)],
             ["Yaş", leaveData.age ? String(leaveData.age) : "—"],
-            ["Çalışma Süresi", workDurationText], // تغییر نام به Çalışma Süresi برای دقت بیشتر یا همان Çalışma Yılı
+            ["Çalışma Süresi", workDurationText],
             ["Resmi İzin Hakkı", leaveData.official ? `${leaveData.official} Gün` : "—"],
             ["Kalan İzin Günü", leaveData.remaining ? `${leaveData.remaining} Gün` : "—"],
         ];
@@ -1221,7 +1088,6 @@ const ListPersonnel: React.FC = () => {
 
         doc.save(filename);
     };
-    /* ---------------- Import Excel (updated for new fields) ---------------- */
     const getByTitle = (row: Excel.Row, map: Map<string, number>, title: string) => String(row.getCell(map.get(title) ?? 0).value ?? "").trim();
     const normalizeTr = (s: string) => (
         s
@@ -1248,10 +1114,8 @@ const ListPersonnel: React.FC = () => {
 
     const parseIso = (s: string): string | null => {
         if (!s) return null;
-        // Date object'in Excel تاریخ‌ها را به عنوان عدد برمی‌گرداند.
         let d;
         if (typeof s === 'number') {
-            // Excel date handling (if needed, adjust based on your ExcelJS usage context)
             d = new Date(Math.round((s - 25569) * 86400 * 1000));
         } else {
             d = new Date(s);
@@ -1267,7 +1131,7 @@ const ListPersonnel: React.FC = () => {
 
     const handleExcelFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        e.target.value = ""; // reset for re-select
+        e.target.value = "";
         if (!file) return;
 
         setIsProcessingImport(true);
@@ -1278,30 +1142,24 @@ const ListPersonnel: React.FC = () => {
             const ws = wb.worksheets[0];
             if (!ws) throw new Error("Şablon bulunamadı.");
 
-            // header mapping
             const headerRow = ws.getRow(1);
             const headerMap = new Map<string, number>();
             headerRow.eachCell((cell, colNumber) => {
                 headerMap.set(String(cell.value ?? "").trim(), colNumber);
             });
-            // validate headers exist
             for (const h of TEMPLATE_HEADERS) {
                 if (!headerMap.has(h)) { throw new Error("Şablon başlıkları uyumsuz. Lütfen yeni şablonu indirin."); }
             }
 
-            // existing identity numbers (DB list)
             const existingTC = new Set(personnelList.map(p => (p.identityNumber ?? "").trim()));
 
-            // Build rows
             const tmpValid: ImportedRow[] = [];
             const tmpInvalid: ImportedRow[] = [];
-            const seenTC = new Set<string>(); // duplicates inside file
+            const seenTC = new Set<string>();
 
             ws.eachRow((row, rowNumber) => {
-                if (rowNumber === 1) return; // header
-
-                // Get Fields (Index mapping is critical here after removing 'Bitiş')
-                const map = headerMap; // using existing map for brevity
+                if (rowNumber === 1) return;
+                const map = headerMap;
                 const name = getByTitle(row, map, "Ad");
                 const family = getByTitle(row, map, "Soyad");
                 const identityNumber = getByTitle(row, map, "TC Kimlik");
@@ -1324,14 +1182,12 @@ const ListPersonnel: React.FC = () => {
                 const mobile = getByTitle(row, map, "Cep Telefon");
                 const salaryRaw = getByTitle(row, map, "Maaş (Sadece Sayısal)");
                 const salary = salaryRaw === "" ? null : Number(salaryRaw);
-                const hasISGText = getByTitle(row, map, "ISG (Var|Yok|True|False|0|1)"); // NEW
+                const hasISGText = getByTitle(row, map, "ISG (Var|Yok|True|False|0|1)");
                 const hasISG = normalizeTr(hasISGText) === normalizeTr("Var") || normalizeTr(hasISGText) === normalizeTr("True") || Number(hasISGText) === 1;
 
-                // position map
                 const foundPos = positions.find(p => normalizeTr(p.title) === normalizeTr(positionText));
                 const positionId = foundPos?.id ?? null;
 
-                // required fields
                 const requiredMissing: string[] = [];
                 if (!name) requiredMissing.push("Ad");
                 if (!family) requiredMissing.push("Soyad");
@@ -1346,7 +1202,6 @@ const ListPersonnel: React.FC = () => {
                 if (getByTitle(row, map, "Başlangıç (yyyy-MM-dd)") && !workStartDate) invalidDate.push("Başlangıç");
                 if (getByTitle(row, map, "Doğum Tarihi (yyyy-MM-dd)") && !birthDate) invalidDate.push("Doğum Tarihi");
 
-                // TC duplicates: in-file or existing DB list
                 const tcDup = !identityNumber ? false : (seenTC.has(identityNumber) || existingTC.has(identityNumber));
                 if (identityNumber) seenTC.add(identityNumber);
 
@@ -1354,11 +1209,11 @@ const ListPersonnel: React.FC = () => {
                     _rowIndex: rowNumber,
                     name, family, identityNumber,
                     positionText, positionId,
-                    workStartDate, workEndDate: null, insuranceNumber, // workEndDate: null yapıldı
+                    workStartDate, workEndDate: null, insuranceNumber,
                     sex, salaryType, salaryAccrualMethod, group,
                     birthPlace, birthDate, maritalStatus, bloodType,
                     fatherName, address, educationStatus, iban, telephone, mobile,
-                    hasISG, salary: salary, // NEW
+                    hasISG, salary: salary,
                     errors: {
                         identityDuplicate: tcDup, positionMissing: positionId == null,
                         requiredMissing, invalidDate
@@ -1369,7 +1224,6 @@ const ListPersonnel: React.FC = () => {
                 if (hasError) tmpInvalid.push(r); else tmpValid.push(r);
             });
 
-            // 1) auto-create valid rows
             let okCount = 0, failCount = 0;
             if (tmpValid.length) {
                 for (const r of tmpValid) {
@@ -1378,7 +1232,6 @@ const ListPersonnel: React.FC = () => {
                         okCount++;
                     } catch {
                         failCount++;
-                        // if failed at API, push to invalid for correction
                         tmpInvalid.push({
                             ...r,
                             errors: { ...r.errors, requiredMissing: [...r.errors.requiredMissing], identityDuplicate: true }
@@ -1387,7 +1240,6 @@ const ListPersonnel: React.FC = () => {
                 }
             }
 
-            // 2) open modal for invalids
             setValidRows(tmpValid);
             setInvalidRows(tmpInvalid);
             setInvalidIndex(0);
@@ -1408,7 +1260,7 @@ const ListPersonnel: React.FC = () => {
         const payload = {
             name: r.name, family: r.family, identityNumber: r.identityNumber,
             workStartDate: r.workStartDate,
-            workEndDate: null, // SAKLANDI
+            workEndDate: null,
             insuranceNumber: r.insuranceNumber, sex: r.sex,
             salaryType: r.salaryType, salaryAccrualMethod: r.salaryAccrualMethod,
             group: r.group, birthPlace: r.birthPlace, birthDate: r.birthDate,
@@ -1417,7 +1269,7 @@ const ListPersonnel: React.FC = () => {
             iban: r.iban, telephone: r.telephone, mobile: r.mobile,
             positionId: r.positionId,
             salary: r.salary ? Number(r.salary) : null,
-            hasISG: r.hasISG, // NEW
+            hasISG: r.hasISG,
 
         };
         const res = await axios.post(`${server.baseurl}${server.hr}create-personnel`, payload, {
@@ -1462,9 +1314,7 @@ const ListPersonnel: React.FC = () => {
         const wb = new Excel.Workbook();
         const ws = wb.addWorksheet("Personel Detaylari", { views: [{ rightToLeft: false }] });
 
-        const columnsLength = 2; // همیشه دو ستون: "Alan" و "Değer"
-
-        // 1. NEW: افزودن هدر گزارش
+        const columnsLength = 2;
         addExcelHeader(ws, "PERSONEL DETAYLI RAPORU", columnsLength);
 
         let currentRow = ws.lastRow?.number ?? 1;
@@ -1472,7 +1322,6 @@ const ListPersonnel: React.FC = () => {
         rows.forEach((p, index) => {
             currentRow++;
 
-            // عنوان پرسنل
             const titleRow = ws.getRow(currentRow);
             titleRow.getCell(1).value = `--- PERSONEL ${index + 1}: ${p.name || "—"} ${p.family || "—"} (${p.identityNumber || "—"}) ---`;
             titleRow.getCell(1).font = { bold: true, color: { argb: 'FF0000FF' } };
@@ -1480,7 +1329,6 @@ const ListPersonnel: React.FC = () => {
 
             currentRow++;
 
-            // افزودن سربرگ جدول کوچک (Alan / Değer)
             const headers = ws.getRow(currentRow);
             headers.getCell(1).value = "Alan";
             headers.getCell(2).value = "Değer";
@@ -1488,7 +1336,6 @@ const ListPersonnel: React.FC = () => {
             headers.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
             currentRow++;
 
-            // افزودن جزئیات ستونی (Pairs)
             const pairs = toPairsForPerson(p);
             pairs.forEach(([label, value]) => {
                 const dataRow = ws.getRow(currentRow);
@@ -1497,15 +1344,11 @@ const ListPersonnel: React.FC = () => {
                 currentRow++;
             });
 
-            // افزودن سطر خالی برای جداسازی
             currentRow++;
         });
 
-        // تنظیم عرض ستون‌ها
-        ws.columns[0].width = 30; // Alan
-        ws.columns[1].width = 50; // Değer
-
-        // 2. NEW: افزودن اطلاعات شرکت (فوتر) در انتهای داده‌ها
+        ws.columns[0].width = 30;
+        ws.columns[1].width = 50;
         addExcelCompanyInfo(ws, currentRow + 2, columnsLength);
 
         const buf = await wb.xlsx.writeBuffer();
@@ -1514,22 +1357,18 @@ const ListPersonnel: React.FC = () => {
 
     const exportToExcelDetail = async (p: PersonnelType, filename: string) => {
         const wb = new Excel.Workbook();
-        // RTL (sağdan sola) görünüm isterseniz: { views: [{ rightToLeft: true }] }
         const ws = wb.addWorksheet("Personel Detay", { views: [{ rightToLeft: false }] });
 
-        // Sütun başlıkları ve genişlikleri
         ws.columns = [
             { header: "Alan", key: "label", width: 30 },
             { header: "Değer", key: "value", width: 50 },
         ];
 
-        // Tüm alanları toPairsForPerson'dan alır
         const pairs = toPairsForPerson(p);
         const data = pairs.map(([label, value]) => ({ label, value }));
 
         ws.addRows(data);
 
-        // Estetik: Başlık satırı
         ws.getRow(1).font = { bold: true };
         ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
 
@@ -1542,7 +1381,6 @@ const ListPersonnel: React.FC = () => {
         const wb = new Excel.Workbook();
         const ws = wb.addWorksheet("Personel Tablo", { views: [{ rightToLeft: false }] });
 
-        // تعریف سربرگ‌ها و عرض ستون‌ها
         const headerRowTitles = [
             "Ad", "Soyad", "TC Kimlik", "Pozisyon", "Başlangıç", "Bitiş", "Maaş",
             "Sigorta No", "Cinsiyet", "Ücret Tipi", "Tahakkuk", "Grup", "Doğum Yeri",
@@ -1551,17 +1389,14 @@ const ListPersonnel: React.FC = () => {
         ];
         const columnsLength = headerRowTitles.length;
 
-        // 1. NEW: افزودن هدر گزارش
         addExcelHeader(ws, "PERSONEL TABLO RAPORU", columnsLength);
         let currentRow = ws.lastRow?.number ?? 0;
 
-        // افزودن عنوان ستون‌ها
         const headers = ws.getRow(currentRow + 1);
         headers.values = headerRowTitles;
         headers.font = { bold: true };
         headers.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
 
-        // افزودن داده‌ها
         const allData: any[] = [];
         rows.forEach((p) => {
             const positionTitle = positions.find(x => x.id === (Number(p.position.id) ?? -1))?.title || "—";
@@ -1586,12 +1421,10 @@ const ListPersonnel: React.FC = () => {
 
         ws.addRows(allData);
 
-        // تنظیم عرض ستون‌ها
         ws.columns.forEach((column, index) => {
             column.width = headerRowTitles[index].length < 15 ? 15 : headerRowTitles[index].length + 5;
         });
 
-        // 2. NEW: افزودن اطلاعات شرکت (فوتر) در انتهای داده‌ها
         const startRowCompanyInfo = ws.lastRow?.number ? ws.lastRow.number + 2 : 1;
         addExcelCompanyInfo(ws, startRowCompanyInfo, columnsLength);
 
@@ -1601,17 +1434,14 @@ const ListPersonnel: React.FC = () => {
 
 
     const handleDownloadChooseExcel = (isDetailExport: boolean) => {
-        // اگر کاربر 'İndir (Detay)' را زده باشد
         if (isDetailExport) {
             if (downloadScope === "row" && rowForDownload) {
-                // حالت: دانلود جزئیات فقط برای یک ردیف انتخاب شده از منو
                 const fileSlug = `${rowForDownload.name || ""}_${rowForDownload.family || ""}`.trim().replace(/\s+/g, "_");
                 exportToExcelDetail(rowForDownload, `Personel_Detay_${fileSlug || rowForDownload.id}.xlsx`);
             } else {
                 exportToExcelDetailConsolidated(sorted, "Personel_Detay_Consolidated.xlsx");
             }
         } else {
-            // حالت Tablo (برای تمام لیست فیلتر شده)
             exportToExcelTable(sorted, "Personel_Tablo_Raporu.xlsx");
         }
         setOpenDownloadModal(false);
@@ -1619,7 +1449,6 @@ const ListPersonnel: React.FC = () => {
 
 
     const handleDownloadConsignmentPDF = () => {
-        // 1. اعتبارسنجی داده‌ها
         const personnel = personnelToEndCooperation;
         const generalConsignments = activeConsignments;
         const carConsignments = activeCarConsignment;
@@ -1631,19 +1460,15 @@ const ListPersonnel: React.FC = () => {
 
         const doc = new jsPDF("p", "pt", "a4");
 
-        // تنظیمات فونت (مطابق با کدهای قبلی شما)
         (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
         (doc.addFont as any)("NotoSans-Regular.ttf", "NotoSans", "normal");
         doc.setFont("NotoSans", "normal");
 
         const headerSpace = 100;
         const sideMargin = 40;
-        let finalY = headerSpace + 20; // شروع محتوا
-
-        // 2. هدر گزارش
+        let finalY = headerSpace + 20;
         addPdfHeader(doc, "PERSONEL İLİŞİK KESME / ZİMMET TESLİM RAPORU");
 
-        // 3. اطلاعات پرسنل (بالای صفحه)
         doc.setFontSize(12);
         doc.text(`Personel Adı Soyadı: ${personnel.name} ${personnel.family}`, sideMargin, finalY);
         finalY += 16;
@@ -1715,24 +1540,21 @@ const ListPersonnel: React.FC = () => {
                 theme: "grid",
                 styles: { font: "NotoSans", fontStyle: "normal", fontSize: 10, cellPadding: 5 },
                 headStyles: { fillColor: [255, 240, 200], textColor: [0, 0, 0] },
-                columnStyles: { 3: { cellWidth: 80, halign: 'center' } }, // وسط‌چین کردن چک‌باکس
+                columnStyles: { 3: { cellWidth: 80, halign: 'center' } },
                 margin: { left: sideMargin, right: sideMargin },
                 didDrawPage: (_data: any) => {
                     addPdfHeader(doc, "PERSONEL İLİŞİK KESME / ZİMMET TESLİM RAPORU");
-                    addPdfFooter(doc); // ✅ فوتر اضافه شد
+                    addPdfFooter(doc);
                 },
             });
 
             finalY = (doc as any).lastAutoTable.finalY + 15;
 
-            // سطر توضیحات اموال خودرو
             doc.setFontSize(10);
             doc.text("Açıklama (Araç Zimmet):", sideMargin, finalY);
-            // doc.rect(sideMargin + 140, finalY - 10, 430, 15, 'S'); // فیلد متنی بزرگ
             finalY += 35;
         }
 
-        // 6. کادر نهایی تسویه‌حساب (در پایین)
         doc.setFontSize(14);
         doc.text("İlişik Kesme Onayı", sideMargin, finalY + 10);
         finalY += 20;
@@ -1741,7 +1563,6 @@ const ListPersonnel: React.FC = () => {
         const approvalText = "Yukarıdaki zimmet listesinin eksiksiz teslim alındığı onaylanır.";
         doc.text(approvalText, sideMargin, finalY + 10);
 
-        // خطوط امضا
         doc.text("Personel İmzası:", sideMargin, finalY + 40);
         doc.line(sideMargin + 100, finalY + 40, sideMargin + 250, finalY + 40);
 
@@ -1776,13 +1597,10 @@ const ListPersonnel: React.FC = () => {
         showAlert("Zimmet ve Araç kayıtları kontrol ediliyor...", "info");
         setLoadingButton(true);
 
-        // ⭐️ ریست کردن Stateهای مربوط به اموال ⭐️
         setActiveCarConsignment([]);
         setActiveConsignments([]);
 
         try {
-            // --- 1. اموال عمومی (Genel Zimmet) ---
-            // 💡 استفاده از API جدید: get-consignments-for-personnel-return/{personnelId}
             const consignmentRes = await axios.get(
                 `${server.baseurl}${server.hr}get-consignments-for-personnel-return/${personnel.id}`,
                 { headers: { Authorization: `Bearer ${authToken}` } }
@@ -1791,28 +1609,20 @@ const ListPersonnel: React.FC = () => {
             const activeGeneralConsignments = (consignmentRes.data?.httpStatusCode === 200 && consignmentRes.data?.data)
                 ? (consignmentRes.data.data as any[])
                     .map(item => ({
-                        // 💡 نگاشت داده‌ها بر اساس ساختار API جدید
                         type: 'Zimmet (Genel)',
-                        assignmentDate: item.createAt, // تاریخ واگذاری در این API به عنوان createAt فرض شده است.
+                        assignmentDate: item.createAt,
                         description: item.description,
                         attachments: item.attachments || [],
                         name: item.name || 'Bilinmiyor',
                         code: item.code || '-',
-                        // placeId, placeType, etc., اگر لازم هستند
                     }))
                 : [];
 
             setActiveConsignments(activeGeneralConsignments);
 
-            // --- 2. اموال خودرو (Car Consignments) ---
-            // (این بخش بدون تغییر از کد اصلی شما باقی می‌ماند.)
-            // ... (API مربوط به personnel-current-car/{personnel.id} و منطق نگاشت آن)
-
-            // --- 3. تصمیم‌گیری برای نمایش ---
             const totalActiveCarCount = activeCarConsignment.length;
             const totalActiveCount = activeGeneralConsignments.length + totalActiveCarCount;
 
-            // ... (ادامه منطق نمایش Modal)
             if (totalActiveCount > 0) {
                 setOpenActiveConsignmentsModal(true);
                 showAlert(`Personelin ${totalActiveCount} adet teslim etmediği zimmeti bulunmaktadır! (Genel: ${activeGeneralConsignments.length}, Araç: ${totalActiveCarCount})`, "error");
@@ -1832,11 +1642,9 @@ const ListPersonnel: React.FC = () => {
 
 
     const handleOpenPersonnelFilesModal = (row: PersonnelType) => {
-        // 1. ذخیره فایل‌های پیوست و اطلاعات پرسنل در Stateهای جدید
         setPersonnelFilesToDownload(row.attachments || []);
         setSelectedPersonnelForFiles(row);
 
-        // 2. باز کردن Modal جدید
         setOpenPersonnelFilesModal(true);
         handleCloseMenu();
     };
@@ -1866,7 +1674,6 @@ const ListPersonnel: React.FC = () => {
         }
     }, [editingId]);
 
-    // در نزدیکی توابع submitCreate و submitUpdate اضافه کنید
     const submitSalaryUpdate = async () => {
         if (!personnelToUpdateSalary || newSalary === null || newSalary < 0) {
             showAlert("Lütfen geçerli bir maaş değeri girin.", "warning");
@@ -1889,7 +1696,6 @@ const ListPersonnel: React.FC = () => {
             if (res.data?.httpStatusCode === 200) {
                 showAlert(`${personnelToUpdateSalary.name} ${personnelToUpdateSalary.family} personelinin maaşı başarıyla güncellendi.`, "success");
 
-                // 💡 به‌روزرسانی لیست پرسنل و بستن Modal
                 getAllPersonnels();
                 handleCloseSalaryEditModal();
 
@@ -1911,13 +1717,10 @@ const ListPersonnel: React.FC = () => {
     const handleOpenSalaryEditModal = () => {
         if (!selectedRowForMenu || !hasEditPermission) return;
 
-        // 1. ذخیره اطلاعات پرسنل فعلی
         setPersonnelToUpdateSalary(selectedRowForMenu);
 
-        // 2. تنظیم حقوق فعلی به عنوان مقدار اولیه (اگر وجود داشته باشد)
         setNewSalary(selectedRowForMenu.salary ?? null);
 
-        // 3. باز کردن Modal
         setOpenSalaryEditModal(true);
         handleCloseMenu();
     };
@@ -1927,7 +1730,6 @@ const ListPersonnel: React.FC = () => {
         setPersonnelToUpdateSalary(null);
         setNewSalary(null);
         setLoadingSalaryUpdate(false);
-        // showAlert'ı burada clear etmeyin, işlem sonucu alert'i Modal'da gösterelim
     };
 
     const handleDownloadLinkClick = (fileUrl: string) => { if (!fileUrl) { showAlert('Dosya adresi geçersiz.', 'error'); return; } const url = `${server.urldpwonload}${fileUrl}`; window.open(url, '_blank'); showAlert(`"${fileUrl.split('/').pop()}" dosyası indiriliyor.`, 'info'); };
@@ -1938,7 +1740,7 @@ const ListPersonnel: React.FC = () => {
             <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} mt={2} mb={3} flexWrap="wrap" gap={2}>
                 <Typography variant="h5" mb={{ xs: 1, sm: 0 }}>{editingId ? "Personel Düzenle" : "Yeni Personel Kaydı"}</Typography>
                 <Stack direction="row" spacing={1} alignItems="center" justifyContent={{ xs: "flex-start", sm: "flex-end" }}>
-                    {/* Template & Import */}
+
                     <Button variant="outlined" startIcon={<IconFileDownload />} onClick={handleDownloadTemplate}>
                         Şablonu İndir
                     </Button>
@@ -1947,7 +1749,6 @@ const ListPersonnel: React.FC = () => {
                         Excel İçe Aktar
                     </Button>
 
-                    {/* Yeni Personel */}
                     {!isFormVisible && hasCreatePermission && (
                         <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni personel ekle" : ""}>
                             <BlinkingButton variant="contained" color="primary" isBlinking={isBlinking} onClick={() => { setIsFormVisible(true); setActiveStep(0); }}>
@@ -1972,15 +1773,11 @@ const ListPersonnel: React.FC = () => {
 
                         {showStepErrors && <Alert severity="warning">Lütfen bu adımın zorunlu alanlarını doldurun.</Alert>}
 
-                        {/* Step 0: Kimlik - Profile Image Logic Changed */}
-                        {/* Step 0: Kimlik - ساختار Grid اصلاح شده و آیکون حذف اضافه شد */}
                         {activeStep === 0 && (
                             <Grid container spacing={3}>
 
-                                {/* === ستون اصلی ورودی‌ها (Ad, Soyad, TC, Pozisyon) - 8 واحد === */}
                                 <Grid item xs={12} md={8}>
                                     <Grid container spacing={2} alignItems="center">
-                                        {/* Ad */}
                                         <Grid item xs={12} sm={4} display="flex" alignItems="center">
                                             <CustomFormLabel sx={{ mt: 0 }} required>Ad</CustomFormLabel>
                                         </Grid>
@@ -1994,7 +1791,6 @@ const ListPersonnel: React.FC = () => {
                                                 helperText={showStepErrors && !form.name?.trim() ? "Bu alan zorunludur" : ""} />
                                         </Grid>
 
-                                        {/* Soyad */}
                                         <Grid item xs={12} sm={4} display="flex" alignItems="center">
                                             <CustomFormLabel sx={{ mt: 0 }} required>Soyad</CustomFormLabel>
                                         </Grid>
@@ -2007,7 +1803,6 @@ const ListPersonnel: React.FC = () => {
                                                 helperText={showStepErrors && !form.family?.trim() ? "Bu alan zorunludur" : ""} />
                                         </Grid>
 
-                                        {/* TC Kimlik */}
                                         <Grid item xs={12} sm={4} display="flex" alignItems="center">
                                             <CustomFormLabel sx={{ mt: 0 }} required>TC Kimlik</CustomFormLabel>
                                         </Grid>
@@ -2020,7 +1815,6 @@ const ListPersonnel: React.FC = () => {
                                                 helperText={showStepErrors && !form.identityNumber?.trim() ? "Bu alan zorunludur" : ""} />
                                         </Grid>
 
-                                        {/* Pozisyon */}
                                         <Grid item xs={12} sm={4} display="flex" alignItems="center">
                                             <CustomFormLabel sx={{ mt: 0 }} required>Pozisyon</CustomFormLabel>
                                         </Grid>
@@ -2041,10 +1835,9 @@ const ListPersonnel: React.FC = () => {
                                     </Grid>
                                 </Grid>
 
-                                {/* === ستون عکس پروفایل - 4 واحد === */}
                                 <Grid item xs={12} md={4} display="flex" flexDirection="column" alignItems="center" justifyContent="flex-start">
                                     <Box position="relative" sx={{ width: 150, height: 150, mb: 2 }}>
-                                        {/* نمایش عکس */}
+
                                         <CardMedia
                                             component="img"
                                             sx={{ width: 150, height: 150, borderRadius: '50%', objectFit: 'cover', border: '2px solid', borderColor: 'primary.main' }}
@@ -2052,13 +1845,12 @@ const ListPersonnel: React.FC = () => {
                                             alt="Personel Fotoğrafı"
                                         />
 
-                                        {/* دکمه حذف (اگر عکس پیش فرض نباشد) */}
                                         {profileImageUrl !== DEFAULT_IMAGE_URL && (
                                             <CustomTooltip title="Resmi Kaldır">
                                                 <IconButton
                                                     sx={{
                                                         position: 'absolute',
-                                                        bottom: 0, // قرارگیری در پایین و راست
+                                                        bottom: 0,
                                                         right: 0,
                                                         backgroundColor: 'error.main',
                                                         color: 'white',
@@ -2075,7 +1867,6 @@ const ListPersonnel: React.FC = () => {
                                         )}
                                     </Box>
 
-                                    {/* دکمه انتخاب عکس */}
                                     <input
                                         type="file" accept="image/*"
                                         ref={profileImageInputRef}
@@ -2095,10 +1886,8 @@ const ListPersonnel: React.FC = () => {
                             </Grid>
                         )}
 
-                        {/* Step 1: İş Bilgileri - Bitiş kaldırıldı, hasISG ve Attachments eklendi */}
                         {activeStep === 1 && (
                             <Grid container spacing={2}>
-                                {/* Başlangıç */}
                                 <Grid item xs={12} sm={6} md={2} display="flex" alignItems="center">
                                     <CustomFormLabel sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }} required>Başlangıç</CustomFormLabel>
                                 </Grid>
@@ -2124,7 +1913,6 @@ const ListPersonnel: React.FC = () => {
                                     </LocalizationProvider>
                                 </Grid>
 
-                                {/* Bitiş KALDIRILDI */}
                                 <Grid item xs={12} sm={6} md={2}><CustomFormLabel sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }}>Sigorta No</CustomFormLabel></Grid>
                                 <Grid item xs={12} sm={6} md={4}>
                                     <CustomTextField size="small" fullWidth value={form.insuranceNumber}
@@ -2133,7 +1921,6 @@ const ListPersonnel: React.FC = () => {
 
                                 <Grid item xs={12}><Divider /></Grid>
 
-                                {/* NEW: hasISG Radio Button */}
                                 <Grid item xs={12} sm={6} md={3}>
                                     <FormLabel>İSG var mı?</FormLabel>
                                     <RadioGroup row value={form.hasISG === true ? "true" : "false"}
@@ -2175,7 +1962,6 @@ const ListPersonnel: React.FC = () => {
 
                                 <Grid item xs={12}><Divider /></Grid>
 
-                                {/* NEW: Attachments Upload */}
                                 <Grid item xs={12}>
                                     <CustomFormLabel>Ek Belgeler (PDF, Excel, Resim)</CustomFormLabel>
                                     <input
@@ -2195,7 +1981,6 @@ const ListPersonnel: React.FC = () => {
 
                             </Grid>
                         )}
-                        {/* Step 2: Kişisel */}
                         {activeStep === 2 && (
                             <Grid container spacing={2}>
                                 <Grid item xs={12} sm={6} md={2} display="flex" alignItems="center">
@@ -2213,17 +1998,6 @@ const ListPersonnel: React.FC = () => {
                                     <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                         <DatePicker
                                             label="Doğum Tarihi"
-                                            //     inputFormat="dd/MM/yyyy"
-                                            //     value={form.birthDate}
-                                            //     onChange={(next: any) => setForm((f) => ({ ...f, birthDate: next ? format(next, "yyyy-MM-dd") : null }))}
-                                            //     renderInput={(params: any) => (
-                                            //         <TextField {...params} size="small" fullWidth 
-                                            //         error={showStepErrors && !form.birthDate}
-                                            //          helperText={showStepErrors ? "Doğum tarihi zorunludur!" : ""} />
-                                            //     )}
-                                            // />
-
-
                                             inputFormat="dd/MM/yyyy"
                                             value={form.birthDate ? parseISO(form.birthDate) : null}
                                             onChange={(next) => setForm((f) => ({
@@ -2298,7 +2072,6 @@ const ListPersonnel: React.FC = () => {
                             </Grid>
                         )}
 
-                        {/* Step 3: İletişim */}
                         {activeStep === 3 && (
                             <Grid container spacing={2}>
 
@@ -2311,11 +2084,10 @@ const ListPersonnel: React.FC = () => {
                                         fullWidth
                                         value={form.salary ?? ''}
                                         disabled={Boolean(editingId)}
-                                        type="text" // ⬅️ تغییر از number به text برای کنترل دقیق‌تر
+                                        type="text"
                                         placeholder="Maaş (Sadece sayı)"
                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                             const value = e.target.value;
-                                            // ⬅️ فقط اعداد را اجازه می‌دهد (Regex)
                                             if (value === '' || /^\d+$/.test(value)) {
                                                 setForm((f) => ({
                                                     ...f,
@@ -2323,14 +2095,12 @@ const ListPersonnel: React.FC = () => {
                                                 }));
                                             }
                                         }}
-                                        // ⬅️ جلوگیری از وارد کردن کاراکترهای غیر عددی در لحظه فشردن کلید
                                         onKeyDown={(e: React.KeyboardEvent) => {
                                             if (["e", "E", "+", "-", ",", "."].includes(e.key)) {
                                                 e.preventDefault();
                                             }
                                         }}
                                     />
-                                    {/* پیام کمکی برای محدودیت ویرایش */}
                                     {Boolean(editingId) && (
                                         <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5 }}>
                                             Maaş düzenleme modunda değiştirilemez.
@@ -2370,7 +2140,6 @@ const ListPersonnel: React.FC = () => {
                             </Grid>
                         )}
 
-                        {/* actions */}
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between">
                             <Button variant="outlined" disabled={activeStep === 0} onClick={handlePrevStep}>Geri</Button>
                             {activeStep < 3 ? (
@@ -2457,7 +2226,6 @@ const ListPersonnel: React.FC = () => {
                     <Table aria-label="personnel table">
                         <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                             <TableRow>
-                                {/* NEW: Photo Column */}
                                 <StyledTableCell><Typography variant="h6">Fotoğraf</Typography></StyledTableCell>
                                 <StyledTableCell>
                                     <TableSortLabel active={orderBy === "name"} direction={orderBy === "name" ? order : "asc"} onClick={() => handleRequestSort("name")} style={{ color: "#171c23" }}>
@@ -2516,7 +2284,7 @@ const ListPersonnel: React.FC = () => {
                                         sx={{
                                             '&:last-child td, &:last-child th': { border: 0 },
                                             ...(row.workEndDate && row.workEndDate !== "N/A"
-                                                ? { backgroundColor: '#ffa7a76e' } // رنگ Hex مستقیم + Opacity
+                                                ? { backgroundColor: '#ffa7a76e' }
                                                 : {}
                                             )
                                         }}>
@@ -2539,7 +2307,7 @@ const ListPersonnel: React.FC = () => {
                                                     label="Var"
                                                     size="small"
                                                     color="success"
-                                                    variant="filled" // یا "outlined"
+                                                    variant="filled"
                                                     icon={<DoneRoundedIcon style={{ fontSize: '16px' }} />}
                                                 />
                                             ) : (
@@ -2582,18 +2350,10 @@ const ListPersonnel: React.FC = () => {
                                             </CustomTooltip>
                                             <Menu id="menu" anchorEl={anchorEl} open={openMenu} onClose={handleCloseMenu} MenuListProps={{ "aria-labelledby": `menu-${selectedRowForMenu?.id}` }}>
 
-                                                {/* Yıllık İzin Hesapلا (Using correct MenuItem structure) */}
                                                 <MuiMenuItem onClick={() => selectedRowForMenu && handleAnnualLeaveClick(selectedRowForMenu)}>
                                                     <ListItemIcon><BoltIcon width={18} /></ListItemIcon> Yıllık İzin Hesapla
                                                 </MuiMenuItem>
 
-                                                {/* NEW: İş Birliği Sonlandırma */}
-
-                                                {/* {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && selectedRowForMenu && (
-                                                    <MuiMenuItem onClick={() => { setPersonnelToEndCooperation(selectedRowForMenu); setEndDate(null); setOpenEndCooperationModal(true); handleCloseMenu(); }}>
-                                                        <ListItemIcon><IconX width={18} /></ListItemIcon> İşten Ayrılma (Sonlandırma)
-                                                    </MuiMenuItem>
-                                                )} */}
 
                                                 {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && selectedRowForMenu && (
                                                     <MuiMenuItem onClick={() => handleEndCooperationCheck(selectedRowForMenu)}>
@@ -2630,13 +2390,6 @@ const ListPersonnel: React.FC = () => {
                                                         </MuiMenuItem>
                                                     </CustomTooltip>
                                                 )}
-
-                                                {/* NEW: Belgeleri İndir */}
-                                                {/* {selectedRowForMenu?.attachments && selectedRowForMenu.attachments.length > 0 && (
-                                                    <MuiMenuItem onClick={() => { setRowForAttachments(selectedRowForMenu); setOpenAttachmentsModal(true); handleCloseMenu(); }}>
-                                                        <ListItemIcon><IconFile width={18} /></ListItemIcon> Belgeleri İndir ({selectedRowForMenu.attachments.length})
-                                                    </MuiMenuItem>
-                                                )} */}
 
                                                 {selectedRowForMenu?.attachments && selectedRowForMenu.attachments.length > 0 && (
                                                     <MuiMenuItem onClick={() => selectedRowForMenu && handleOpenPersonnelFilesModal(selectedRowForMenu)}>
@@ -2675,7 +2428,6 @@ const ListPersonnel: React.FC = () => {
                 />
             </BlankCard>
 
-            {/* Delete Personnel - unchanged */}
             <DeletePersonnel
                 openModal={openDeleteModal}
                 onClose={() => { setOpenDeleteModal(false); setPersonnelIdToDelete(null); getAllPersonnels(); }}
@@ -2684,40 +2436,33 @@ const ListPersonnel: React.FC = () => {
                 showAlert={showAlert}
             />
 
-            {/* Download Chooser Modal - unchanged */}
             <Dialog open={openDownloadModal} onClose={() => setOpenDownloadModal(false)}>
                 <DialogTitle>Dosya Formatını Seçin</DialogTitle>
                 <DialogContent>
                     <Stack direction="column" spacing={2}>
 
-                        {/* 1. PDF - Detay (Single Row Detail) */}
                         <Button variant="contained" color="primary" startIcon={<IconFileDownload />} onClick={handleDownloadChoosePDF}>
                             PDF İndir (Detay)
                         </Button>
 
-                        {/* 2. PDF - Tablo (List Table) */}
                         <Button variant="contained" color="primary" startIcon={<IconFileDownload />} onClick={handleDownloadChoosePDFTable}>
                             PDF İndir (Tablo)
                         </Button>
 
                         <Divider />
 
-                        {/* 3. Excel - Detay (Single Row Detail) */}
                         <Button variant="contained" color="success" startIcon={<IconFileDownload />}
-                            // اگر دکمه "Bu satırı indir" را زده باشد، این حالت جزئیات را دانلود می‌کند
                             onClick={() => {
-                                handleDownloadChooseExcel(true); // true = Detay/Columnar Export
+                                handleDownloadChooseExcel(true);
                                 setOpenDownloadModal(false);
                             }}
                         >
                             Excel İndir (Detay)
                         </Button>
 
-                        {/* 4. Excel - Tablo (List Table) */}
                         <Button variant="contained" color="success" startIcon={<IconFileDownload />}
-                            // اگر دکمه "Tümünü İndir" را زده باشد، این حالت جدول را دانلود می‌کند
                             onClick={() => {
-                                handleDownloadChooseExcel(false); // false = Table Export
+                                handleDownloadChooseExcel(false);
                                 setOpenDownloadModal(false);
                             }}
                         >
@@ -2730,7 +2475,6 @@ const ListPersonnel: React.FC = () => {
                     <Button onClick={() => setOpenDownloadModal(false)} color="secondary">İptal</Button>
                 </DialogActions>
             </Dialog>
-            {/* Details Modal - unchanged */}
             <Dialog open={openDetailsDialog} onClose={() => setOpenDetailsDialog(false)} maxWidth="md" fullWidth scroll="body" PaperProps={{ sx: { maxHeight: "none" } }}>
                 <DialogTitle>Personel Detayı</DialogTitle>
                 <DialogContent dividers sx={{ overflow: "visible" }}>
@@ -2748,7 +2492,6 @@ const ListPersonnel: React.FC = () => {
                 <DialogActions><Button onClick={() => setOpenDetailsDialog(false)}>Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* Import Error/Correction Modal - unchanged */}
             <Dialog open={invalidRows.length > 0} maxWidth="md" fullWidth>
                 <DialogTitle>İçe Aktarım — Düzeltme ({invalidIndex + 1}/{invalidRows.length})</DialogTitle>
                 <DialogContent dividers>
@@ -2812,7 +2555,6 @@ const ListPersonnel: React.FC = () => {
                                     <TextField fullWidth size="small" label="Sigorta No" value={r.insuranceNumber} onChange={(e) => setR({ insuranceNumber: e.target.value })} />
                                 </Grid>
 
-                                {/* NEW: ISG for Import Correction */}
                                 <Grid item xs={12} sm={6}>
                                     <FormLabel>İş Güvenliği (ISG)</FormLabel>
                                     <RadioGroup row value={r.hasISG ? "true" : "false"}
@@ -2985,7 +2727,7 @@ const ListPersonnel: React.FC = () => {
                     {loadingAnnualLeave ? (
                         <CircularProgress />
                     ) : (
-                        annualLeaveData && personnelForAnnualLeave && ( // استفاده از State موقت جدید
+                        annualLeaveData && personnelForAnnualLeave && (
                             <Stack spacing={2}>
                                 <Typography variant="h5" fontWeight={600}>
                                     {personnelForAnnualLeave.name} {personnelForAnnualLeave.family}
@@ -3038,7 +2780,6 @@ const ListPersonnel: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* NEW: İş Birliği Sonlandırma Modal */}
             <Dialog open={openEndCooperationModal} onClose={() => setOpenEndCooperationModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>İş Birliği Sonlandırma</DialogTitle>
                 <DialogContent>
@@ -3057,7 +2798,6 @@ const ListPersonnel: React.FC = () => {
                                     renderInput={(params: any) => (<TextField {...params} size="small" fullWidth />)}
                                 />
                             </LocalizationProvider>
-                            {/* <Alert severity="warning">Seçilen tarih, personelin son çalışma tarihi olacaktır.</Alert> */}
                         </Stack>
                     )}
                 </DialogContent>
@@ -3066,35 +2806,6 @@ const ListPersonnel: React.FC = () => {
                     <Button onClick={submitEndCooperation} color="error" disabled={!endDate}>Sonlandır</Button>
                 </DialogActions>
             </Dialog>
-
-            {/* NEW: Attachments Download Modal */}
-            {/* <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>Ek Belgeler</DialogTitle>
-                <DialogContent dividers>
-                    {rowForAttachments?.attachments && rowForAttachments.attachments.length > 0 ? (
-                        rowForAttachments.attachments.map((att, index) => (
-                            <Box key={index} display="flex" justifyContent="space-between" alignItems="center" my={1} p={1} sx={{ borderBottom: '1px solid #eee' }}>
-                                <Typography>{att.fileUrl.split('/').pop() || `Dosya ${index + 1}`}</Typography>
-                                <Button
-                                    variant="outlined"
-                                    size="small"
-                                    href={`${server.urldpwonload}${att.fileUrl}`}
-                                    target="_blank"
-                                    download
-                                >
-                                    İndir
-                                </Button>
-                            </Box>
-                        ))
-                    ) : (
-                        <Typography>Bu personel için ek belge bulunmamaktadır.</Typography>
-                    )}
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setOpenAttachmentsModal(false)}>Kapat</Button>
-                </DialogActions>
-            </Dialog> */}
-
 
             <Dialog open={openActiveConsignmentsModal} onClose={() => setOpenActiveConsignmentsModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle sx={{ backgroundColor: 'error.main', color: 'white' }}>
@@ -3165,7 +2876,6 @@ const ListPersonnel: React.FC = () => {
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {/* ⭐️ حلقه زدن بر روی لیست خودروها ⭐️ */}
                                     {activeCarConsignment.map((item, index) => (
                                         <TableRow key={index}>
                                             <StyledTableCell>{item.name}</StyledTableCell>
@@ -3217,14 +2927,12 @@ const ListPersonnel: React.FC = () => {
                         {activeConsignmentImageUrls.length > 0 ? (
                             activeConsignmentImageUrls.map((fullUrl, index) => {
                                 const fileName = fullUrl.split('/').pop();
-                                const isImage = fullUrl.match(/\.(jpeg|jpg|png|gif|webp)$/i); // 💡 تشخیص بهتر فرمت عکس
+                                const isImage = fullUrl.match(/\.(jpeg|jpg|png|gif|webp)$/i);
                                 return (
                                     <Box key={index} sx={{ border: '1px solid #ddd', p: 2, borderRadius: 1 }}>
                                         {isImage ? (
-                                            // 💡 پیش‌نمایش عکس
                                             <CardMedia component="img" image={fullUrl} sx={{ maxHeight: 300, objectFit: 'contain', mt: 1, mb: 1 }} alt={fileName} />
                                         ) : (
-                                            // 💡 اگر عکس نبود، فقط آیکون و هشدار
                                             <Typography variant="caption" color="textSecondary" display="block">Önizleme mevcut değil. İndirmek için tıklayınız.</Typography>
                                         )}
                                         <Button
@@ -3232,7 +2940,6 @@ const ListPersonnel: React.FC = () => {
                                             color="primary"
                                             href={fullUrl}
                                             target="_blank"
-                                            // 💡 اضافه کردن attribute download برای دانلود مستقیم
                                             download={fileName}
                                             startIcon={<IconFileDownload />}
                                             size="small"
@@ -3259,27 +2966,7 @@ const ListPersonnel: React.FC = () => {
                 <DialogContent dividers>
                     {attachmentsToView.length > 0 ? (
                         <Stack spacing={1}>
-                            {/* {attachmentsToView.map((attachment, index) => {
-                                const fileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
-                                const handleDownloadLinkClick = (fileUrl: string) => {
-                                    if (!fileUrl) { showAlert('Dosya adresi geçersiz.', 'error'); return; }
-                                    const url = `${server.urldpwonload}${fileUrl}`;
-                                    window.open(url, '_blank');
-                                    showAlert(`"${fileUrl.split('/').pop()}" dosyası indiriliyor.`, 'info');
-                                };
 
-                                return (
-                                    <Button
-                                        key={index}
-                                        fullWidth variant="outlined"
-                                        onClick={() => handleDownloadLinkClick(attachment.fileUrl)}
-                                        sx={{ mt: 1 }}
-                                        startIcon={<IconFileDownload />}
-                                    >
-                                        {fileName}
-                                    </Button>
-                                );
-                            })} */}
 
                             {attachmentsToView.map((attachment, index) => {
                                 const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
@@ -3312,7 +2999,6 @@ const ListPersonnel: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* EXCLUSIVE NEW: Belgeleri İndir Modal (Personnel Files) */}
             <Dialog open={openPersonnelFilesModal} onClose={() => setOpenPersonnelFilesModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>
                     Personel Belgeleri ({selectedPersonnelForFiles?.name} {selectedPersonnelForFiles?.family})
@@ -3320,25 +3006,7 @@ const ListPersonnel: React.FC = () => {
                 <DialogContent dividers>
                     {personnelFilesToDownload.length > 0 ? (
                         <Stack spacing={1}>
-                            {/* {personnelFilesToDownload.map((attachment, index) => {
-                                const fileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
-                                const downloadUrl = `${server.urldpwonload}${attachment.fileUrl}`;
 
-                                return (
-                                    <Button
-                                        key={index}
-                                        fullWidth
-                                        variant="outlined"
-                                        href={downloadUrl}
-                                        target="_blank"
-                                        download={fileName}
-                                        sx={{ mt: 1 }}
-                                        startIcon={<IconFileDownload />}
-                                    >
-                                        {fileName}
-                                    </Button>
-                                );
-                            })} */}
 
                             {personnelFilesToDownload.map((attachment, index) => {
                                 const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
@@ -3372,7 +3040,6 @@ const ListPersonnel: React.FC = () => {
             </Dialog>
 
 
-            {/* 🆕 NEW: Maaş Düzenleme Modal */}
             <Dialog open={openSalaryEditModal} onClose={handleCloseSalaryEditModal} maxWidth="xs" fullWidth>
                 <DialogTitle>Personel Maaşını Düzenle</DialogTitle>
                 <DialogContent dividers>
@@ -3396,13 +3063,11 @@ const ListPersonnel: React.FC = () => {
                                 size="small"
                                 fullWidth
                                 placeholder="Yeni maaşı girin"
-                                // مقدار را فرمت شده نمایش بده، اگر null بود رشته خالی
                                 value={newSalary !== null ? cleanAndFormatPrice(newSalary) : ''}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                     const rawValue = e.target.value.replace(/\D/g, '');
                                     setNewSalary(rawValue === '' ? null : Number(rawValue));
                                 }}
-                                // onKeyDown اینجا اختیاری است چون در onChange همه غیرعددی‌ها را فیلتر می‌کنیم
                                 inputProps={{
                                     inputMode: 'numeric',
                                     pattern: '[0-9]*'
@@ -3427,7 +3092,6 @@ const ListPersonnel: React.FC = () => {
             </Dialog>
 
 
-            {/* Backdrop - unchanged */}
             <Backdrop open={isProcessingImport} sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1000 }}>
                 <Stack alignItems="center" spacing={2}>
                     <CircularProgress color="inherit" />

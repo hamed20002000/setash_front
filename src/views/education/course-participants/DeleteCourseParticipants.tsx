@@ -3,23 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, CircularProgress, Typography } from '@mui/material';
 
 import axios from 'axios';
-// @ts-ignore
 import server from '../../../assets/address.json';
-// @ts-ignore
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// Define the component props for type safety
 type DeleteProps = {
     openModal: boolean;
     idToDelete: number | string | null;
-    nameToDelete: string; // نام شرکت‌کننده برای نمایش در پیام تأیید
+    nameToDelete: string;
     onClose: (success: boolean) => void;
     onDeleteSuccess: () => void;
-    // تابع نمایش هشدار که از کامپوننت والد می‌آید
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-// ⭐️ نام کامپوننت: DeleteCourseParticipants ⭐️
 const DeleteCourseParticipants = ({ openModal, idToDelete, nameToDelete, onClose, onDeleteSuccess, showAlert }: DeleteProps) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
@@ -41,7 +36,6 @@ const DeleteCourseParticipants = ({ openModal, idToDelete, nameToDelete, onClose
 
         setLoading(true);
         try {
-            // ⭐️ استفاده از EndPoint حذف شرکت‌کننده: delete-course-participant/{id} ⭐️
             const url = `${server.baseurl}${server.education}delete-course-participant/${idToDelete}`;
 
             const response = await axios.delete(
@@ -55,16 +49,14 @@ const DeleteCourseParticipants = ({ openModal, idToDelete, nameToDelete, onClose
             );
 
             if (response.data.httpStatusCode === 200) {
-                // ⭐️ اصلاح پیام موفقیت برای حذف شرکت‌کننده ⭐️
                 showAlert(`Katılımcı "${nameToDelete}" başarıyla silindi!`, 'success');
                 onDeleteSuccess();
-                onClose(true); // موفقیت آمیز
+                onClose(true);
             } else {
                 showAlert(response.data.message || 'Kayıt silinirken bir hata oluştu.', 'error');
-                onClose(false); // ناموفق
+                onClose(false);
             }
         } catch (e: any) {
-            // مدیریت خطاهای رایج
             if (e.response && e.response.status === 500) {
                 showAlert('Bu kayıt başka bir işlemde kullanıldığı için silinemez.', 'error');
             } else if (e.response && e.response.status === 401) {

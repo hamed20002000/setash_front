@@ -127,7 +127,6 @@ export const exportFilteredToPdf = (filteredOrders: OrderType[]) => {
             margin: { top: 50, bottom: 20 }
         });
 
-        // const finalY = (doc as any).autoTable.previous.finalY;
         if (index < filteredOrders.length - 1) {
             doc.addPage();
             startY = 50;

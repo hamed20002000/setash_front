@@ -324,7 +324,7 @@ const RequestTabs: React.FC = () => {
 
     // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
@@ -390,7 +390,7 @@ const RequestTabs: React.FC = () => {
                 { headers: { "Authorization": `Bearer ${authToken}` } }
             );
             if (response.data.httpStatusCode === 200 && response.data.data) {
-                debugger
+
                 setRequestsList(response.data.data);
             } else {
                 showAlert(response.data.message || 'Talepler alınamadı.', 'error');

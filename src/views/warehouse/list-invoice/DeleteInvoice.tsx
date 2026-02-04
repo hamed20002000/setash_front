@@ -53,7 +53,7 @@ const DeleteInvoiceModal: React.FC<DeleteInvoiceModalProps> = ({
         }
 
         setIsDeleting(true);
-        debugger
+
         try {
             const response = await axios.delete(
                 `${server.baseurl}${server.initialoperations}delete-invoice/${invoiceIdToDelete}`,

@@ -53,7 +53,6 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     },
 }));
 
-// === Type Definitions ===
 interface DispatchDetailType {
     id: string;
     itemId: number;
@@ -186,7 +185,6 @@ const formatDateDisplay = (dateString: string | null): string => {
     }
 };
 
-// --- Helper: محاسبه جمع‌ها بر اساس واحد ---
 const calculateDispatchSummaries = (details: any[]) => {
     const summary: Record<string, number> = {};
     details.forEach(d => {
@@ -221,7 +219,6 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
 }));
 
 
-// PDF helpers
 const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
 
     const docAny = doc as any;
@@ -229,10 +226,10 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -242,7 +239,7 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
@@ -251,8 +248,6 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
     if (subtitle) doc.text(subtitle, 70, 52);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -330,7 +325,6 @@ const exportDispatchesToPdf = (data: DispatchType[], title: string, subtitle?: s
 
         const columns = ['Malzeme', 'Miktar', 'Birim', 'Açıklama'];
 
-        // محاسبه جمع‌ها برای فوتر
         const summaries = calculateDispatchSummaries(dispatch.storeDispatchDetails || []);
         const summaryRows = Object.entries(summaries).map(([unit, total]) => [
             "TOPLAM:",
@@ -343,7 +337,7 @@ const exportDispatchesToPdf = (data: DispatchType[], title: string, subtitle?: s
             startY: yPos,
             head: [columns],
             body: detailsRows,
-            foot: summaryRows, // ✅ فوتر جمع‌ها
+            foot: summaryRows,
             theme: 'grid',
             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
             headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0] },
@@ -433,7 +427,6 @@ const exportDispatchesToExcel = (data: DispatchType[], title: string) => {
             ]);
         });
 
-        // ✅ بخش خلاصه جمع‌ها در اکسل
         worksheet.addRow([]);
         const summaryTitle = worksheet.addRow(["Birim Bazlı Toplamlar"]);
         summaryTitle.font = { bold: true, underline: true };
@@ -462,7 +455,6 @@ const exportDispatchesToExcel = (data: DispatchType[], title: string) => {
 };
 
 
-// === Main Component ===
 const ListStoreDispatch = () => {
     const { storeId } = useParams<{ storeId: string }>();
     const navigate = useNavigate();
@@ -488,7 +480,6 @@ const ListStoreDispatch = () => {
 
     const nameInputRef = useRef<HTMLInputElement>(null);
 
-    // === State Variables ===
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
     const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
@@ -537,7 +528,6 @@ const ListStoreDispatch = () => {
     const [openVehicleModal, setOpenVehicleModal] = useState(false);
     const [tempSelectedVehicle, setTempSelectedVehicle] = useState<number | null>(null);
 
-    // 🔄 تغییر State مودال به کل آبجکت برای نمایش در مودال جزئیات
     const [openDetailsModal, setOpenDetailsModal] = useState(false);
     const [viewedDispatch, setViewedDispatch] = useState<DispatchType | null>(null);
 
@@ -571,54 +561,6 @@ const ListStoreDispatch = () => {
     const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
     const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
 
-    // const { menuItems, allowedOperations } = useAuth();
-    // const findMenuByHref = (items: any[], path: string): any => {
-    //     for (const item of items) {
-    //         // اگر خود آیتم تطبیق داشت
-    //         if (item.href === path) return item;
-
-    //         // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
-    //         if (item.children && item.children.length > 0) {
-    //             const found = findMenuByHref(item.children, path);
-    //             if (found) return found;
-    //         }
-    //     }
-    //     return null;
-    // };
-
-    // // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
-    // const currentMenu = useMemo(() => {
-    //     debugger
-    //     return findMenuByHref(menuItems, location.pathname);
-    // }, [menuItems, location.pathname]);
-
-    // // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
-    // const currentMenuOpIds = useMemo(() => {
-    //     // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
-    //     if (!currentMenu || !currentMenu.menuOperations) return [];
-
-    //     return currentMenu.menuOperations.map((op: any) => {
-    //         // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
-    //         return String(op.id);
-    //     });
-    // }, [currentMenu]);
-
-    // // ۴. تابع نهایی بررسی دسترسی
-    // const hasPermission = (opName: string) => {
-    //     return allowedOperations.some((op: any) =>
-    //         op.systemOperationName === opName &&
-    //         currentMenuOpIds.includes(String(op.menuOperationId))
-    //     );
-    // };
-
-    // const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
-    // const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
-    // const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
-    // const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
-
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
-
-    // === Form Handlers ===
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -660,7 +602,6 @@ const ListStoreDispatch = () => {
                 }
             } else {
                 setVehiclesList([]);
-                // setSelectedVehicle(null);
                 setSelectedVehicleName(null);
                 showAlert('Araç bilgileri yüklenirken bir hata oluştu.', 'error');
             }
@@ -699,7 +640,6 @@ const ListStoreDispatch = () => {
         }
     }, [navigate, storeId, showAlert, authToken]);
 
-    // API Calls
     const fetchInitialData = useCallback(async () => {
         setLoadingData(true);
         if (!authToken) {
@@ -837,7 +777,6 @@ const ListStoreDispatch = () => {
         };
     }, [isFormValid, loadingButton]);
 
-    // ✨ NEW: Updated validation logic to consider edit mode
     const validateForm = (): boolean => {
         let isValid = true;
         if (!selectedDriverId) { setDriverIdError(true); isValid = false; } else { setDriverIdError(false); }
@@ -904,7 +843,6 @@ const ListStoreDispatch = () => {
         setIsFormVisible(false);
     };
 
-    // === API Actions ===
     const insertDispatch = async () => {
         if (!validateForm()) return;
         setLoadingButton(true);
@@ -1043,12 +981,11 @@ const ListStoreDispatch = () => {
                         itemId: Number(d.item?.id),
                         quantity: d.quantity,
                         description: d.description,
-                        // اطمینان از اینکه شی item با نوع ItemWithBalanceType مطابقت دارد
                         item: d.item ? {
                             itemId: d.item.id,
                             name: d.item.name,
                             code: d.item.abbreviation,
-                            balance: itemBalance?.balance || '0', // از موجودی فعلی استفاده شود
+                            balance: itemBalance?.balance || '0',
                             unit: d.item.unit
                         } : undefined,
                         balance: itemBalance ? Number(itemBalance.balance) : 0,
@@ -1056,7 +993,7 @@ const ListStoreDispatch = () => {
                 });
 
                 setDispatchDetails(formattedDetails);
-                setInitialDispatchDetails(formattedDetails);  // Store original data for validation
+                setInitialDispatchDetails(formattedDetails);
 
                 setEditingId(selectedRowForMenu.id);
                 setDocDate(new Date(selectedRowForMenu.docDate));
@@ -1100,7 +1037,6 @@ const ListStoreDispatch = () => {
         fetchInitialData();
     };
 
-    // ✨ NEW: Handle adding new empty item row
     const handleAddDispatchDetail = () => {
         if (dispatchDetails.length > 0) {
             const lastDetail = dispatchDetails[dispatchDetails.length - 1];
@@ -1112,7 +1048,6 @@ const ListStoreDispatch = () => {
         setDispatchDetails(prev => [...prev, { itemId: null, quantity: '', description: '' }]);
     };
 
-    // ✨ NEW: Handle removing an item row
     const handleRemoveDispatchDetail = (index: number) => {
         setDispatchDetails(prev => {
             const removedItem = prev[index];
@@ -1132,7 +1067,6 @@ const ListStoreDispatch = () => {
     };
 
 
-    // ✨ NEW: Handle item change and validation
     const handleDispatchDetailChange = useCallback((index: number, field: keyof FormDispatchDetail, value: any) => {
         setDispatchDetails(prev => {
             const newDetails = [...prev];
@@ -1226,11 +1160,6 @@ const ListStoreDispatch = () => {
         handleCloseMenu();
     };
 
-    // const handleCloseRowDownloadModal = () => {
-    //     setSelectedDispatchForDownload(null);
-    //     setOpenRowDownloadModal(false);
-    // };
-
     const handleDownloadSingleDispatch = (format: 'pdf' | 'excel') => {
         if (!selectedDispatchForDownload) return;
         const data = [selectedDispatchForDownload];
@@ -1271,7 +1200,6 @@ const ListStoreDispatch = () => {
         setFullDescriptionContent('');
     };
 
-    // === UI ===
     return (
         <Box mt={2}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
@@ -1341,7 +1269,6 @@ const ListStoreDispatch = () => {
                                     if (newValue) {
                                         fetchVehicles(String(newValue.id));
                                     } else {
-                                        // setSelectedVehicle(null);
                                         setSelectedVehicleName(null);
                                         setVehiclesList([]);
                                     }
@@ -1467,7 +1394,6 @@ const ListStoreDispatch = () => {
                             {dispatchDetails.map((detail, index) => {
                                 const currentSelectedItem = itemsWithBalance.find(item => Number(item.itemId) === Number(detail.itemId));
 
-                                // Calculate Max Allowed Quantity
                                 const currentStockBalance = currentSelectedItem ? Number(currentSelectedItem.balance) : 0;
                                 let maxAllowedQuantity = currentStockBalance;
                                 if (editingId) {
@@ -1514,7 +1440,7 @@ const ListStoreDispatch = () => {
                                                                 {displayBalance}
                                                             </InputAdornment>
                                                         ),
-                                                        inputProps: { min: 0 } // اطمینان از مقدار مثبت
+                                                        inputProps: { min: 0 }
                                                     }}
                                                     size="small"
                                                     error={dispatchDetailsError && (Number(detail.quantity) < 0 || Number(detail.quantity) > (detail.balance || 0))}
@@ -1704,7 +1630,6 @@ const ListStoreDispatch = () => {
                                     <StyledTableCell><Typography variant="h6">Kod</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Şantiyenin Depo</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Şoför</Typography></StyledTableCell>
-                                    {/* <StyledTableCell><Typography variant="h6">Araç</Typography></StyledTableCell> */}
                                     <StyledTableCell><Typography variant="h6">Proje</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
@@ -1720,12 +1645,10 @@ const ListStoreDispatch = () => {
                                             <StyledTableCell><Typography variant="body1">{row.code || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.store?.name || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{`${row.driver?.name || ''} ${row.driver?.family || ''} - ${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell>
-                                            {/* <StyledTableCell><Typography variant="body1">{``}</Typography></StyledTableCell> */}
                                             <StyledTableCell><Typography variant="body1">{row.project?.title || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 {row.description && row.description.trim().length > 0 ? (
-                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button
 
@@ -1737,7 +1660,6 @@ const ListStoreDispatch = () => {
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (
-                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
                                                     <Typography variant="body2" align="center">
                                                         -
                                                     </Typography>
@@ -1762,7 +1684,7 @@ const ListStoreDispatch = () => {
                                                             variant="outlined"
                                                             startIcon={<IconEye />}
                                                             onClick={() => {
-                                                                setViewedDispatch(row); // 🔄 ذخیره کل آبجکت در state جدید
+                                                                setViewedDispatch(row);
                                                                 setOpenDetailsModal(true);
                                                             }}
                                                         >
@@ -1895,7 +1817,6 @@ const ListStoreDispatch = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* ✅ Details Modal (Updated) */}
             <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>
                     Sevk Detayları
@@ -1927,7 +1848,6 @@ const ListStoreDispatch = () => {
                                 </Table>
                             </TableContainer>
 
-                            {/* ✅ جدول خلاصه جمع‌ها */}
                             <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
                                 <TableContainer component={Paper} variant="outlined" sx={{ width: 'auto', minWidth: '300px' }}>
                                     <Table size="small">
@@ -1960,17 +1880,16 @@ const ListStoreDispatch = () => {
                         </Typography>
                     )}
                 </DialogContent>
-                {/* ✅ دکمه‌های دانلود داخل مودال */}
                 <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
                     <Stack
-                        direction={{ xs: 'column', sm: 'row' }} // در موبایل ستونی، در دسکتاپ ردیفی
-                        spacing={2} // فاصله یکسان بین تمام دکمه‌ها
-                        sx={{ width: '100%' }} // اشغال تمام عرض کادر
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={2}
+                        sx={{ width: '100%' }}
                     >
                         <Button
                             variant="contained"
                             color="error"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }}
                             startIcon={<IconFileText />}
                             disabled={!viewedDispatch}
@@ -1981,7 +1900,7 @@ const ListStoreDispatch = () => {
                         <Button
                             variant="contained"
                             color="success"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }}
                             startIcon={<IconFileSpreadsheet />}
                             disabled={!viewedDispatch}
@@ -1990,7 +1909,7 @@ const ListStoreDispatch = () => {
                             Excel İndir
                         </Button>
                         <Button onClick={() => setOpenDetailsModal(false)} color="secondary" variant="outlined"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }} >
                             Kapat
                         </Button>
@@ -1998,7 +1917,6 @@ const ListStoreDispatch = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Download All Modal */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
                 <DialogTitle>Tüm Sevk Belgelerini İndir</DialogTitle>
                 <DialogContent>
@@ -2022,7 +1940,6 @@ const ListStoreDispatch = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Download Filtered Modal */}
             <Dialog open={openDownloadFilteredModal} onClose={() => setOpenDownloadFilteredModal(false)} maxWidth="xs">
                 <DialogTitle>Filtrelenmiş Sevk Belgelerini İndir</DialogTitle>
                 <DialogContent>
@@ -2046,7 +1963,6 @@ const ListStoreDispatch = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Download Single Row Modal */}
             <Dialog open={openRowDownloadModal} onClose={() => setOpenRowDownloadModal(false)} maxWidth="xs">
                 <DialogTitle>Dosya Formatını Seçin</DialogTitle>
                 <DialogContent>

@@ -49,7 +49,6 @@ import Logo from 'src/assets/images/logos/logo.png';
 import { useAuth } from 'src/context/AuthContext';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 
-// ✨ NEW: imports for Excel
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 
@@ -58,11 +57,10 @@ import ViewStoreBalanceModal from './ViewStoreBalanceModal'
 
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    fontFamily: 'NotoSans',
+    fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: {
-        fontSize: '1rem', // Masaüstünde daha büyük
+        fontSize: '1rem',
     },
 }));
 
@@ -73,10 +71,10 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -86,16 +84,13 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
-
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
     doc.text(`Rapor Tarihi:`, 15, 35);
     doc.setFont('NotoSans', 'normal');
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -161,10 +156,6 @@ const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, colum
     });
 };
 
-
-// =====================================================================================
-// شروع کامپوننت و توابع اصلی
-// =====================================================================================
 
 export const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
@@ -449,7 +440,7 @@ const ListStores = () => {
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<StoreType | null>(null);
-    // const openMenu = Boolean(anchorEl);
+
 
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
     const [storeIdToDelete, setStoreIdToDelete] = useState<number | null>(null);
@@ -486,36 +477,19 @@ const ListStores = () => {
     const [selectedStoreIdForModal, setSelectedStoreIdForModal] = useState<number | null>(null);
     const [storeNameToBalance, setStoreNameToBalance] = useState<string>('');
 
-    // ✨ NEW: State for download modals
     const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
     const [openDownloadFilteredModal, setOpenDownloadFilteredModal] = useState(false);
     const [openRowDownloadModal, setOpenRowDownloadModal] = useState(false);
     const [selectedStoreForDownload, setSelectedStoreForDownload] = useState<StoreType | null>(null);
 
     const { isTooltipGloballyEnabled } = useTooltip();
-    // const { allowedOperations } = useAuth();
-
-    // const hasCreatePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-    // }, [allowedOperations]);
-    // const hasEditPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-    // }, [allowedOperations]);
-    // const hasDeletePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-    // }, [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
-    // }, [allowedOperations]);
 
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -524,24 +498,19 @@ const ListStores = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        debugger
+
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -554,7 +523,6 @@ const ListStores = () => {
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
 
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
 
 
     const fetchWorkhouseInfo = useCallback(async () => {
@@ -589,31 +557,7 @@ const ListStores = () => {
         }
     }, [workhouseId, navigate]);
 
-    // const getWorkhousesList = useCallback(async () => {
-    //     const authToken = localStorage.getItem('authToken');
-    //     if (!authToken) {
-    //         navigate("/");
-    //         return;
-    //     }
-    //     try {
-    //         const response = await axios.get(server.baseurl + server.initialoperations + "get-workhouse", {
-    //             headers: { "Authorization": `Bearer ${authToken}` }
-    //         });
-    //         if (response.data.httpStatusCode === 200) {
-    //             const activeWorkhouses = response.data.data.filter((wh: WorkhouseType) => wh.recordStatus === 0);
-    //             setWorkhousesList(activeWorkhouses);
-    //         } else {
-    //             showAlert(response.data.message || 'Şantiye listesi alınamadı.', 'error');
-    //         }
-    //     } catch (e: any) {
-    //         if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
-    //         else if (e.response?.status === 401) {
-    //             localStorage.removeItem('authToken');
-    //             showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
-    //         }
-    //         else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
-    //     }
-    // }, [navigate]);
+
 
 
     const getWorkhousesList = useCallback(async () => {
@@ -1050,7 +994,6 @@ const ListStores = () => {
         }
     };
 
-    // ✨ NEW: Generic PDF export function that uses your helper functions
     const exportStoresToPdf = (data: StoreType[], title: string, subtitle?: string) => {
         if (!data || data.length === 0) {
             showAlert('PDF oluşturulacak Şantiyenin Depo bulunamadı.', 'warning');
@@ -1061,7 +1004,6 @@ const ListStores = () => {
         const docAny = doc as any;
 
 
-        // ✨ اطمینان از بارگذاری و تنظیم فونت در ابتدای تابع
         docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
@@ -1090,9 +1032,8 @@ const ListStores = () => {
                 theme: 'grid',
                 styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
 
-                // ✨ تنظیمات خاص هدر (برای اطمینان از اعمال فونت)
                 headStyles: {
-                    font: 'NotoSans', // ✨ این خط اطمینان می‌دهد که فونت برای هدر اعمال می‌شود
+                    font: 'NotoSans',
                     fillColor: [242, 242, 242],
                     textColor: [0, 0, 0],
                     fontSize: 10,
@@ -1100,13 +1041,11 @@ const ListStores = () => {
                 },
                 didDrawPage: (hookData) => {
                     if (hookData.pageNumber === 1 && subtitle) {
-                        // For the first page, we add a subtitle if it exists
                         addPdfHeader(doc, title);
                         doc.text(subtitle, doc.internal.pageSize.getWidth() - 15, 47, { align: 'right' });
                     } else if (hookData.pageNumber === 1) {
                         addPdfHeader(doc, title);
                     } else {
-                        // For subsequent pages, just the header is enough
                         addPdfHeader(doc, title);
                     }
                     addPdfFooter(doc);
@@ -1129,8 +1068,7 @@ const ListStores = () => {
         showAlert('Excel oluşturuluyor...', 'info');
         const workbook = new Excel.Workbook();
 
-        // Fix: Clean up the title to remove invalid characters for Excel worksheet names
-        const worksheetTitle = title.replace(/[\\/*?:[\]]/g, ' '); // Replaces invalid characters with a space
+        const worksheetTitle = title.replace(/[\\/*?:[\]]/g, ' ');
         const worksheet = workbook.addWorksheet(worksheetTitle);
 
         const columns = [
@@ -1179,7 +1117,6 @@ const ListStores = () => {
             showAlert('Excel başarıyla oluşturuldu.', 'success');
         });
     };
-    // ✨ NEW: Unified download handler for all/filtered data
     const handleDownload = (format: 'pdf' | 'excel', isFiltered: boolean) => {
         const dataToDownload = isFiltered ? displayedStores : storesList;
         const title = isFiltered ? 'Filtrelenmiş Şantiyenin Depo Raporu' : 'Tüm Şantiyenin Depo Raporu';
@@ -1192,7 +1129,6 @@ const ListStores = () => {
         }
     };
 
-    // ✨ NEW: Unified download handler for a single row
     const handleDownloadSingleStore = (format: 'pdf' | 'excel') => {
         if (!selectedStoreForDownload) return;
         const data = [selectedStoreForDownload];
@@ -1264,7 +1200,6 @@ const ListStores = () => {
         setEndDate(null);
     };
 
-    // ✨ NEW: Modal Handlers
     const handleOpenDownloadAllModal = () => { setOpenDownloadAllModal(true); };
     const handleCloseDownloadAllModal = () => { setOpenDownloadAllModal(false); };
     const handleOpenDownloadFilteredModal = () => { setOpenDownloadFilteredModal(true); };
@@ -1282,7 +1217,7 @@ const ListStores = () => {
     const handleStoreDispatchToCenterClick = () => {
         if (selectedRowForMenu) {
             const storeId = selectedRowForMenu.id;
-            // مسیر جدید مورد نظر شما
+
             navigate(`/store/list-store-dispatch-to-center/${storeId}`);
         }
         handleCloseMenu();
@@ -1298,79 +1233,28 @@ const ListStores = () => {
     return (
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
-                {/* {workhouseId && workhouseInfo && (
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} mb={4}>
-                        <Stack direction="row" spacing={1} flexWrap="wrap">
-                            <Chip label={`Şantiye: ${workhouseInfo.name}`} color="primary" variant="filled" size="small" />
-                            <Chip label={`Kod: ${workhouseInfo.code}`} color="success" variant="filled" size="small" />
-                        </Stack>
-                        <Stack
-                            direction={{ xs: 'column', sm: 'row' }}
-                            spacing={1}
-                            alignItems="stretch"
-                            flexGrow={1}
-                            justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
-                        >
-                            {!isFormVisible && (
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şantiyenin Depo Belgesi kaydetmek için tıklayınız" : ""}>
-                                    <BlinkingButton
-                                        variant="contained"
-                                        color="primary"
-                                        onClick={() => setIsFormVisible(true)}
-                                        fullWidth={false}
-                                        isBlinking={isBlinking}
-                                    >
-                                        Yeni Şantiyenin Depo Kaydet
-                                    </BlinkingButton>
-                                </CustomTooltip>
-                            )}
-                            {isFormVisible && (
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
-                                    <Button
-                                        variant="contained"
-                                        color="error"
-                                        onClick={resetFormAndState}
-                                        fullWidth={false}
-                                        startIcon={<IconX size={20} />}
-                                    >
-                                        Gizle
-                                    </Button>
-                                </CustomTooltip>
-                            )}
-                            <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
-                                <Button variant="outlined" color="error" onClick={() => navigate(-1)}
-                                    endIcon={<IconArrowRight size={20} />}>
-                                    Geri Dön
-                                </Button>
-                            </CustomTooltip>
 
-                        </Stack>
-                    </Stack>
-                )} */}
 
                 {workhouseId && workhouseInfo && (
                     <Stack
-                        // در موبایل (xs) ستونی و در دسکتاپ (sm به بالا) ردیفی
                         direction={{ xs: 'column', sm: 'row' }}
                         justifyContent="space-between"
-                        alignItems={{ xs: 'flex-start', sm: 'center' }} // در موبایل چپ‌چین و در دسکتاپ وسط
+                        alignItems={{ xs: 'flex-start', sm: 'center' }}
                         spacing={2}
                         mb={4}
                     >
-                        {/* بخش Chipها */}
                         <Stack
-                            // در موبایل زیر هم و در دسکتاپ کنار هم
                             direction={{ xs: 'column', sm: 'row' }}
                             spacing={1}
                             flexWrap="wrap"
-                            sx={{ width: { xs: '100%', sm: 'auto' } }} // در موبایل تمام عرض برای فاصله گرفتن راحت‌تر
+                            sx={{ width: { xs: '100%', sm: 'auto' } }}
                         >
                             <Chip
                                 label={`Şantiye: ${workhouseInfo.name}`}
                                 color="primary"
                                 variant="filled"
                                 size="small"
-                                sx={{ width: { xs: 'fit-content', sm: 'auto' } }} // اندازه متناسب با متن
+                                sx={{ width: { xs: 'fit-content', sm: 'auto' } }}
                             />
                             <Chip
                                 label={`Kod: ${workhouseInfo.code}`}
@@ -1381,7 +1265,6 @@ const ListStores = () => {
                             />
                         </Stack>
 
-                        {/* بخش دکمه‌ها */}
                         <Stack
                             direction={{ xs: 'column', sm: 'row' }}
                             spacing={1}
@@ -1781,9 +1664,8 @@ const ListStores = () => {
                                             <StyledTableCell><Typography variant="body1">{row.code}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 200 }} align="center">
                                                 {row.address && row.address.trim().length > 0 ? (
-                                                    // ✅ حالت اول: آدرس هست -> فقط دکمه نمایش بده
                                                     <Button
-                                                        variant="outlined" // یا "text" یا "contained" بسته به سلیقه
+                                                        variant="outlined"
                                                         size="small"
                                                         color="primary"
                                                         onClick={() => {
@@ -1986,7 +1868,6 @@ const ListStores = () => {
                 storeName={storeNameToBalance}
             />
 
-            {/* ✨ Modal for all downloads */}
             <Dialog open={openDownloadAllModal} onClose={handleCloseDownloadAllModal} maxWidth="xs">
                 <DialogTitle>Tüm Şantiyenin Depo İndir</DialogTitle>
                 <DialogContent>
@@ -2010,7 +1891,6 @@ const ListStores = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* ✨ Modal for filtered downloads */}
             <Dialog open={openDownloadFilteredModal} onClose={handleCloseDownloadFilteredModal} maxWidth="xs">
                 <DialogTitle>Filtrelenmiş Şantiyenin Depo İndir</DialogTitle>
                 <DialogContent>
@@ -2034,7 +1914,6 @@ const ListStores = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* ✨ NEW: Modal for single row download */}
             <Dialog open={openRowDownloadModal} onClose={handleCloseRowDownloadModal} maxWidth="xs">
                 <DialogTitle>Dosya Formatını Seçin</DialogTitle>
                 <DialogContent>

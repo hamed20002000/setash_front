@@ -1295,7 +1295,7 @@ const TenderDetails = () => {
     //                 const aciklama = String(getCellValue(R, 15) || '').trim();
     //                 // const categoryPercentage = parseAndCleanFloat(getCellValue(R, 16));
 
-    //                 debugger
+    //                  
 
     //                 const rawCategoryPercentage = getCellValue(R, 16);
     //                 let categoryPercentage: number | null = null; // پیش‌فرض null است
@@ -2580,7 +2580,7 @@ const TenderDetails = () => {
         });
 
 
-        debugger
+
         // ساختن payload نهایی
         const categoriesPayload = Object.values(groupedData).map(group => {
             return {
@@ -2613,7 +2613,7 @@ const TenderDetails = () => {
             };
         });
 
-        debugger
+
 
         const payload = {
             id: Number(tenderId),

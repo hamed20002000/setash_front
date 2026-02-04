@@ -243,27 +243,6 @@ const ListTender = () => {
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [isBlinking, setIsBlinking] = useState(true);
 
-  // const { allowedOperations } = useAuth();
-  // const hasCreatePermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-  // }, [allowedOperations]);
-
-  // const hasEditPermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-  // }, [allowedOperations]);
-
-  // const hasDeletePermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-  // }, [allowedOperations]);
-
-  // const hasDownloadPermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
-  // }, [allowedOperations]);
-
-  // const hasStatusPermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Onaylamak');
-  // }, [allowedOperations]);
-
 
   const { menuItems, allowedOperations } = useAuth();
   const findMenuByHref = (items: any[], path: string): any => {
@@ -282,7 +261,7 @@ const ListTender = () => {
 
   // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
   const currentMenu = useMemo(() => {
-    debugger
+
     return findMenuByHref(menuItems, location.pathname);
   }, [menuItems, location.pathname]);
 
@@ -481,7 +460,7 @@ const ListTender = () => {
           }
         }
       );
-      // حذف debugger
+      // حذف  
       if (response.data.httpStatusCode === 200 && response.data.data) {
         const tenderData = response.data.data;
         const tenderCategories = tenderData.tenderCategories || [];

@@ -58,7 +58,6 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     },
 }));
 
-// === Type Definitions (Unchanged) ===
 interface ItemUnitType {
     id: string;
     title: string;
@@ -152,12 +151,11 @@ interface FormDispatchDetail {
     itemId: number | null;
     quantity: number | string;
     description: string;
-    item?: string;          // تغییر ItemType به string
+    item?: string;
     balance?: number;
     unit?: string;
 }
 
-// === Utility Functions (Unchanged) ===
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
     try {
@@ -227,7 +225,6 @@ const ListStoreDispatchReturnToCenter = () => {
     const hasIdsFilter = notifIds.length > 0;
     const idsSet = new Set<number>(notifIds);
 
-    // === State Variables ===
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
     const [selectedDestinationWarehouseId, setSelectedDestinationWarehouseId] = useState<number | null>(null);
@@ -258,7 +255,6 @@ const ListStoreDispatchReturnToCenter = () => {
     const [docDateError, setDocDateError] = useState<boolean>(false);
     const [driverIdError, setDriverIdError] = useState<boolean>(false);
     const [destinationWarehouseIdError, setDestinationWarehouseIdError] = useState<boolean>(false);
-    // const [dispatchDetailsError, setDispatchDetailsError] = useState<boolean>(false);
 
     const [drivers, setDrivers] = useState<DriverType[]>([]);
     const [warehouses, setWarehouses] = useState<StoreType[]>([]);
@@ -277,7 +273,6 @@ const ListStoreDispatchReturnToCenter = () => {
     const [detailsToShow, setDetailsToShow] = useState<DispatchDetailType[]>([]);
     const [totalQuantityInDetailsModal, setTotalQuantityInDetailsModal] = useState<number>(0);
 
-    // Status Description Modal States
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [currentStatusDescription, setCurrentStatusDescription] = useState<string | null>(null);
 
@@ -305,62 +300,12 @@ const ListStoreDispatchReturnToCenter = () => {
     const { isTooltipGloballyEnabled } = useTooltip();
     const { allowedOperations } = useAuth();
 
-    // === Permissions ===
     const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
     const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
     const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
     const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
 
 
-    // const { menuItems, allowedOperations } = useAuth();
-    // const findMenuByHref = (items: any[], path: string): any => {
-    //     for (const item of items) {
-    //         // اگر خود آیتم تطبیق داشت
-    //         if (item.href === path) return item;
-
-    //         // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
-    //         if (item.children && item.children.length > 0) {
-    //             const found = findMenuByHref(item.children, path);
-    //             if (found) return found;
-    //         }
-    //     }
-    //     return null;
-    // };
-
-    // // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
-    // const currentMenu = useMemo(() => {
-    //     debugger
-    //     return findMenuByHref(menuItems, location.pathname);
-    // }, [menuItems, location.pathname]);
-
-    // // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
-    // const currentMenuOpIds = useMemo(() => {
-    //     // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
-    //     if (!currentMenu || !currentMenu.menuOperations) return [];
-
-    //     return currentMenu.menuOperations.map((op: any) => {
-    //         // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
-    //         return String(op.id);
-    //     });
-    // }, [currentMenu]);
-
-    // // ۴. تابع نهایی بررسی دسترسی
-    // const hasPermission = (opName: string) => {
-    //     return allowedOperations.some((op: any) =>
-    //         op.systemOperationName === opName &&
-    //         currentMenuOpIds.includes(String(op.menuOperationId))
-    //     );
-    // };
-
-    // const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
-    // const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
-    // const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
-    // const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
-
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
-
-
-    // === Form Handlers ===
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -417,54 +362,6 @@ const ListStoreDispatchReturnToCenter = () => {
         }
     }, [showAlert, authToken]);
 
-    // const fetchDispatchItemsByDestination = useCallback(async () => {
-    //     if (!authToken || !selectedDestinationWarehouseId) return;
-
-    //     setLoadingButton(true);
-    //     try {
-    //         const response = await axios.get<any>(
-    //             `${server.baseurl}${server.warehouse}get-store-all-items-balance/${Number(storeId)}`,
-    //             { headers: { Authorization: `Bearer ${authToken}` } }
-    //         );
-    //         if (response.data.httpStatusCode === 200) {
-    //             // const itemDetails: DispatchDetailType[] = response.data.data || [];
-    //             const itemBalances: ItemBalanceType[] = response.data.data || [];
-
-
-    //             const formattedDetails: FormDispatchDetail[] = itemBalances.map((d: ItemBalanceType) => {
-    //                 const itemBalance = storeItems.find(item => Number(item.itemId) === Number(d.itemId));
-
-    //                 return {
-    //                     itemId: Number(d.itemId),
-    //                     quantity: Number(d.balance) > 0 ? Number(d.balance) : 0,
-    //                     description: '',
-    //                     item: d.name as any,
-    //                     balance: itemBalance ? Number(itemBalance.balance) : 0,
-    //                     unit: '' as any,
-    //                 };
-    //             });
-
-    //             setDispatchDetails(formattedDetails);
-    //             showAlert('Sevk detayları başarıyla yüklendi. Lütfen miktarları stok durumuna göre kontrol ediniz.', 'success');
-    //         } else {
-    //             setDispatchDetails([]);
-    //             showAlert('Bu merkez için önceden tanımlanmış iade detayı bulunamadı', 'warning');
-    //         }
-    //     } catch (e: any) {
-    //         if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
-    //         else if (e.response?.status === 401) {
-    //             localStorage.removeItem('authToken');
-    //             showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
-    //         }
-    //         else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
-    //     } finally {
-    //         setLoadingButton(false);
-    //     }
-    // }, [authToken, selectedDestinationWarehouseId, showAlert, storeItems]);
-
-    // Fetch all store items balance
-
-
 
     const fetchStoreItems = useCallback(async () => {
         if (!authToken) { navigate("/"); return; }
@@ -520,7 +417,7 @@ const ListStoreDispatchReturnToCenter = () => {
             setWarehouses(storesRes.data?.data?.filter((w: any) => w.recordStatus === 0).map((w: any) => ({ ...w, id: String(w.id) })) || []);
 
             if (dispatchesRes.data?.httpStatusCode === 200) {
-                debugger
+
                 const allDispatches: StoreDispatchReturnToCenterType[] = dispatchesRes.data.data;
                 setDispatchList(allDispatches);
             } else {
@@ -601,7 +498,6 @@ const ListStoreDispatchReturnToCenter = () => {
         if (!docDate) { setDocDateError(true); isValid = false; } else { setDocDateError(false); }
 
         if (dispatchDetails.length === 0) {
-            // setDispatchDetailsError(true);
             isValid = false;
         } else {
             const isDetailsValid = dispatchDetails.every((detail) => {
@@ -625,10 +521,8 @@ const ListStoreDispatchReturnToCenter = () => {
             });
 
             if (!isDetailsValid) {
-                //  setDispatchDetailsError(true);
                 isValid = false;
             } else {
-                // setDispatchDetailsError(false);
             }
         }
 
@@ -648,15 +542,12 @@ const ListStoreDispatchReturnToCenter = () => {
         setDocDateError(false);
         setDriverIdError(false);
         setDestinationWarehouseIdError(false);
-        // setDispatchDetailsError(false);
         setSelectedVehicleId(null);
         setSelectedVehicleName(null);
         setRemovedDispatchDetails([]);
         setInitialDispatchDetails([]);
         setIsBlinking(false);
     };
-
-    // **CREATE**: Insert Dispatch Return
     const insertDispatch = async () => {
         if (!validateForm()) return;
         setLoadingButton(true);
@@ -676,7 +567,7 @@ const ListStoreDispatchReturnToCenter = () => {
                 description: d.description || ''
             }))
         };
-        debugger
+
         try {
             const response = await axios.post(server.baseurl + server.warehouse + "create-store-dispatch-return-to-center", payload, { headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" } });
             if (response.data.httpStatusCode === 201) {
@@ -698,7 +589,6 @@ const ListStoreDispatchReturnToCenter = () => {
         }
     };
 
-    // **EDIT**: Edit Dispatch Return
     const editDispatch = async () => {
         if (!validateForm() || !editingId) return;
         setLoadingButton(true);
@@ -707,7 +597,7 @@ const ListStoreDispatchReturnToCenter = () => {
         const payload: EditDispatchData = {
             id: Number(editingId),
             code: editingCode!,
-            destruction: true, // Always true as requested
+            destruction: true,
             docDate: docDate?.toISOString() || new Date().toISOString(),
             description: generalDescription,
             storeId: Number(storeId),
@@ -747,53 +637,11 @@ const ListStoreDispatchReturnToCenter = () => {
         }
     };
 
-    // **FIXED**: Function to close the action menu
     const handleCloseMenu = () => {
         setAnchorEl(null);
         setSelectedRowForMenu(null);
     };
 
-    // const handleEditClick = async () => {
-    //     if (selectedRowForMenu) {
-    //         setLoadingData(true);
-    //         handleCloseMenu();
-    //         await fetchStoreItems();
-
-    //         const formattedDetails: FormDispatchDetail[] = (selectedRowForMenu.storeDispatchDetails || []).map(d => {
-    //             const itemBalance = storeItems.find(item => Number(item.itemId) === Number(d.itemId));
-    //             return {
-    //                 itemId: Number(d.itemId),
-    //                 quantity: Number(d.balance) > 0 ? Number(d.balance) : 0,
-    //                 description: '',
-    //                 item: d.name,
-    //                 balance: itemBalance ? Number(itemBalance.balance) : 0,
-    //                 unit: '',
-    //             };
-    //         });
-
-    //         setDispatchDetails(formattedDetails);
-    //         setInitialDispatchDetails(formattedDetails);
-
-    //         setEditingId(selectedRowForMenu.id);
-    //         setEditingCode(selectedRowForMenu.code);
-    //         setDocDate(new Date(selectedRowForMenu.docDate));
-    //         setSelectedDriverId(Number(selectedRowForMenu.driver?.id));
-    //         setSelectedDestinationWarehouseId(Number(selectedRowForMenu.destinationWarehouse?.id));
-
-    //         if (selectedRowForMenu.driverVehicle) {
-    //             setSelectedVehicleId(Number(selectedRowForMenu.driverVehicle.id));
-    //             setSelectedVehicleName(`${selectedRowForMenu.driverVehicle.name} (${selectedRowForMenu.driverVehicle.plaque})`);
-    //         } else {
-    //             setSelectedVehicleId(null);
-    //             setSelectedVehicleName(null);
-    //         }
-
-    //         setIsFormVisible(true);
-    //         setLoadingData(false);
-    //     }
-    // };
-
-    // در ListStoreDispatchReturnToCenter.tsx
 
     const handleEditClick = async () => {
         if (selectedRowForMenu) {
@@ -884,7 +732,6 @@ const ListStoreDispatchReturnToCenter = () => {
         });
     };
 
-    // **FIXED**: Function to handle change in dispatch details
     const handleDispatchDetailChange = useCallback((index: number, field: keyof FormDispatchDetail, value: any) => {
         setDispatchDetails(prev => {
             const newDetails = [...prev];
@@ -930,8 +777,6 @@ const ListStoreDispatchReturnToCenter = () => {
         setTotalQuantityInDetailsModal(total);
         setOpenDetailsModal(true);
     };
-
-    // === PDF/Excel Export Logic (Unchanged but needed) ===
     const exportDispatchesToPdf = (data: StoreDispatchReturnToCenterType[], title: string, subtitle?: string) => {
         if (!data || data.length === 0) { showAlert('PDF oluşturulacak sevk belgesi bulunamadı.', 'warning'); return; }
 
@@ -950,10 +795,10 @@ const ListStoreDispatchReturnToCenter = () => {
             docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
             doc.setFont('NotoSans');
             const pageWidth = doc.internal.pageSize.getWidth();
-            const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+            const logoWidth = 35;
             const logoHeight = 18;
             const margin = 15;
-            const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+            const logoX = pageWidth - logoWidth - margin;
 
             try {
                 doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -963,7 +808,7 @@ const ListStoreDispatchReturnToCenter = () => {
 
             doc.setFont('NotoSans', 'normal');
             doc.setFontSize(14);
-            doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+            doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
             doc.setFontSize(10);
             doc.setFont('NotoSans', 'bold');
@@ -972,8 +817,6 @@ const ListStoreDispatchReturnToCenter = () => {
             doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
             if (subtitle) doc.text(subtitle, 70, 52);
 
-            // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-            // doc.setDrawColor(200, 200, 200);
             doc.setLineWidth(0.5);
             doc.line(15, 40, pageWidth - 15, 40);
         };
@@ -1201,9 +1044,7 @@ const ListStoreDispatchReturnToCenter = () => {
     };
 
 
-    // تابع باز کردن پنل افزودن تکی
     const handleAddNewRow = () => {
-        // اگر لیست به صورت یکجا پر شده، آن را پاک کن تا تکی اضافه شود
         if (dispatchDetails.length === storeItems.length && storeItems.length > 0) {
             setDispatchDetails([]);
             setRemovedDispatchDetails([]);
@@ -1216,7 +1057,6 @@ const ListStoreDispatchReturnToCenter = () => {
         });
     };
 
-    // تایید و ثبت آیتم تکی در لیست اصلی
     const confirmNewItem = () => {
         if (newItem && newItem.itemId && Number(newItem.quantity) > 0) {
             const exists = dispatchDetails.some(d => d.itemId === newItem.itemId);
@@ -1225,18 +1065,16 @@ const ListStoreDispatchReturnToCenter = () => {
                 return;
             }
             setDispatchDetails(prev => [...prev, newItem]);
-            // ریست فرم برای آیتم بعدی بدون بستن پنل
             setNewItem({ itemId: null, quantity: '', description: '', balance: 0 });
         } else {
             showAlert("Lütfen geçerli bir ürün و miktar girin.", "warning");
         }
     };
 
-    // تابع افزودن/حذف یکجای تمام آیتم‌ها از استوک
     const handleToggleAllItems = () => {
         if (dispatchDetails.length > 0) {
             setDispatchDetails([]);
-            setRemovedDispatchDetails([]); // پاک کردن آرشیو هنگام حذف یکجا ✨
+            setRemovedDispatchDetails([]);
         } else {
             setNewItem(null);
             const allItems = storeItems.map(item => ({
@@ -1425,12 +1263,11 @@ const ListStoreDispatchReturnToCenter = () => {
                                     multiline
                                     rows={3}
                                     variant="outlined"
-                                    value={generalDescription} // ⬅️ استفاده از نام جدید
-                                    onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                    value={generalDescription}
+                                    onChange={(e) => setGeneralDescription(e.target.value)}
                                 />
                             </Grid>
                         </Grid>
-                        {/* === Silinen Ürünler (Restore Logic) === */}
                         {removedDispatchDetails.length > 0 && (
                             <Box sx={{
                                 border: '1px dashed',
@@ -1464,7 +1301,6 @@ const ListStoreDispatchReturnToCenter = () => {
                                 </Stack>
                             </Box>
                         )}
-                        {/* === پایان Silinen Ürünler === */}
                         <Box mt={4}>
                             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                                 <Typography variant="h6">Sevk Detayları</Typography>
@@ -1491,7 +1327,6 @@ const ListStoreDispatchReturnToCenter = () => {
                             </Stack>
 
                             <Grid container spacing={2}>
-                                {/* پنل ورودی آیتم جدید (تکی) */}
                                 {newItem && (
                                     <Grid item xs={12} sx={{ bgcolor: 'rgba(0,0,0,0.03)', p: 2, borderRadius: 1, border: '1px dashed #ccc', mb: 2 }}>
                                         <Grid container spacing={2} alignItems="center">
@@ -1549,7 +1384,6 @@ const ListStoreDispatchReturnToCenter = () => {
                                     </Grid>
                                 )}
 
-                                {/* لیست نمایش آیتم‌های اضافه شده */}
                                 {dispatchDetails.map((detail, index) => {
                                     const selectedItem = storeItems.find(item => Number(item.itemId) === Number(detail.itemId));
                                     const originalDetail = initialDispatchDetails.find(d => d.itemId === detail.itemId);
@@ -1736,7 +1570,6 @@ const ListStoreDispatchReturnToCenter = () => {
                                         <StyledTableCell><Typography variant="h6">Kaynak Depo</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Hedef Merkez</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Şoför</Typography></StyledTableCell>
-                                        {/* <StyledTableCell><Typography variant="h6">Araç</Typography></StyledTableCell> */}
                                         <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Durum</Typography></StyledTableCell>
@@ -1754,11 +1587,9 @@ const ListStoreDispatchReturnToCenter = () => {
                                                     <StyledTableCell><Typography variant="body1">{row.store?.name || '-'}</Typography></StyledTableCell>
                                                     <StyledTableCell><Typography variant="body1">{row.destinationWarehouse?.name || '-'}</Typography></StyledTableCell>
                                                     <StyledTableCell><Typography variant="body1">{`${row.driver?.name || ''} ${row.driver?.family || ''} - ${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell>
-                                                    {/* <StyledTableCell><Typography variant="body1">{``}</Typography></StyledTableCell> */}
                                                     <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                                     <StyledTableCell sx={{ maxWidth: 150 }}>
                                                         {row.description && row.description.trim().length > 0 ? (
-                                                            // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                             <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                                 <Button
 
@@ -1770,7 +1601,6 @@ const ListStoreDispatchReturnToCenter = () => {
                                                                 </Button>
                                                             </CustomTooltip>
                                                         ) : (
-                                                            // حالت دوم: اگر توضیحات نال یا خالی بود
                                                             <Typography variant="body2" align="center">
                                                                 -
                                                             </Typography>
@@ -1782,7 +1612,6 @@ const ListStoreDispatchReturnToCenter = () => {
                                                                 label={statusInfo.text}
                                                                 color={statusInfo.color}
                                                             />
-                                                            {/* آیکون Info برای نمایش توضیحات وضعیت در Modal */}
                                                             {row.statusDescription && (
                                                                 <IconButton
                                                                     size="small"
@@ -1873,7 +1702,6 @@ const ListStoreDispatchReturnToCenter = () => {
                 </BlankCard>
             </Box>
 
-            {/* Vehicle Selection Modal (Unchanged) */}
             <Dialog open={openVehicleModal} onClose={() => setOpenVehicleModal(false)}>
                 <DialogTitle>Araç Seçین</DialogTitle>
                 <DialogContent>
@@ -1912,7 +1740,6 @@ const ListStoreDispatchReturnToCenter = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Status Description Modal */}
             <Dialog open={openDescriptionModal} onClose={() => setOpenDescriptionModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Durum Açıklaması</DialogTitle>
                 <DialogContent dividers>
@@ -1926,7 +1753,6 @@ const ListStoreDispatchReturnToCenter = () => {
             </Dialog>
 
 
-            {/* Details Modal (Modified to show Total Quantity) */}
             <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Sevk Detayları</DialogTitle>
                 <DialogContent>
@@ -1958,7 +1784,6 @@ const ListStoreDispatchReturnToCenter = () => {
                             Bu sevk belgesi için detay bulunamadı.
                         </Typography>
                     )}
-                    {/* نمایش جمع کل مقادیر */}
                     {detailsToShow.length > 0 && (
                         <Box sx={{ mt: 2, p: 1, borderTop: '1px solid #eee' }}>
                             <Typography variant="h6" align="right">
@@ -1969,18 +1794,17 @@ const ListStoreDispatchReturnToCenter = () => {
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <Stack
-                        direction={{ xs: 'column', sm: 'row' }} // ستونی در موبایل، ردیفی در دسکتاپ
+                        direction={{ xs: 'column', sm: 'row' }}
                         spacing={2}
                         sx={{ width: '100%' }}
                     >
                         <Stack direction="row" spacing={2} sx={{ flexGrow: 1 }}>
                             <Button
-                                fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                                fullWidth
                                 sx={{ flex: 1 }}
                                 variant="contained"
                                 color="error"
                                 startIcon={<IconFileText />}
-                                // استفاده از تابع موجود در کد شما برای خروجی PDF
                                 onClick={() => {
                                     if (selectedRowForMenu) {
                                         exportDispatchesToPdf([selectedRowForMenu], `Sevk_${selectedRowForMenu.code}`);
@@ -1991,12 +1815,11 @@ const ListStoreDispatchReturnToCenter = () => {
                             </Button>
 
                             <Button
-                                fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                                fullWidth
                                 sx={{ flex: 1 }}
                                 variant="contained"
                                 color="success"
                                 startIcon={<IconFileSpreadsheet />}
-                                // استفاده از تابع موجود در کد شما برای خروجی Excel
                                 onClick={() => {
                                     if (selectedRowForMenu) {
                                         exportDispatchesToExcel([selectedRowForMenu], `Sevk_${selectedRowForMenu.code}`);
@@ -2011,7 +1834,7 @@ const ListStoreDispatchReturnToCenter = () => {
                             onClick={() => setOpenDetailsModal(false)}
                             color="secondary"
                             variant="outlined"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }}
                         >
                             Kapat
@@ -2020,7 +1843,6 @@ const ListStoreDispatchReturnToCenter = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Download Modals (Unchanged) */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
                 <DialogTitle>Tüm Sevk Belgelerini İndir</DialogTitle>
                 <DialogContent>

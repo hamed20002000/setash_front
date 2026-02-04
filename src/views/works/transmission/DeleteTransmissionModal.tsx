@@ -4,18 +4,16 @@ import {
     CircularProgress, Box, Typography,
 } from '@mui/material';
 import { IconTrash } from '@tabler/icons-react';
-// import { TransmissionRow } from './ListTransmission'; 
 
 import { TransmissionRow } from './types';
 type Props = {
     openModal: boolean;
     onClose: () => void;
-    onConfirm: () => void; // ✅ این تابع از کامپوننت والد فراخوانی می‌شود
-    loading: boolean; // ✅ وضعیت لودینگ از کامپوننت والد کنترل می‌شود
+    onConfirm: () => void;
+    loading: boolean;
     dependentRows: TransmissionRow[];
 };
 
-// ✅ تابع اصلی کامپوننت
 const DeleteTransmissionModal = ({ openModal, onClose, onConfirm, loading, dependentRows }: Props) => {
 
     return (
@@ -29,7 +27,6 @@ const DeleteTransmissionModal = ({ openModal, onClose, onConfirm, loading, depen
                 {"Bu kaydı silmek istediğinizden emin misiniz?"}
             </DialogTitle>
             <DialogContent>
-                {/* ✅ نمایش شرطی پیام هشدار برای ردیف‌های وابسته */}
                 {dependentRows.length > 0 ? (
                     <Box>
                         <DialogContentText id="delete-dialog-description">
@@ -56,7 +53,7 @@ const DeleteTransmissionModal = ({ openModal, onClose, onConfirm, loading, depen
                 <Button
                     color="error"
                     variant="contained"
-                    onClick={onConfirm} // ✅ تابع تأیید از والد فراخوانی می‌شود
+                    onClick={onConfirm}
                     autoFocus
                     disabled={loading}
                     startIcon={loading ? null : <IconTrash />}

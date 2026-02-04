@@ -483,7 +483,6 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
           </Toolbar>
         </AppBar>
         <DialogContent sx={{ p: 0, display: 'flex', height: '100%', maxHeight: 'calc(100vh - 64px)' }}>
-          {/* -------------------- Sol Panel: Roller -------------------- */}
           <Box sx={{ width: { xs: '100%', sm: '35%', md: '25%' }, flexShrink: 0, borderRight: '1px solid #e0e0e0', height: '100%', overflowY: 'auto' }}>
             <Typography variant="h6" mb={2} sx={{ p: 2, pb: 0 }}>Roller</Typography>
             {loading ? (
@@ -528,7 +527,6 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
             )}
           </Box>
 
-          {/* -------------------- Sağ Panel: İzinler -------------------- */}
           <Box sx={{ width: { xs: '100%', sm: '65%', md: '75%' }, p: 2, height: '100%', overflowY: 'auto' }}>
             <Typography variant="h6" mb={2}>
               {activeDisplayRoleId

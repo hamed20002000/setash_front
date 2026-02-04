@@ -76,6 +76,8 @@ const ListCarwarehouseReport = Loadable(lazy(() => import('../views/report/concr
 const ListPersonalWorkhouseReport = Loadable(lazy(() => import('../views/report/concrete-report/ListPersonalWorkhouseReport')));
 const ListPersonalCourse = Loadable(lazy(() => import('../views/report/concrete-report/ListPersonalCourse')));
 const ListTenderFlowReport = Loadable(lazy(() => import('../views/report/concrete-report/ListTenderFlowReport')));
+const ListRollCallsReport = Loadable(lazy(() => import('../views/report/concrete-report/ListRollCallsReport')));
+const ListFinancialState = Loadable(lazy(() => import('../views/report/concrete-report/ListFinancialState')));
 
 
 
@@ -702,6 +704,22 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListTenderFlowReport />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/report/report-roll-call/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListRollCallsReport />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/report/report-financial-state-report/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListFinancialState />
           </PermissionGuard>
         )
       },

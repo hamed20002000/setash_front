@@ -5,15 +5,12 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
-// مسیر فایل address.json را تنظیم کنید (به مسیر نسبی صحیح در ListStoreReceiptInvoice.tsx)
 import server from 'src/assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// --- Props interface for Invoice-based Receipts ---
 type Props = {
     openModal: boolean;
-    // از آنجایی که ID در API به صورت string ارسال می‌شود، نوع آن را string|null نگه می‌داریم.
     receiptIdToDelete: string | null;
     receiptCodeToDelete: string | null;
     onClose: () => void;
@@ -21,13 +18,11 @@ type Props = {
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-// ✨ CHANGED: Component name to DeleteStoreReceiptInvoice
 const DeleteStoreReceiptInvoice = ({ openModal, receiptIdToDelete, receiptCodeToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // State for Receipt In Use modal
     const [openReceiptInUseModal, setOpenReceiptInUseModal] = useState<boolean>(false);
 
     const handleDeleteReceipt = async () => {
@@ -45,7 +40,6 @@ const DeleteStoreReceiptInvoice = ({ openModal, receiptIdToDelete, receiptCodeTo
 
         setLoading(true);
         try {
-            // ✨ API ENDPOINT: Using the same delete endpoint as specified by the user
             const response = await axios.delete(
                 `${server.baseurl}${server.warehouse}delete-store-receipt/${receiptIdToDelete}`,
                 {
@@ -88,7 +82,6 @@ const DeleteStoreReceiptInvoice = ({ openModal, receiptIdToDelete, receiptCodeTo
 
     return (
         <>
-            {/* Main Delete Confirmation Modal */}
             <Dialog
                 open={openModal}
                 onClose={onClose}
@@ -128,7 +121,6 @@ const DeleteStoreReceiptInvoice = ({ openModal, receiptIdToDelete, receiptCodeTo
                 </DialogActions>
             </Dialog>
 
-            {/* Dialog for Receipt In Use */}
             <Dialog
                 open={openReceiptInUseModal}
                 onClose={handleCloseReceiptInUseModal}

@@ -33,7 +33,6 @@ const DeleteLeaves = ({
     const [loading, setLoading] = useState(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // Kayıt kullanımdaysa gösterilecek uyarı
     const [openInUseModal, setOpenInUseModal] = useState(false);
 
     const handleDeleteLeave = async () => {
@@ -50,7 +49,7 @@ const DeleteLeaves = ({
             navigate('/');
             return;
         }
-        debugger
+
         setLoading(true);
         try {
             const response = await axios.delete(
@@ -73,7 +72,6 @@ const DeleteLeaves = ({
             }
         } catch (e: any) {
             if (e?.response?.status === 500) {
-                // Kayıt başka yerde kullanılıyor
                 setOpenInUseModal(true);
             } else if (e?.response?.status === 401) {
                 localStorage.removeItem('authToken');
@@ -92,7 +90,6 @@ const DeleteLeaves = ({
 
     return (
         <>
-            {/* Onay diyaloğu */}
             <Dialog
                 open={openModal}
                 onClose={onClose}
@@ -144,7 +141,6 @@ const DeleteLeaves = ({
                 </DialogActions>
             </Dialog>
 
-            {/* Kullanımda uyarısı */}
             <Dialog
                 open={openInUseModal}
                 onClose={() => setOpenInUseModal(false)}

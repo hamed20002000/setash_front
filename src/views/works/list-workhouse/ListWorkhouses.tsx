@@ -1042,7 +1042,7 @@ const ListWorkhouses = () => {
     };
 
     const handleNavigateToDetails = () => {
-        debugger
+
         if (selectedRowForMenu) {
             navigate(`/workhouse/workhousedetails/${selectedRowForMenu.id}`);
         }

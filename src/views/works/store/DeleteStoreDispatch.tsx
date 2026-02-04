@@ -39,7 +39,6 @@ const DeleteStoreDispatch = ({ openModal, dispatchIdToDelete, dispatchCodeToDele
 
         setLoading(true);
         try {
-            // Updated API endpoint to 'delete-store-dispatch'
             const response = await axios.delete(
                 `${server.baseurl}${server.warehouse}delete-store-dispatch/${dispatchIdToDelete}`,
                 {

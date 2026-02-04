@@ -3,10 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, CircularProgress, Typography } from '@mui/material';
 
 import axios from 'axios';
-import server from '../../../assets/address.json'; // فرض می‌کنیم آدرس صحیح است
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // فرض می‌کنیم Context وجود دارد
-
-// Define the component props for type safety
+import server from '../../../assets/address.json';
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 type DeleteProps = {
     openModal: boolean;
     idToDelete: number | null;

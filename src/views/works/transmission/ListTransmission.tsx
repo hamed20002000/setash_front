@@ -33,7 +33,6 @@ import { useAuth } from 'src/context/AuthContext';
 
 type SortableTransmissionKeys = keyof Pick<TransmissionRow, 'fromProductType' | 'toProductType' | 'distance' | 'miktarTipi' | 'formulaTitle' | 'createAt' | 'recordStatus'>;
 
-// ... (توابع کمکی descendingComparator, getComparator, stableSort)
 const descendingComparator = <T, Key extends keyof T>(a: T, b: T, orderBy: Key): number => {
     const valA = a[orderBy];
     const valB = b[orderBy];
@@ -157,45 +156,6 @@ const ListTransmission = () => {
         return allowedOperations.some(op => op.systemOperationName === 'Silmek');
     }, [allowedOperations]);
 
-    // const { menuItems, allowedOperations } = useAuth();
-    // const findMenuByHref = (items: any[], path: string): any => {
-    //     for (const item of items) {
-    //         if (item.href === path) return item;
-    //         if (item.children && item.children.length > 0) {
-    //             const found = findMenuByHref(item.children, path);
-    //             if (found) return found;
-    //         }
-    //     }
-    //     return null;
-    // };
-    // const currentMenu = useMemo(() => {
-    //     debugger
-    //     return findMenuByHref(menuItems, location.pathname);
-    // }, [menuItems, location.pathname]);
-
-    // const currentMenuOpIds = useMemo(() => {
-    //     if (!currentMenu || !currentMenu.menuOperations) return [];
-
-    //     return currentMenu.menuOperations.map((op: any) => {
-    //         return String(op.id);
-    //     });
-    // }, [currentMenu]);
-
-    // const hasPermission = (opName: string) => {
-    //     return allowedOperations.some((op: any) =>
-    //         op.systemOperationName === opName &&
-    //         currentMenuOpIds.includes(String(op.menuOperationId))
-    //     );
-    // };
-
-    // const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
-    // const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
-    // const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
-    //   const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
-
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
-
-
 
     const clearAlert = useCallback(() => {
         setAlertMessage(null);
@@ -258,34 +218,7 @@ const ListTransmission = () => {
         setIsFormVisible(false);
     }, [itemsList, addedItems, transmissionList]);
 
-    // const combinedProductTypeOptions = useMemo(() => {
-    //     if (!allProductTypes.length || !channelRowsData.length) {
-    //         return [];
-    //     }
 
-    //     const productTypeMap = new Map(allProductTypes.map(product => [String(product.id), product.name]));
-
-    //     const finalOptions: SelectOption[] = [];
-    //     for (const row of channelRowsData) {
-    //         const productTypeId = row?.productType?.id;
-    //         const productName = productTypeMap.get(String(productTypeId));
-
-    //         if (productName) {
-    //             finalOptions.push({
-    //                 id: String(row.id),
-    //                 productTypeId: String(productTypeId),
-    //                 name: productName,
-    //                 label: row.label,
-    //                 parent: row.parent ? { id: String(row.parent.id), label: row.parent.label } : null,
-    //                 productStatus: row.productStatus as 0 | 1 | 2,
-    //                 groupId: row.groupId,
-    //                 type: row.productType?.type
-    //             });
-    //         }
-    //     }
-
-    //     return finalOptions;
-    // }, [allProductTypes, channelRowsData]);
 
     const combinedProductTypeOptions = useMemo(() => {
         if (!allProductTypes.length || !channelRowsData.length) {
@@ -296,26 +229,21 @@ const ListTransmission = () => {
 
         const finalOptions: SelectOption[] = [];
 
-        debugger
+
 
         for (const row of channelRowsData) {
-            // ID محصول در کاتالوگ (مثلاً ۲۵ برای C1 بتنی)
             const catalogId = String(row?.productType?.id || '');
             const productDetail = catalogMap.get(catalogId);
 
             if (productDetail) {
                 finalOptions.push({
-                    // این ID نمونه است (مثلاً ۷۵) - این فیلد نباید تکراری باشد
                     id: String(row.id),
-                    // این ID کاتالوگ است (مثلاً ۲۵)
                     productTypeId: catalogId,
-                    name: productDetail.name, // نام می‌تواند تکراری باشد (مثل C1)
+                    name: productDetail.name,
                     label: row.label,
                     parent: row.parent ? { id: String(row.parent.id), label: row.parent.label } : null,
-                    // productStatus: row.productStatus as 0 | 1 | 2,
                     productStatus: row.productStatus,
                     groupId: row.groupId,
-                    // --- مهم‌ترین بخش: گرفتن TYPE واقعی از کاتالوگ ---
                     type: Number(productDetail.type)
                 });
             }
@@ -337,42 +265,18 @@ const ListTransmission = () => {
     }, [trafoOptions, transmissionList]);
 
 
-    // const toProductTypeOptions = useMemo(() => {
-    //     if (!fromProductType) {
-    //         return [];
-    //     }
-    //     const allOptions = combinedProductTypeOptions;
-    //     const usedNodes = transmissionList.map(row => row.toProductTypeId);
-
-    //     return allOptions.filter(option => {
-    //         if (option.id === fromProductType.id) return false;
-    //         if (option.parent === null) return false;
-    //         if (usedNodes.includes(option.id)) return false;
-    //         return true;
-    //     });
-    // }, [fromProductType, transmissionList, combinedProductTypeOptions]);
-
     const toProductTypeOptions = useMemo(() => {
         if (!fromProductType) {
             return [];
         }
-
-        // گروهِ گرهِ انتخاب شده را پیدا کنید (اگر در نوع SelectOption اضافه کرده باشید)
-        // یا از combinedProductTypeOptions پیدایش کنید
         const selectedNodeGroup = (fromProductType as any).groupId;
 
         const allOptions = combinedProductTypeOptions;
         const usedNodes = transmissionList.map(row => row.toProductTypeId);
 
         return allOptions.filter(option => {
-            // 1. نباید خودش باشد
             if (option.id === fromProductType.id) return false;
-
-            // 2. نباید قبلاً استفاده شده باشد
             if (usedNodes.includes(option.id)) return false;
-
-            // 3. فیلتر مهم: باید هم‌گروه باشند (مربوط به همان Trafo)
-            // (option as any).groupId چون در تایپ اسکریپت شاید تعریف نکرده باشید
             if ((option as any).groupId !== selectedNodeGroup) return false;
 
             if (option.type === 0) return false;
@@ -429,7 +333,7 @@ const ListTransmission = () => {
             const response = await axios.get(server.baseurl + server.initialoperations + "get-product-types", {
                 headers: { "Authorization": `Bearer ${authToken}` }
             });
-            debugger
+
             if (response.data.httpStatusCode === 200) {
                 const formattedData: ProductTypesType[] = response.data.data.map((item: any) => ({
                     id: String(item.id),
@@ -530,11 +434,10 @@ const ListTransmission = () => {
             const response = await axios.get(server.baseurl + server.initialoperations + `get-network-by-id/${id}`, {
                 headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
             });
-            debugger
+
             if (response.data.httpStatusCode === 200) {
                 setNetworkTitleForDisplay(response.data.data.title);
 
-                // تغییر مهم اینجاست:
                 const allChannelRows = response.data.data.networkTrAdis.flatMap((tradi: any) => {
                     return tradi.channelRows.map((row: any) => ({
                         ...row,
@@ -565,7 +468,7 @@ const ListTransmission = () => {
             const response = await axios.get(server.baseurl + server.initialoperations + `get-work-by-id/${id}`, {
                 headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
             });
-            debugger
+
             if (response.data.httpStatusCode === 200) {
                 setWorkTitleForDisplay(response.data.data.title);
             } else {
@@ -649,7 +552,6 @@ const ListTransmission = () => {
                     const fromProductTypeId = row.fromProductType?.id;
                     const toProductTypeId = row.toProductType?.id;
 
-                    // پیدا کردن جزئیات type (1: بتن، 2: آهن)
                     const fromProductTypeDetails = productTypeDetailsMap.get(String(fromProductTypeId));
                     const toProductTypeDetails = productTypeDetailsMap.get(String(toProductTypeId));
 
@@ -667,7 +569,7 @@ const ListTransmission = () => {
 
                     const distanceInMeters =
                         row.distance != null
-                            ? parseFloat((Number(row.distance) / 100).toFixed(2)) // cm → m برای نمایش
+                            ? parseFloat((Number(row.distance) / 100).toFixed(2))
                             : 0;
 
                     return {
@@ -679,14 +581,12 @@ const ListTransmission = () => {
                         items: items,
                         fromProductType: fromNodeName,
                         toProductType: toNodeName,
-                        // --- تزریق فیلد type به TransmissionRow برای MapPreviewModal ---
                         fromProductTypeCategory: fromProductTypeDetails?.type as 1 | 2 | undefined,
                         toProductTypeCategory: toProductTypeDetails?.type as 1 | 2 | undefined,
                         distance: distanceInMeters,
                     };
                 });
 
-                // debugger // این خط را حذف کنید
 
                 setTransmissionList(processedData);
                 setHasUnsavedChanges(false);
@@ -700,7 +600,6 @@ const ListTransmission = () => {
                     setIsInitialEntry(true);
                 }
 
-                // ... (منطق محاسبه finalCalculationData)
                 setFinalCalculationData(_prev => {
                     const newMap = new Map<string, Map<string, AddedItem>>();
                     processedData.forEach((row: TransmissionRow) => {
@@ -746,7 +645,6 @@ const ListTransmission = () => {
     }, [navigate, showAlert, combinedProductTypeOptions, allProductTypes]);
 
     const availableTrafoOptionsForMap = useMemo(() => {
-        // گزینه‌های ترافو را بر اساس منطق fromProductType فیلتر کنید
         const registeredTrafos = new Set(
             transmissionList.flatMap(row => [row.fromProductTypeId, row.toProductTypeId])
         );
@@ -758,12 +656,9 @@ const ListTransmission = () => {
         const allOptions = combinedProductTypeOptions;
         const usedNodes = transmissionList.map(row => row.toProductTypeId);
 
-        // از همان منطق فیلتر کردن toProductTypeOptions استفاده کنید
         return allOptions.filter(option => {
-            // فیلتر کردن گره‌هایی که قبلاً به عنوان مقصد استفاده شده‌اند
             if (usedNodes.includes(option.id)) return false;
 
-            // اگر می‌خواهید فقط مواردی با parent نمایش داده شوند، این خط را نگه دارید
             if (option.parent === null) return false;
 
             return true;
@@ -784,7 +679,7 @@ const ListTransmission = () => {
                 `${server.baseurl}${server.initialoperations}get-network-by-work-id/${Number(workId)}`,
                 { headers: { "Authorization": `Bearer ${authToken}` } }
             );
-            debugger
+
             if (response.data.httpStatusCode === 200 && response.data.data) {
                 setTransmissionSummary(response.data.data.transmissionSummary || []);
             } else {
@@ -1014,60 +909,7 @@ const ListTransmission = () => {
 
 
 
-    // const handleAddRowToTransmissionList = useCallback(async () => {
-    //     if (!fromProductType || !toProductType || !distance || addedItems.length === 0) {
-    //         showAlert('Lütfen tüm gerekli alanları doldurun ve en az bir Şebeke ekleyin.', 'warning');
-    //         return;
-    //     }
-
-    //     if (isInitialEntry && fromProductType.parent !== null) {
-    //         showAlert('İlk iletim, bir ana düğümden (TRAFO) başlamalıdır.', 'warning');
-    //         return;
-    //     }
-
-    //     setLoadingButton(true);
-    //     const authToken = localStorage.getItem('authToken');
-    //     if (!authToken) {
-    //         navigate("/");
-    //         showAlert('Oturumunuzun süresi doldu.', 'error');
-    //         setLoadingButton(false);
-    //         return;
-    //     }
-
-    //     const miktarTipiToStatus = {
-    //         'Yeni YG': 0, 'Yeni AG': 1, 'DMM YG': 2, 'DMM AG': 3,
-    //     };
-
-    //     const payload = {
-    //         distance: Math.round(parseFloat(distance) * 100),
-    //         formulaTitle: formulaTitle,
-    //         fromProductTypeId: parseInt(fromProductType.id!),
-    //         toProductTypeId: parseInt(toProductType.id!),
-    //         productStatus: miktarTipiToStatus[miktarTipi],
-    //         transmissionRowItmes: addedItems.map(item => ({
-    //             value: item.quantity,
-    //             itemId: parseInt(item.id)
-    //         })) || []
-    //     };
-    //     try {
-    //         await axios.post(server.baseurl + server.initialoperations + "create-TransmissionRow", { networkId: parseInt(networkId!), createTransmissionRows: [payload] }, {
-    //             headers: { "Authorization": `Bearer ${authToken}` }
-    //         });
-    //         showAlert('İletim başarıyla kaydedildi!', 'success');
-    //         if (networkId) {
-    //             await fetchTransmissionList(networkId);
-    //         }
-    //     } catch (e: any) {
-    //         showAlert(e.response?.data?.message || 'Kayıt gönderilirken bir hata oluştu.', 'error');
-    //     } finally {
-    //         setLoadingButton(false);
-    //         resetFormFields();
-    //     }
-    // }, [fromProductType, toProductType, distance, addedItems, miktarTipi, formulaTitle, networkId, showAlert, navigate, fetchTransmissionList, resetFormFields, isInitialEntry]);
-
-
     const handleAddRowToTransmissionList = useCallback(async () => {
-        // اعتبارسنجی‌های اولیه
         if (!fromProductType || !toProductType || !distance || addedItems.length === 0) {
             showAlert('Lütfen tüm gerekli alanları doldurun ve en az bir Şebeke ekleyin.', 'warning');
             return;
@@ -1103,7 +945,6 @@ const ListTransmission = () => {
             })) || []
         };
 
-        // ذخیره مقصد فعلی برای استفاده به عنوان مبدا بعدی
         const nextSourceNode = toProductType;
 
         try {
@@ -1118,34 +959,25 @@ const ListTransmission = () => {
                 await fetchTransmissionList(networkId);
             }
 
-            // --- تغییرات اصلی اینجاست ---
-            // به جای پاک کردن همه چیز، زنجیره را ادامه می‌دهیم:
-
-            // 1. گره مقصد قبلی می‌شود گره مبدا جدید
             setFromProductType(nextSourceNode);
 
-            // 2. سایر فیلدها را خالی می‌کنیم تا برای ورودی بعدی آماده باشند
             setToProductType(null);
             setDistance('');
             setAddedItems([]);
-            setFormulaTitle(''); // اگر می‌خواهید فرمول پاک نشود این خط را حذف کنید
-
-            // 3. دیگر حالت اولیه نیست چون یک رکورد ثبت شده است
+            setFormulaTitle('');
             setIsInitialEntry(false);
 
         } catch (e: any) {
             showAlert(e.response?.data?.message || 'Kayıt gönderilirken bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
-            // نکته مهم: resetFormFields() را از اینجا حذف کردیم
-            // چون این تابع همه چیز (از جمله مبدا) را پاک می‌کرد.
         }
     }, [fromProductType, toProductType, distance, addedItems, miktarTipi, formulaTitle, networkId, showAlert, navigate, fetchTransmissionList, isInitialEntry]);
 
 
     const handleBatchUpdate = useCallback(async (listToUpdate: TransmissionRow[]) => {
         setLoadingButton(true);
-        debugger
+
         const authToken = localStorage.getItem('authToken');
         if (!authToken || !networkId) {
             navigate('/');
@@ -1154,7 +986,6 @@ const ListTransmission = () => {
             return;
         }
 
-        // نقشه‌ی وضعیت سه‌حالته از channelRows (0:YENİ, 1:DMM, 2:MEVCUT)
         const statusByChannelRowId = new Map<string, number>();
         try {
             (channelRowsData || []).forEach((row: any) => {
@@ -1170,15 +1001,9 @@ const ListTransmission = () => {
         };
 
         const buildPayloadRow = (row: TransmissionRow) => {
-            // توجه: این IDها باید همان channelRow.id باشند
             const fromId = toInt(row.fromProductTypeId);
             const toId = toInt(row.toProductTypeId);
 
-            // قانون تعیین productStatus: اول مقصد، بعد مبدا، پیش‌فرض 0
-            // const productStatus =
-            //     statusByChannelRowId.get(String(toId)) ??
-            //     statusByChannelRowId.get(String(fromId)) ??
-            //     0;
 
             const miktarTipiToStatus: Record<string, number> = {
                 'Yeni YG': 0,
@@ -1210,7 +1035,6 @@ const ListTransmission = () => {
                 createTransmissionRows: updates,
             };
 
-            // فقط و فقط UPDATE
             await axios.put(
                 server.baseurl + server.initialoperations + 'update-TransmissionRow',
                 payload,
@@ -1321,8 +1145,6 @@ const ListTransmission = () => {
         setFormulaTitle(row.formulaTitle);
         setAddedItems(row.items || []);
 
-        // **راه حل برای خطای TypeScript**
-        // بررسی می‌کنیم که آیا مقدار row.miktarTipi در لیست مقادیر مجاز ما هست یا نه
         const validMiktarTypes = ['Yeni YG', 'Yeni AG', 'DMM YG', 'DMM AG'];
         const newMiktarTipi = validMiktarTypes.includes(row.miktarTipi as string) ? row.miktarTipi : 'Yeni YG';
         setMiktarTipi(newMiktarTipi as any);
@@ -1474,7 +1296,7 @@ const ListTransmission = () => {
     }, []);
 
     const handleOpenFinalCalcModal = useCallback(() => {
-        debugger
+
         if (workId) {
             fetchDataForModal(workId);
         }
@@ -1564,7 +1386,6 @@ const ListTransmission = () => {
                                 variant="contained"
                                 color="error"
                                 onClick={resetFormFields}
-                                // disabled={loadingButton}
                                 fullWidth={false}
                                 startIcon={<IconX size={20} />}
                             >

@@ -48,7 +48,6 @@ import DeleteBetweenStoreDispatch from "./DeleteBetweenStoreDispatch";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
-// === Styled Components ===
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans',
     fontSize: '0.8rem',
@@ -82,7 +81,6 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: 'transform 0.3s ease-in-out',
 }));
 
-// === Interfaces ===
 interface DispatchDetailType {
     id: string;
     itemId: number;
@@ -221,7 +219,6 @@ interface ApiResponseVehicleType {
     createAt: string;
 }
 
-// === Helper Functions ===
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
     try {
@@ -242,7 +239,6 @@ const calculateDispatchSummaries = (details: any[]) => {
     return summary;
 };
 
-// PDF helpers
 const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
 
     const docAny = doc as any;
@@ -250,10 +246,10 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -263,7 +259,7 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
@@ -272,8 +268,6 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
     if (subtitle) doc.text(subtitle, 70, 52);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -502,7 +496,6 @@ const ListBetweenStoreDispatch = () => {
 
     const nameInputRef = useRef<HTMLInputElement>(null);
 
-    // === State Variables ===
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
     const [selectedDestinationStoreId, setSelectedDestinationStoreId] = useState<number | null>(null);
@@ -579,57 +572,8 @@ const ListBetweenStoreDispatch = () => {
     const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
 
 
-    // const { menuItems, allowedOperations } = useAuth();
-    // const findMenuByHref = (items: any[], path: string): any => {
-    //     for (const item of items) {
-    //         // اگر خود آیتم تطبیق داشت
-    //         if (item.href === path) return item;
-
-    //         // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
-    //         if (item.children && item.children.length > 0) {
-    //             const found = findMenuByHref(item.children, path);
-    //             if (found) return found;
-    //         }
-    //     }
-    //     return null;
-    // };
-
-    // // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
-    // const currentMenu = useMemo(() => {
-    //     debugger
-    //     return findMenuByHref(menuItems, location.pathname);
-    // }, [menuItems, location.pathname]);
-
-    // // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
-    // const currentMenuOpIds = useMemo(() => {
-    //     // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
-    //     if (!currentMenu || !currentMenu.menuOperations) return [];
-
-    //     return currentMenu.menuOperations.map((op: any) => {
-    //         // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
-    //         return String(op.id);
-    //     });
-    // }, [currentMenu]);
-
-    // // ۴. تابع نهایی بررسی دسترسی
-    // const hasPermission = (opName: string) => {
-    //     return allowedOperations.some((op: any) =>
-    //         op.systemOperationName === opName &&
-    //         currentMenuOpIds.includes(String(op.menuOperationId))
-    //     );
-    // };
-
-    // const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
-    // const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
-    // const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
-    // const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
-
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
-
-    // ✨ NEW STATE: For single item adding logic
     const [newItem, setNewItem] = useState<FormDispatchDetail | null>(null);
 
-    // === Form Handlers ===
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -786,7 +730,6 @@ const ListBetweenStoreDispatch = () => {
 
     useEffect(() => {
         const hasItems = dispatchDetails.length > 0;
-        // const allQuantitiesValid = dispatchDetails.every(item => Number(item.quantity) > 0);
 
         const isValid =
             !!selectedDestinationStoreId &&
@@ -892,7 +835,7 @@ const ListBetweenStoreDispatch = () => {
         setSelectedVehicleId(null);
         setSelectedVehicleName(null);
         setRemovedDispatchDetails([]);
-        setNewItem(null); // Reset new item form
+        setNewItem(null);
     };
 
     const insertDispatch = async () => {
@@ -1042,7 +985,6 @@ const ListBetweenStoreDispatch = () => {
     const handleRemoveDispatchDetail = (index: number) => {
         setDispatchDetails(prev => {
             const removedItem = prev[index];
-            // Only archive if we are in EDIT mode AND the item was originally in the dispatch
             if (editingId && removedItem) {
                 const wasOriginal = initialDispatchDetails.some(init => init.itemId === removedItem.itemId);
                 if (wasOriginal) {
@@ -1178,11 +1120,7 @@ const ListBetweenStoreDispatch = () => {
         setFullDescriptionContent('');
     };
 
-    // تابع مدیریت دکمه افزودن تکی
     const handleAddNewRow = () => {
-        // اگر لیست در حال حاضر پر است (مثلاً از طریق دکمه یکجا پر شده)، آن را پاک کن
-        // اما اگر کاربر قبلاً در حال اضافه کردن تکی بوده، لیست را پاک نکن تا بتواند آیتم دوم و سوم را اضافه کند
-        // تشخیص این مورد: اگر تعداد آیتم‌ها برابر با کل موجودی انبار باشد، یعنی "یکجا" اضافه شده است.
         if (dispatchDetails.length === storeItems.length && storeItems.length > 0) {
             setDispatchDetails([]);
         }
@@ -1195,20 +1133,16 @@ const ListBetweenStoreDispatch = () => {
         });
     };
 
-    // تابع تایید و ثبت هر آیتم در لیست تکی
     const confirmNewItem = () => {
         if (newItem && newItem.itemId && Number(newItem.quantity) > 0) {
-            // چک کردن برای جلوگیری از افزودن تکراری
             const exists = dispatchDetails.some(d => d.itemId === newItem.itemId);
             if (exists) {
                 showAlert("Bu ürün zaten listede mevcut!", "warning");
                 return;
             }
 
-            // افزودن آیتم به لیست (بدون پاک کردن آیتم‌های قبلی تکی)
             setDispatchDetails(prev => [...prev, newItem]);
 
-            // ریست کردن فرم ورودی برای آیتم بعدی (پنل بسته نمی‌شود، فقط فیلدها خالی می‌شوند)
             setNewItem({
                 itemId: null,
                 quantity: '',
@@ -1224,10 +1158,10 @@ const ListBetweenStoreDispatch = () => {
         if (dispatchDetails.length > 0) {
             setDispatchDetails([]);
         } else {
-            setNewItem(null); // بستن پنل تکی در صورت باز بودن
+            setNewItem(null);
             const allItems = storeItems.map(item => ({
                 itemId: Number(item.itemId),
-                quantity: Number(item.balance), // استفاده از موجودی انبار به عنوان مقدار پیش‌فرض
+                quantity: Number(item.balance),
                 description: '',
                 item: {
                     id: item.itemId,
@@ -1418,7 +1352,6 @@ const ListBetweenStoreDispatch = () => {
                             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                                 <Typography variant="h6">Sevk Detayları</Typography>
                                 <Stack direction="row" spacing={1}>
-                                    {/* ✨ Button: Add Single Item */}
                                     <Button
                                         variant="outlined"
                                         color="primary"
@@ -1428,7 +1361,6 @@ const ListBetweenStoreDispatch = () => {
                                     >
                                         Tek Tek Ekle
                                     </Button>
-                                    {/* ✨ Modified Button: Toggle All */}
                                     <Button
                                         variant="outlined"
                                         color={dispatchDetails.length > 0 ? "error" : "secondary"}
@@ -1442,7 +1374,6 @@ const ListBetweenStoreDispatch = () => {
                             </Stack>
 
                             <Grid container spacing={2}>
-                                {/* ✨ NEW: Add Single Item Row */}
                                 {newItem && (
                                     <Grid item xs={12} sx={{ bgcolor: 'rgba(0,0,0,0.03)', p: 2, borderRadius: 1, border: '1px solid #ddd', mb: 2 }}>
                                         <Grid container spacing={2} alignItems="center">
@@ -1563,7 +1494,6 @@ const ListBetweenStoreDispatch = () => {
                             {dispatchDetailsError && <Typography color="error" variant="caption" sx={{ mt: 1.5, ml: 1.5 }}>En az bir sevk detayı eklemek zorunludur!</Typography>}
                         </Box>
 
-                        {/* ✨ Archive/History for removed items - ONLY in Edit Mode OR manual removals */}
                         {removedDispatchDetails.length > 0 && (
                             <Box sx={{ border: '1px dashed', borderColor: "error.main", p: 2, borderRadius: 1, mt: 3, backgroundColor: 'rgba(255, 0, 0, 0.05)' }}>
                                 <Typography variant="subtitle1" color="error" mb={1}>Silinen Ürünler</Typography>
@@ -1598,7 +1528,6 @@ const ListBetweenStoreDispatch = () => {
                                                 color="success"
                                                 size="large"
                                                 onClick={insertDispatch}
-                                                // دکمه با استفاده از تابع useEffect بالا کنترل می‌شود
                                                 disabled={!isFormValid || loadingButton}
                                                 isBlinking={isFormValid && !loadingButton}
                                             >
@@ -1717,7 +1646,6 @@ const ListBetweenStoreDispatch = () => {
                                         <StyledTableCell><Typography variant="h6">Şoför</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
-                                        {/* <StyledTableCell><Typography variant="h6">Durum</Typography></StyledTableCell> */}
                                         <StyledTableCell><Typography variant="h6">Sevk Detayları</Typography></StyledTableCell>
                                         <StyledTableCell></StyledTableCell>
                                     </TableRow>
@@ -1746,9 +1674,6 @@ const ListBetweenStoreDispatch = () => {
                                                         <Typography variant="body2" align="center">-</Typography>
                                                     )}
                                                 </StyledTableCell>
-                                                {/* <StyledTableCell>
-                                                    <Chip label={row.status} color={row.recordStatus === 0 ? 'success' : 'error'} />
-                                                </StyledTableCell> */}
                                                 <StyledTableCell>
                                                     <Stack direction="row" spacing={1} alignItems="center">
                                                         <CustomTooltip title={isTooltipGloballyEnabled ? "Detayları Görüntüle" : ""}>
@@ -1815,7 +1740,6 @@ const ListBetweenStoreDispatch = () => {
                 </BlankCard>
             </Box>
 
-            {/* Modals Handled Below... */}
             <Dialog open={openDescriptionModal} onClose={handleCloseDescriptionModal} maxWidth="md" fullWidth>
                 <DialogTitle>Açıklamanın Tamamı</DialogTitle>
                 <DialogContent dividers>

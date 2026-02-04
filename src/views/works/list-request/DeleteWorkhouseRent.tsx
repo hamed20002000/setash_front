@@ -48,7 +48,7 @@ const DeleteWorkhouseRent: React.FC<Props> = ({ openModal, itemToDelete, onClose
             // navigate("/"); // اگر لازم است کاربر به صفحه ورود هدایت شود
             return;
         }
-        debugger
+
         setLoading(true);
         try {
             // ⬅️ API حذف درخواست اجاره (delete-workhouse-rent) در مسیر initialoperations

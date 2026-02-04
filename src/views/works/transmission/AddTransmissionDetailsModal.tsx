@@ -41,15 +41,13 @@ const AddTransmissionDetailsModal: React.FC<AddTransmissionDetailsModalProps> = 
     showAlert
 }) => {
     const [distance, setDistance] = useState<string>('');
-    type FormMiktarTipi = 'Yeni YG' | 'Yeni AG' | 'DMM YG' | 'DMM AG'; // ✅ یک نوع جدید تعریف می‌کنیم
-    const [miktarTipi, setMiktarTipi] = useState<FormMiktarTipi>('Yeni YG'); // ✅ از نوع جدید استفاده می‌کنیم
+    type FormMiktarTipi = 'Yeni YG' | 'Yeni AG' | 'DMM YG' | 'DMM AG';
+    const [miktarTipi, setMiktarTipi] = useState<FormMiktarTipi>('Yeni YG');
     const [formulaTitle, setFormulaTitle] = useState<string>('');
     const [addedItems, setAddedItems] = useState<AddedItem[]>([]);
     const [selectedItem, setSelectedItem] = useState<SelectOption | null>(null);
     const [itemQuantity, setItemQuantity] = useState<string>('');
 
-    // این useEffect مقدار distance را هنگام باز شدن مدال تنظیم می‌کند.
-    // این کار از خطای "Cannot read properties of undefined" جلوگیری می‌کند.
     React.useEffect(() => {
         if (fromNode && toNode) {
             setDistance(getInitialDistance(fromNode, toNode));
@@ -58,18 +56,6 @@ const AddTransmissionDetailsModal: React.FC<AddTransmissionDetailsModalProps> = 
         }
     }, [fromNode, toNode]);
 
-    // const availableItems = useMemo(() => {
-    //     const addedItemIds = new Set(addedItems.map(item => item.id));
-    //     return itemsList.filter(item => !addedItemIds.has(item.id)).map(item => ({
-    //         id: item.id,
-    //         name: item.name,
-    //         unit: item.unit,
-    //         weight: item.weight,
-    //         // productTypeId: '', 
-    //         // label: '', 
-    //         // parent: null, 
-    //     }));
-    // }, [itemsList, addedItems]);
 
     const availableItems = useMemo(() => {
         const addedItemIds = new Set(addedItems.map(item => item.id));
@@ -78,7 +64,7 @@ const AddTransmissionDetailsModal: React.FC<AddTransmissionDetailsModalProps> = 
             name: item.name,
             unit: item.unit,
             weight: item.weight,
-        } as SelectOption)); // اینجا نوع را به SelectOption تغییر دهید
+        } as SelectOption));
     }, [itemsList, addedItems]);
 
     const handleAddItem = useCallback(() => {
@@ -170,7 +156,7 @@ const AddTransmissionDetailsModal: React.FC<AddTransmissionDetailsModalProps> = 
                                     label="Öğe Seçin" variant="outlined" size="small" />}
                                 sx={{ flexGrow: 1 }}
                             />
-                            {selectedItem && selectedItem.unit && ( // ✅ اضافه کردن شرط وجود selectedItem.unit
+                            {selectedItem && selectedItem.unit && (
                                 <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
                                     {selectedItem.unit.title}
                                 </Typography>

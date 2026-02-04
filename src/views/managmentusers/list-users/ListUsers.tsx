@@ -180,10 +180,8 @@ const ListUsers = () => {
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [allRoles, setAllRoles] = useState<RoleType[]>([]);
 
-  // ⬅️ State های مدیریت عکس جدید
   const [profileRawFile, setProfileRawFile] = useState<File[]>([]);
   const [profileImageUrl, setProfileImageUrl] = useState<string>(DEFAULT_IMAGE_URL);
-  // حذف: const [profileImageBase64, setProfileImageBase64] = useState<string>('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [usersList, setUsersList] = useState<UserType[]>([]);
@@ -231,26 +229,11 @@ const ListUsers = () => {
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [isBlinking, setIsBlinking] = useState(true);
 
-  // const { allowedOperations } = useAuth();
-  // const hasCreatePermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-  // }, [allowedOperations]);
-
-  // const hasEditPermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-  // }, [allowedOperations]);
-
-  // const hasDeletePermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-  // }, [allowedOperations]);
-
   const { menuItems, allowedOperations } = useAuth();
   const findMenuByHref = (items: any[], path: string): any => {
     for (const item of items) {
-      // اگر خود آیتم تطبیق داشت
       if (item.href === path) return item;
 
-      // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
       if (item.children && item.children.length > 0) {
         const found = findMenuByHref(item.children, path);
         if (found) return found;
@@ -259,24 +242,19 @@ const ListUsers = () => {
     return null;
   };
 
-  // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
   const currentMenu = useMemo(() => {
-    debugger
+
     return findMenuByHref(menuItems, location.pathname);
   }, [menuItems, location.pathname]);
 
-  // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
   const currentMenuOpIds = useMemo(() => {
-    // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
     if (!currentMenu || !currentMenu.menuOperations) return [];
 
     return currentMenu.menuOperations.map((op: any) => {
-      // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
       return String(op.id);
     });
   }, [currentMenu]);
 
-  // ۴. تابع نهایی بررسی دسترسی
   const hasPermission = (opName: string) => {
     return allowedOperations.some((op: any) =>
       op.systemOperationName === opName &&
@@ -288,18 +266,8 @@ const ListUsers = () => {
   const hasChangeRoleOpPermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
   const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
   const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
-  // const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
 
   const hasChangePassPermission = useMemo(() => hasPermission("Şifre Değiştirmek"), [allowedOperations, currentMenuOpIds]);
-
-  // const hasChangePassPermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Şifre Değiştirmek');
-  // }, [allowedOperations]);
-
-  // const hasChangeRoleOpPermission = useMemo(() => {
-  //   return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-  // }, [allowedOperations]);
-
 
   const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
     setAlertMessage(message);
@@ -318,7 +286,7 @@ const ListUsers = () => {
       setLoadingData(false);
       return;
     }
-    debugger
+
     axios.get(server.baseurl + server.user + "get-users", {
       headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
     }).then((result) => {
@@ -486,7 +454,7 @@ const ListUsers = () => {
 
   const uploadImage = async (file: File, authToken: string, showAlert: (m: string, s: 'success' | 'error' | 'warning' | 'info') => void): Promise<string | null> => {
 
-    debugger
+
     if (!file) {
       showAlert('Hata: Yüklenecek ham dosya bulunamadı.', 'error');
       return null;
@@ -494,7 +462,6 @@ const ListUsers = () => {
     const formData = new FormData();
 
     profileRawFile.forEach(file => formData.append('files', file));
-    // formData.append('file', file);
     try {
       const uploadResponse = await axios.post(
         server.baseurl + server.baseinfo + "upload-files",
@@ -516,8 +483,6 @@ const ListUsers = () => {
   };
 
   const handleImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    // const file = e.target.files?.[0];
-
     const files = e.target.files;
     if (files) {
       setProfileRawFile(prev => [...prev, ...Array.from(files)]);
@@ -562,8 +527,8 @@ const ListUsers = () => {
     setPassword('');
     setConfirmPassword('');
     setSelectedRoles([]);
-    setProfileRawFile([]); // ⬅️ ریست فایل خام
-    setProfileImageUrl(DEFAULT_IMAGE_URL); // ⬅️ ریست URL
+    setProfileRawFile([]);
+    setProfileImageUrl(DEFAULT_IMAGE_URL);
     setGenerateRandomPassword(false);
     setEditingUserId(null);
     setUsernameError(false);
@@ -587,11 +552,9 @@ const ListUsers = () => {
     if (selectedUserForMenu) {
       setUsername(selectedUserForMenu.username);
       setEditingUserId(selectedUserForMenu.id);
-      // ⬅️ بارگذاری URL موجود
-      // setProfileImageUrl(selectedUserForMenu.imageUrl || DEFAULT_IMAGE_URL);
       const fullUrl = getFullImageUrl(selectedUserForMenu.imageUrl);
       setProfileImageUrl(fullUrl);
-      setProfileRawFile([]); // ⬅️ ریست فایل خام
+      setProfileRawFile([]);
       setPassword('');
       setConfirmPassword('');
       setGenerateRandomPassword(false);
@@ -650,7 +613,7 @@ const ListUsers = () => {
     const roleNamesToSend = allRoles
       .filter(role => selectedRoles.includes(role.id))
       .map(role => role.name);
-    debugger
+
     setLoadingButton(true);
     try {
       const response = await axios.post(
@@ -696,12 +659,10 @@ const ListUsers = () => {
     }
   };
 
-  // ⬅️ تابع EDIT اصلاح شده: آپلود فایل و ارسال URL
   const editUser = async () => {
     if (editingUserId === null) return;
     let hasValidationError = false;
 
-    // ... (Validation Logic) ...
     if (!username.trim()) { setUsernameError(true); setUsernameHelperText('Kullanıcı adı boş olamaz!'); hasValidationError = true; } else { setUsernameError(false); setUsernameHelperText(''); }
     if (selectedRoles.length === 0) { setRoleError(true); setRoleHelperText('Lütfen en az bir rol seçin!'); hasValidationError = true; } else { setRoleError(false); setRoleHelperText(''); }
 
@@ -711,7 +672,6 @@ const ListUsers = () => {
     const authToken = localStorage.getItem('authToken');
     if (!authToken) { showAlert('Lütfen giriş yapın.', 'warning'); navigate("/"); return; }
 
-    // 1. مدیریت عکس: آپلود جدید یا حفظ URL موجود
     let finalImageSrc = profileImageUrl;
 
     if (profileRawFile && profileRawFile.length > 0) {
@@ -1144,30 +1104,6 @@ const ListUsers = () => {
                   )}
                 </Grid>
               </Grid>
-              {/* <Grid item xs={12} sm={3} display="flex" flexDirection="column" alignItems="center" justifyContent="center">
-                <CardMedia
-                  component="img"
-                  sx={{ width: 200, height: 200, borderRadius: '50%', objectFit: 'cover', mb: 1 }}
-                  image={profileImageUrl}
-                  alt="Profile Picture"
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef}
-                  style={{ display: 'none' }}
-                  onChange={handleImageChange}
-                />
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcının profil resmini seçin" : ""}>
-                  <Button
-                    variant="outlined"
-                    onClick={() => fileInputRef.current?.click()}
-                    size="small"
-                  >
-                    Resim Seç
-                  </Button>
-                </CustomTooltip>
-              </Grid> */}
               <Grid item xs={12} sm={3} display="flex" flexDirection="column" alignItems="center" justifyContent="center">
 
                 <Box position="relative" sx={{ width: 200, height: 200, mb: 1 }}>
@@ -1393,7 +1329,6 @@ const ListUsers = () => {
                         <CardMedia
                           component="img"
                           sx={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
-                          // image={row.imageUrl || DEFAULT_IMAGE_URL}
                           image={getFullImageUrl(row.imageUrl)}
                           alt="User Picture"
                         />
@@ -1406,7 +1341,6 @@ const ListUsers = () => {
                           {row.roles && row.roles.length > 0 ? (
                             row.roles.map((role, index) => {
                               const isRoleInactive = role.recordStatus === 1;
-                              // ⬅️ اصلاح رنگ: Active (0) = Success (سبز)
                               const chipColor = isRoleInactive ? 'error' : 'success';
 
                               return (

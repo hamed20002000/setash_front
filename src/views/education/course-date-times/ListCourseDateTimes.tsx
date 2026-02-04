@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableHead, TableBody, TableRow, TableCell, CircularProgress, Box, Stack, Grid, IconButton, Menu, MenuItem, Typography, TableSortLabel, TablePagination, TableContainer, Paper, TextField, ListItemIcon, Alert } from '@mui/material';
-// 💡 تغییر: استفاده از DateTimePicker به جای DatePicker
+
 import { DateTimePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { tr } from 'date-fns/locale';
@@ -10,19 +10,11 @@ import axios from 'axios';
 import { IconDots, IconEdit, IconTrash, IconX } from '@tabler/icons-react';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 
-import { format, isSameDay } from "date-fns"; // 💡 isSameDay اضافه شد
-
-// @ts-ignore
+import { format, isSameDay } from "date-fns";
 import server from '../../../assets/address.json';
-// @ts-ignore
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
-// @ts-ignore
 import DeleteCourseDateTimes from './DeleteCourseDateTimes';
 import { useNavigate } from 'react-router';
 
-// -------------------------------------------------------------------------------------
-// --- INTERFACES & HELPERS ---
-// -------------------------------------------------------------------------------------
 interface CourseDateTime {
     id: number;
     startDateTime: string;
@@ -32,13 +24,11 @@ interface CourseDateTime {
 }
 type SortableKeys = 'startDateTime' | 'endDateTime' | 'createAt';
 
-// 💡 تغییر: نمایش تاریخ و ساعت (برای تست بهتر)
 const formatDateDisplayWithTime = (dateString: string | null): string => {
     if (!dateString) return "-";
     try {
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return "Geçersiz Tarih";
-        // نمایش کامل تاریخ و ساعت
         return format(date, 'dd MMMM yyyy HH:mm', { locale: tr });
     } catch (e) { return "Geçersiz Tarih"; }
 };
@@ -70,9 +60,6 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
 };
 
 
-// -------------------------------------------------------------------------------------
-// --- MAIN COMPONENT ---
-// -------------------------------------------------------------------------------------
 type ListCourseDateTimesProps = {
     open: boolean;
     courseId: number | null;
@@ -92,13 +79,11 @@ const ListCourseDateTimes: React.FC<ListCourseDateTimesProps> = ({ open, courseI
     const [loadingButton, setLoadingButton] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
 
-    // Form States
     const [startDateTime, setStartDateTime] = useState<Date | null>(null);
     const [endDateTime, setEndDateTime] = useState<Date | null>(null);
     const [startDateTimeError, setStartDateTimeError] = useState(false);
     const [endDateTimeError, setEndDateTimeError] = useState(false);
 
-    // Table States
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [orderBy, setOrderBy] = useState<SortableKeys>('startDateTime');
@@ -106,7 +91,6 @@ const ListCourseDateTimes: React.FC<ListCourseDateTimesProps> = ({ open, courseI
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<CourseDateTime | null>(null);
 
-    // Delete Modal States
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
 
@@ -115,13 +99,11 @@ const ListCourseDateTimes: React.FC<ListCourseDateTimesProps> = ({ open, courseI
 
     const authToken = localStorage.getItem('authToken');
 
-    // 💡 محاسبه محدودیت‌های تاریخ Course اصلی
     const courseMinDate = useMemo(() => courseStart ? new Date(courseStart) : undefined, [courseStart]);
     const courseMaxDate = useMemo(() => courseEnd ? new Date(courseEnd) : undefined, [courseEnd]);
 
 
 
-    // --- Fetch Data ---
     const fetchDateTimes = useCallback(async () => {
         if (courseId === null || !open || !authToken) {
             setDateTimes([]);
@@ -169,7 +151,6 @@ const ListCourseDateTimes: React.FC<ListCourseDateTimesProps> = ({ open, courseI
         return () => { if (timer) clearTimeout(timer); };
     }, [alertMessage]);
 
-    // --- Form Handlers ---
     const validateForm = (): boolean => {
         let ok = true;
         setStartDateTimeError(false);
@@ -183,21 +164,18 @@ const ListCourseDateTimes: React.FC<ListCourseDateTimesProps> = ({ open, courseI
             return ok;
         }
 
-        // 1. اعتبارسنجی: تاریخ شروع و پایان باید در یک روز باشد
         if (!isSameDay(startDateTime, endDateTime)) {
             setStartDateTimeError(true); setEndDateTimeError(true);
             internalShowAlert('Başlangıç ve bitiş tarihi aynı gün olmalıdır.', 'error');
             ok = false;
         }
 
-        // 2. اعتبارسنجی: ساعت پایان باید بعد از ساعت شروع باشد
         if (startDateTime.getTime() >= endDateTime.getTime()) {
             setEndDateTimeError(true);
             internalShowAlert('Bitiş saati, başlangıç saatinden sonra olmalıdır.', 'error');
             ok = false;
         }
 
-        // 3. اعتبارسنجی: بازه زمانی در محدوده دوره اصلی باشد (Min/Max Date در UI هم اعمال شده، اینجا برای اطمینان)
         if (courseMinDate && startDateTime < courseMinDate) {
             setStartDateTimeError(true);
             internalShowAlert('Başlangıç tarihi, kursun genel başlangıç tarihinden önce olamaz.', 'error');
@@ -230,7 +208,6 @@ const ListCourseDateTimes: React.FC<ListCourseDateTimesProps> = ({ open, courseI
 
         const payload = {
             id: isEditing ? editingId : undefined,
-            // 💡 تبدیل به ISOString برای ارسال به API (شامل تاریخ و زمان)
             startDateTime: startDateTime?.toISOString(),
             endDateTime: endDateTime?.toISOString(),
             courseId: Number(courseId),
@@ -267,13 +244,11 @@ const ListCourseDateTimes: React.FC<ListCourseDateTimesProps> = ({ open, courseI
 
     const handleEditClick = (row: CourseDateTime) => {
         setEditingId(row.id);
-        // 💡 تبدیل رشته تاریخ/زمان به Date object
         setStartDateTime(row.startDateTime ? new Date(row.startDateTime) : null);
         setEndDateTime(row.endDateTime ? new Date(row.endDateTime) : null);
         handleCloseMenu();
     };
 
-    // --- Table & Pagination Handlers ---
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: CourseDateTime) => { setAnchorEl(event.currentTarget); setSelectedRowForMenu(row); };
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
     const handleChangePage = (_: unknown, newPage: number) => setPage(newPage);
@@ -282,7 +257,6 @@ const ListCourseDateTimes: React.FC<ListCourseDateTimesProps> = ({ open, courseI
         const isAsc = orderBy === property && order === 'asc'; setOrder(isAsc ? 'desc' : 'asc'); setOrderBy(property); setPage(0);
     }, [order, orderBy]);
 
-    // Delete Handlers
     const handleClickOpenDeleteModal = () => {
         if (!selectedRowForMenu) return;
         setDeleteId(selectedRowForMenu.id);
@@ -298,7 +272,6 @@ const ListCourseDateTimes: React.FC<ListCourseDateTimesProps> = ({ open, courseI
         }
     };
 
-    // Sorted and Paginated Data
     const sortedDateTimes = useMemo(() => stableSort(dateTimes, getComparator(order, orderBy)), [dateTimes, order, orderBy]);
     const paginatedRows = useMemo(() => sortedDateTimes.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage), [sortedDateTimes, page, rowsPerPage]);
 
@@ -325,7 +298,7 @@ const ListCourseDateTimes: React.FC<ListCourseDateTimesProps> = ({ open, courseI
                         <Grid item xs={12} sm={6}>
                             <CustomFormLabel required>Başlangıç Tarihi/Saati</CustomFormLabel>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                                <DateTimePicker // 💡 تغییر به DateTimePicker
+                                <DateTimePicker
                                     label="Başlangıç"
                                     value={startDateTime}
                                     onChange={(v) => { setStartDateTime(v); setStartDateTimeError(false); }}
@@ -339,10 +312,9 @@ const ListCourseDateTimes: React.FC<ListCourseDateTimesProps> = ({ open, courseI
                         <Grid item xs={12} sm={6}>
                             <CustomFormLabel required>Bitiş Tarihi/Saati</CustomFormLabel>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                                <DateTimePicker // 💡 تغییر به DateTimePicker
+                                <DateTimePicker
                                     label="Bitiş"
                                     value={endDateTime}
-                                    // 💡 MinDate برای این که از شروع عقب نیفتد (اما در ValidateForm روز هم چک می‌شود)
                                     minDate={startDateTime || courseMinDate}
                                     maxDate={courseMaxDate}
                                     onChange={(v) => { setEndDateTime(v); setEndDateTimeError(false); }}
@@ -351,7 +323,6 @@ const ListCourseDateTimes: React.FC<ListCourseDateTimesProps> = ({ open, courseI
                                 />
                             </LocalizationProvider>
                         </Grid>
-                        {/* Actions */}
                         <Grid item xs={12}>
                             <Stack direction="row" spacing={1} justifyContent="flex-end">
                                 <Button variant="contained" color={editingId ? "info" : "success"} onClick={handleSubmit} disabled={loadingButton || !courseId} size="small">
