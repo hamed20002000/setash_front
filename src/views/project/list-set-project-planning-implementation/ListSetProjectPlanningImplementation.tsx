@@ -590,7 +590,6 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                 `${server.baseurl}${server.warehouse}get-project-planning-implementation-dates-by-id/${projectPlanningDateId}`,
                 { headers: { "Authorization": `Bearer ${authToken}` } }
             );
-            debugger
             const workId = planningResponse.data?.data?.projectPlanning?.project?.workhouse?.work?.id;
             if (!workId) { setChannelOptions([]); setTransmissionOptions([]); setComboLoading(false); return; }
 

@@ -106,9 +106,9 @@ interface TenderFlowReportRowType {
     receipt_date: string;
     receipt_item_id: string;
     Quantity: string;
-    ourQty: String;
-    qty: String;
-    firmQty: String;
+    ourQty: string;
+    qty: string;
+    firmQty: string;
     warehouse_code: string;
     warehouse_name: string;
     warhouse_dispatch_code: string;
