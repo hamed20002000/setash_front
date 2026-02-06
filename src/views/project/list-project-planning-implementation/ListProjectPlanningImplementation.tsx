@@ -392,6 +392,8 @@ const ListProjectPlanningImplementation = () => {
             const data = res.data?.data;
             const list: ImplDate[] = Array.isArray(data) ? data : (data ? [data] : []);
 
+            debugger
+
             const byTime = new Map<number, ImplDate>();
             list.forEach(x => {
                 const t = toDateOnly(parseISO(x.startDate)).getTime();

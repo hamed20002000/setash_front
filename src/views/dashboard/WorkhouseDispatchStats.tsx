@@ -151,7 +151,7 @@ const WorkhouseDispatchStats = () => {
 
     const formatCurrency = (val: string | number) => {
         const num = typeof val === 'string' ? parseCurrencyToNumber(val) : val;
-        return num.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return num.toLocaleString('us-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     };
 
     const chartData = useMemo(() => {

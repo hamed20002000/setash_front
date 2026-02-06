@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
     Box, Grid, Paper, Typography, Stack, IconButton,
-    CircularProgress, Avatar, alpha, useTheme
+    CircularProgress, Avatar, alpha, useTheme, Tooltip
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import axios from 'axios';
@@ -9,7 +9,7 @@ import server from 'src/assets/address.json';
 
 import {
     IconChevronLeft, IconChevronRight, IconLayoutDashboard,
-    IconHash, IconCircleCheck, IconCircleDot
+    IconHash, IconCircleCheck, IconCircleDot, IconPlayerPlay, IconPlayerPause
 } from '@tabler/icons-react';
 
 interface ProjectOverall {
@@ -30,6 +30,7 @@ const MainCard = styled(Paper)(({ theme }) => ({
     alignItems: 'center',
     justifyContent: 'center',
     boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
+    transition: 'all 0.5s ease-in-out',
 }));
 
 interface SideCardProps {
@@ -71,6 +72,7 @@ const ProgressCircle = ({ value }: { value: number }) => (
                 position: 'absolute',
                 left: 0,
                 strokeLinecap: 'round',
+                transition: 'all 1s ease-in-out',
             }}
         />
         <Box sx={{
@@ -93,13 +95,13 @@ const ProjectOverallStats = () => {
     const [selectedProject, setSelectedProject] = useState<ProjectOverall | null>(null);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(0);
+    const [isAutoPlay, setIsAutoPlay] = useState(true);
     const pageSize = 4;
-
-    const authToken = localStorage.getItem('authToken');
-    const headers = { Authorization: `Bearer ${authToken}` };
 
     useEffect(() => {
         const fetchData = async () => {
+            const authToken = localStorage.getItem('authToken');
+            const headers = { Authorization: `Bearer ${authToken}` };
             try {
                 const res = await axios.get(`${server.baseurl}${server.warehouse}get-projects-overall-progress`, { headers });
                 const data = res.data.data || [];
@@ -114,6 +116,27 @@ const ProjectOverallStats = () => {
         fetchData();
     }, []);
 
+    useEffect(() => {
+        let interval: any;
+        if (isAutoPlay && projects.length > 1) {
+            interval = setInterval(() => {
+                setSelectedProject((current) => {
+                    if (!current) return projects[0];
+                    const currentIndex = projects.findIndex(p => p.ProjectId === current.ProjectId);
+                    const nextIndex = (currentIndex + 1) % projects.length;
+
+                    const nextPage = Math.floor(nextIndex / pageSize);
+                    if (nextPage !== currentPage) {
+                        setCurrentPage(nextPage);
+                    }
+
+                    return projects[nextIndex];
+                });
+            }, 5000);
+        }
+        return () => clearInterval(interval);
+    }, [isAutoPlay, projects, currentPage]);
+
     const paginatedList = useMemo(() => {
         const start = currentPage * pageSize;
         return projects.slice(start, start + pageSize);
@@ -122,7 +145,6 @@ const ProjectOverallStats = () => {
     const handleNext = () => {
         if ((currentPage + 1) * pageSize < projects.length) setCurrentPage(p => p + 1);
     };
-
     const handlePrev = () => {
         if (currentPage > 0) setCurrentPage(p => p - 1);
     };
@@ -136,7 +158,7 @@ const ProjectOverallStats = () => {
                 <Grid item xs={12} md={7}>
                     {selectedProject && (
                         <MainCard elevation={0}>
-                            <ProgressCircle value={parseFloat(selectedProject.PctOverall)} />
+                            <ProgressCircle value={parseFloat(selectedProject.PctOverall || '0')} />
                             <Typography variant="h3" fontWeight="800" textAlign="center" gutterBottom>
                                 {selectedProject.ProjectName}
                             </Typography>
@@ -150,9 +172,25 @@ const ProjectOverallStats = () => {
 
                 <Grid item xs={12} md={5}>
                     <Stack spacing={2} sx={{ height: '100%' }}>
-                        <Typography variant="h5" fontWeight="700" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <IconLayoutDashboard color={theme.palette.primary.main} /> Proje Listesi
-                        </Typography>
+
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography variant="h5" fontWeight="700" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <IconLayoutDashboard color={theme.palette.primary.main} /> Proje Listesi
+                            </Typography>
+
+                            <Tooltip title={isAutoPlay ? "Otomatik Geçişi Durdur" : "Otomatik Geçişi Başlat"}>
+                                <IconButton
+                                    onClick={() => setIsAutoPlay(!isAutoPlay)}
+                                    color={isAutoPlay ? "primary" : "default"}
+                                    sx={{
+                                        bgcolor: isAutoPlay ? alpha(theme.palette.primary.main, 0.1) : alpha(theme.palette.grey[500], 0.1),
+                                        '&:hover': { bgcolor: isAutoPlay ? alpha(theme.palette.primary.main, 0.2) : alpha(theme.palette.grey[500], 0.2) }
+                                    }}
+                                >
+                                    {isAutoPlay ? <IconPlayerPause size={22} /> : <IconPlayerPlay size={22} />}
+                                </IconButton>
+                            </Tooltip>
+                        </Box>
 
                         <Box sx={{ flexGrow: 1, minHeight: '420px' }}>
                             {paginatedList.map((project) => {
@@ -162,7 +200,10 @@ const ProjectOverallStats = () => {
                                         key={project.ProjectId}
                                         isSelected={isSelected}
                                         elevation={isSelected ? 0 : 1}
-                                        onClick={() => setSelectedProject(project)}
+                                        onClick={() => {
+                                            setSelectedProject(project);
+                                            setIsAutoPlay(false);
+                                        }}
                                     >
                                         <Stack direction="row" spacing={2} alignItems="center">
                                             <Avatar sx={{
@@ -181,7 +222,7 @@ const ProjectOverallStats = () => {
                                                 </Typography>
                                             </Box>
                                             <Typography variant="h6" color={isSelected ? "primary.main" : "text.primary"} fontWeight="bold">
-                                                %{Math.round(parseFloat(project.PctOverall))}
+                                                %{Math.round(parseFloat(project.PctOverall || '0'))}
                                             </Typography>
                                         </Stack>
                                     </SideCard>
@@ -212,10 +253,8 @@ const ProjectOverallStats = () => {
                         </Stack>
                     </Stack>
                 </Grid>
-
             </Grid>
         </Box>
     );
 };
-
 export default ProjectOverallStats;

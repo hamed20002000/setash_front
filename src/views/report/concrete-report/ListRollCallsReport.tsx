@@ -13,7 +13,9 @@ import {
     Chip,
     Menu, MenuItem, ListItemIcon,
     Dialog, DialogTitle, DialogContent, DialogActions, Divider,
-    TableCell
+    TableCell,
+    ToggleButtonGroup,
+    ToggleButton as MuiToggleButton
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -142,6 +144,19 @@ const addPdfFooter = (doc: jsPDF) => {
 };
 
 
+const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
+    '&.Mui-selected': {
+        color: 'white',
+        ...(value === 'all' && selected && { backgroundColor: theme.palette.primary.main, '&:hover': { backgroundColor: theme.palette.primary.dark } }),
+        ...(value === 'present' && selected && { backgroundColor: theme.palette.success.main, '&:hover': { backgroundColor: theme.palette.success.dark } }),
+        ...(value === 'absent' && selected && { backgroundColor: theme.palette.error.main, '&:hover': { backgroundColor: theme.palette.error.dark } }),
+    },
+    '&:not(.Mui-selected)': {
+        color: theme.palette.text.primary,
+        borderColor: theme.palette.divider,
+        '&:hover': { backgroundColor: theme.palette.action.hover },
+    },
+}));
 // --- COMPONENT: DETAIL MODAL ---
 interface DetailModalProps {
     open: boolean;
@@ -189,7 +204,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ open, onClose, data, onExport
                             label="Durum"
                             fullWidth
                             size="small"
-                            value={data.rollcall_absence ? "Gelmendi (YOK)" : "Geldi (VAR)"}
+                            value={data.rollcall_absence ? "Gelmedi (YOK)" : "Geldi (VAR)"}
                             InputProps={{ readOnly: true, style: { color: data.rollcall_absence ? 'red' : 'green', fontWeight: 'bold' } }}
                         />
                     </Grid>
@@ -251,6 +266,8 @@ const ListRollCallsReport = () => {
     const [orderBy, setOrderBy] = useState<keyof RollCallRowType>('rollcall_date');
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
+
+    const [attendanceFilter, setAttendanceFilter] = useState<'all' | 'present' | 'absent'>('all');
 
     // --- UTILS ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -329,6 +346,15 @@ const ListRollCallsReport = () => {
 
     const processedData = useMemo(() => {
         let data = [...reportData];
+
+        // ۱. فیلتر بر اساس حضور و غیاب
+        if (attendanceFilter === 'present') {
+            data = data.filter(row => row.rollcall_absence === false);
+        } else if (attendanceFilter === 'absent') {
+            data = data.filter(row => row.rollcall_absence === true);
+        }
+
+        // ۲. فیلتر بر اساس متن جستجو
         if (searchTerm) {
             const lowerTerm = searchTerm.toLowerCase();
             data = data.filter(row =>
@@ -337,6 +363,8 @@ const ListRollCallsReport = () => {
                 row.personnel_identity_number.includes(lowerTerm)
             );
         }
+
+        // ۳. مرتب‌سازی
         if (orderBy) {
             data.sort(order === 'desc'
                 ? (a, b) => descendingComparator(a, b, orderBy)
@@ -344,7 +372,7 @@ const ListRollCallsReport = () => {
             );
         }
         return data;
-    }, [reportData, searchTerm, order, orderBy]);
+    }, [reportData, searchTerm, order, orderBy, attendanceFilter]); // attendanceFilter را به دیپندنسی‌ها اضافه کردیم
 
     const visibleRows = useMemo(() => processedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage), [processedData, page, rowsPerPage]);
 
@@ -544,7 +572,6 @@ const ListRollCallsReport = () => {
                             renderInput={(params) => (<TextField {...params} label="Şantiye" fullWidth size="small" />)}
                         />
                     </Grid>
-                    {/* --- Filter Section --- */}
                     <Grid item xs={12} sm={6} md={3}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <DatePicker
@@ -627,7 +654,7 @@ const ListRollCallsReport = () => {
 
                 <Box sx={{ p: 2 }}>
                     <Grid container spacing={2} alignItems="center">
-                        <Grid item xs={12} sm={7} md={7}>
+                        <Grid item xs={12} sm={3} md={3}>
                             <TextField
                                 label="Ara (Proje Adı/Kodu, Şantiye Adı, İş Tipi)"
                                 variant="outlined"
@@ -640,6 +667,27 @@ const ListRollCallsReport = () => {
                                 }}
                             />
                         </Grid>
+
+                        <Grid item xs={12} sm={4} md={4} display="flex" alignItems="center">
+                            <ToggleButtonGroup
+                                value={attendanceFilter}
+                                exclusive
+                                onChange={(_, newValue) => newValue && setAttendanceFilter(newValue)}
+                                size="small"
+                                color="primary"
+                            >
+                                <StyledToggleButton value="all" sx={{ px: 3 }}>
+                                    Tümü
+                                </StyledToggleButton>
+                                <StyledToggleButton value="present">
+                                    Gelenler
+                                </StyledToggleButton>
+                                <StyledToggleButton value="absent">
+                                    Gelmeyenler
+                                </StyledToggleButton>
+                            </ToggleButtonGroup>
+                        </Grid>
+
                         <Grid item xs={12} sm={5} md={5} spacing={2} display={'flex'} justifyContent={'space-evenly'}>
                             <Button
                                 variant="outlined"

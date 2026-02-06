@@ -168,10 +168,20 @@ const ProjectPlanningImplementationReport: React.FC = () => {
     useEffect(() => { if (selectedProject) loadData(selectedProject.id); else { setRows([]); setProgressData([]); setOverallProjectProgress(0); } }, [selectedProject, loadData]);
 
     const filtered = useMemo(() => {
-        if (!fromDate && !toDate) return rows;
-        const fTs = fromDate ? new Date(fromDate).setHours(0, 0, 0, 0) : -Infinity;
-        const tTs = toDate ? new Date(toDate).setHours(23, 59, 59, 999) : Infinity;
-        return rows.filter(r => new Date(r.EndDate).getTime() >= fTs && new Date(r.StartDate).getTime() <= tTs);
+        let result = rows;
+
+        if (fromDate || toDate) {
+            const fTs = fromDate ? new Date(fromDate).setHours(0, 0, 0, 0) : -Infinity;
+            const tTs = toDate ? new Date(toDate).setHours(23, 59, 59, 999) : Infinity;
+
+            result = rows.filter(r => {
+                const startDate = new Date(r.StartDate).getTime();
+                return startDate >= fTs && startDate <= tTs;
+            });
+        }
+        return [...result].sort((a, b) =>
+            new Date(a.StartDate).getTime() - new Date(b.StartDate).getTime()
+        );
     }, [rows, fromDate, toDate]);
 
     const addPdfHeader = (doc: jsPDF, title: string) => {

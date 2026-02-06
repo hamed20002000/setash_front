@@ -293,8 +293,6 @@ const mapApiItemToRow = (item: ApiImplementItem): ImplementRow => {
         transmissionName: trName,
 
         description: item.description || '',
-
-        // 🟢 اصلاح شد: از تابع nz استفاده نمی‌کنیم تا null حفظ شود
         kaziYapilanDirekDurumu: item.kaziYapilanDirekDurumu,
         altMontajiYapilanDirekDurumu: item.altMontajiYapilanDirekDurumu,
         betonAtilanDirekDurumu: item.betonAtilanDirekDurumu,
@@ -304,15 +302,12 @@ const mapApiItemToRow = (item: ApiImplementItem): ImplementRow => {
         iletkenCekilenDirekDurumu: item.iletkenCekilenDirekDurumu,
         ayiriciTakilanDirekDurumu: item.ayiriciTakilanDirekDurumu,
         dikilenAydinlatmaDirekDurumu: item.dikilenAydinlatmaDirekDurumu,
-        // kabloKanaliDurumu: (item as any).kabloKanaliDurumu,
         kabloKanaliDurumu: item.kabloKanaliDurumu !== undefined ? item.kabloKanaliDurumu : null,
         transformatorDurumu: item.transformatorDurumu,
         dagitimPanosuDurumu: item.dagitimPanosuDurumu,
         sahaDagTMKutusuDurumu: item.sahaDagTMKutusuDurumu,
         betonKoskDurumu: item.betonKoskDurumu,
         hucreDurumu: item.hucreDurumu,
-
-        // فیلدهایی که عدد مطلق هستند (مثل مقدار کابل) می‌توانند nz بمانند
         cekilenKabloMiktari: nz(item.cekilenKabloMiktari),
     };
 };
@@ -610,7 +605,7 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                             id: Number(row.id),
                             name: row.productType?.name || row.label || `Kanal ${row.id}`,
                             channelRowId: Number(row.id),
-                            type: row.productType?.type // ⬅️ استخراج تایپ (0, 1, 2)
+                            type: row.productType?.type
                         });
                     }
                 });

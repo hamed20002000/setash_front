@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Grid, Box, CircularProgress, Alert } from '@mui/material';
 import axios from 'axios';
 import {
@@ -37,6 +38,7 @@ interface DashboardStatsType {
 }
 
 const DashboardStats = () => {
+    const navigate = useNavigate();
     const [stats, setStats] = useState<DashboardStatsType | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -73,66 +75,83 @@ const DashboardStats = () => {
     return (
         <Box>
             <Grid container spacing={3} mb={3}>
-
                 <Grid item xs={12} sm={6} md={2.4}>
-                    <StatCard
-                        title="Personel"
-                        total={stats.all_personnel}
-                        active={stats.active_personnel}
-                        activeLabel="Çalışanlar"
-                        inactiveLabel="Ayrılanlar"
-                        icon={IconUsers}
-                        color="#5D87FF"
-
-                    />
+                    <Box onClick={() => navigate('/hr/personnal/')} sx={{ cursor: 'pointer' }}>
+                        <StatCard
+                            title="Personel"
+                            total={stats.all_personnel}
+                            active={stats.active_personnel}
+                            activeLabel="Çalışanlar"
+                            inactiveLabel="Ayrılanlar"
+                            icon={IconUsers}
+                            color="#5D87FF"
+                        />
+                    </Box>
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={2.4}>
-                    <StatCard
-                        title="Şantiyeler"
-                        total={stats.all_workhouses}
-                        active={stats.active_workhouses}
-                        activeLabel="Aktivler"
-                        inactiveLabel="Kapananlar"
-                        icon={IconBuildingWarehouse}
-                        color="#49BEFF"
-                    />
+
+                    <Box onClick={() => navigate('/workhouse/list-workhouse/')} sx={{ cursor: 'pointer' }}>
+
+
+                        <StatCard
+                            title="Şantiyeler"
+                            total={stats.all_workhouses}
+                            active={stats.active_workhouses}
+                            activeLabel="Aktivler"
+                            inactiveLabel="Kapananlar"
+                            icon={IconBuildingWarehouse}
+                            color="#49BEFF"
+                        />
+                    </Box>
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={2.4}>
-                    <StatCard
-                        title="Projeler"
-                        total={stats.all_projects}
-                        active={stats.active_projects}
-                        activeLabel="Aktivler"
-                        inactiveLabel="Bitenler"
-                        icon={IconTimeline}
-                        color="#13DEB9"
-                    />
+
+                    <Box onClick={() => navigate('/project/list-projects/')} sx={{ cursor: 'pointer' }}>
+                        <StatCard
+                            title="Projeler"
+                            total={stats.all_projects}
+                            active={stats.active_projects}
+                            activeLabel="Aktivler"
+                            inactiveLabel="Bitenler"
+                            icon={IconTimeline}
+                            color="#13DEB9"
+                        />
+                    </Box>
+
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={2.4}>
-                    <StatCard
-                        title="İşler"
-                        total={stats.all_works}
-                        active={stats.active_works}
-                        activeLabel="Aktivler"
-                        inactiveLabel="Bitenler"
-                        icon={IconBriefcase}
-                        color="#FFAE1F"
-                    />
+
+                    <Box onClick={() => navigate('/tender/define-work/')} sx={{ cursor: 'pointer' }}>
+                        <StatCard
+                            title="İşler"
+                            total={stats.all_works}
+                            active={stats.active_works}
+                            activeLabel="Aktivler"
+                            inactiveLabel="Bitenler"
+                            icon={IconBriefcase}
+                            color="#FFAE1F"
+                        />
+                    </Box>
+
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={2.4}>
-                    <StatCard
-                        title="İhaleler"
-                        total={stats.all_tender}
-                        active={stats.accepted_tender}
-                        activeLabel="Aktivler"
-                        inactiveLabel="Red+Bekleyen"
-                        icon={IconGavel}
-                        color="#FA896B"
-                    />
+
+                    <Box onClick={() => navigate('/tender/list-tender')} sx={{ cursor: 'pointer' }}>
+                        <StatCard
+                            title="İhaleler"
+                            total={stats.all_tender}
+                            active={stats.accepted_tender}
+                            activeLabel="Aktivler"
+                            inactiveLabel="Red+Bekleyen"
+                            icon={IconGavel}
+                            color="#FA896B"
+                        />
+                    </Box>
+
                 </Grid>
             </Grid>
 

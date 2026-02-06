@@ -156,7 +156,7 @@ const WorkhouseSalaryStats = () => {
         const cleanVal = val.replace(/[^\d.-]/g, '');
         const numberVal = parseFloat(cleanVal);
         if (isNaN(numberVal)) return val;
-        return numberVal.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return numberVal.toLocaleString('us-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     };
 
     const parseCurrencyToNumber = (val: string) => {
