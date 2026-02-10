@@ -78,6 +78,7 @@ const ListPersonalCourse = Loadable(lazy(() => import('../views/report/concrete-
 const ListTenderFlowReport = Loadable(lazy(() => import('../views/report/concrete-report/ListTenderFlowReport')));
 const ListRollCallsReport = Loadable(lazy(() => import('../views/report/concrete-report/ListRollCallsReport')));
 const ListFinancialState = Loadable(lazy(() => import('../views/report/concrete-report/ListFinancialState')));
+const ListKPIList = Loadable(lazy(() => import('../views/report/concrete-report/ListKPIList')));
 
 
 
@@ -720,6 +721,14 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListFinancialState />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/report/kpi-report/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListKPIList />
           </PermissionGuard>
         )
       },

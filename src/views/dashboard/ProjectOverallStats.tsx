@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
     Box, Grid, Paper, Typography, Stack, IconButton,
-    CircularProgress, Avatar, alpha, useTheme, Tooltip
+    CircularProgress, alpha, useTheme, Tooltip,
+    Avatar
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import axios from 'axios';
@@ -9,13 +10,15 @@ import server from 'src/assets/address.json';
 
 import {
     IconChevronLeft, IconChevronRight, IconLayoutDashboard,
-    IconHash, IconCircleCheck, IconCircleDot, IconPlayerPlay, IconPlayerPause
+    IconHash, IconCircleCheck, IconCircleDot, IconPlayerPlay, IconPlayerPause,
+    IconUser
 } from '@tabler/icons-react';
 
 interface ProjectOverall {
     ProjectId: string;
     ProjectName: string;
     ProjectCode: string;
+    WorkhouseManager: string | null;
     PctOverall: string;
 }
 
@@ -103,8 +106,10 @@ const ProjectOverallStats = () => {
             const authToken = localStorage.getItem('authToken');
             const headers = { Authorization: `Bearer ${authToken}` };
             try {
-                const res = await axios.get(`${server.baseurl}${server.warehouse}get-projects-overall-progress`, { headers });
+                const res = await axios.get(`${server.baseurl}${server.warehouse}get-projects-overall-progress`,
+                    { headers });
                 const data = res.data.data || [];
+                debugger
                 setProjects(data);
                 if (data.length > 0) setSelectedProject(data[0]);
             } catch (error) {
@@ -159,12 +164,33 @@ const ProjectOverallStats = () => {
                     {selectedProject && (
                         <MainCard elevation={0}>
                             <ProgressCircle value={parseFloat(selectedProject.PctOverall || '0')} />
+
                             <Typography variant="h3" fontWeight="800" textAlign="center" gutterBottom>
                                 {selectedProject.ProjectName}
                             </Typography>
-                            <Stack direction="row" spacing={1} alignItems="center" sx={{ opacity: 0.8 }}>
-                                <IconHash size={20} />
-                                <Typography variant="h6">Kod: {selectedProject.ProjectCode}</Typography>
+
+                            <Stack spacing={2} alignItems="center">
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{ opacity: 0.8 }}>
+                                    <IconHash size={20} />
+                                    <Typography variant="h6">Kod: {selectedProject.ProjectCode}</Typography>
+                                </Stack>
+
+                                <Box sx={{
+                                    bgcolor: 'rgba(255, 255, 255, 0.1)',
+                                    padding: '8px 20px',
+                                    borderRadius: '12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 1.5,
+                                    border: '1px solid rgba(255, 255, 255, 0.2)'
+                                }}>
+                                    <Avatar sx={{ bgcolor: 'secondary.main', width: 32, height: 32 }}>
+                                        <IconUser size={18} />
+                                    </Avatar>
+                                    <Typography variant="subtitle1" fontWeight="500">
+                                        {selectedProject.WorkhouseManager || 'Atanmamış'}
+                                    </Typography>
+                                </Box>
                             </Stack>
                         </MainCard>
                     )}

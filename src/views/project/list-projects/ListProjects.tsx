@@ -413,6 +413,7 @@ const ListProjects = () => {
                 params: requestParams
             });
             if (response.data.httpStatusCode === 200) {
+                debugger
                 const projects = response.data.data.map((item: any) => ({
                     ...item,
                     recordStatus: item.recordStatus,

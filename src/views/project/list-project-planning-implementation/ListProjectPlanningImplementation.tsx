@@ -38,6 +38,7 @@ interface Project {
 
 interface ForceMajorType { id: string; title: string; recordStatus: number; }
 
+
 interface ProjectPlanning {
     id: string;
     startDate: string;
@@ -62,6 +63,9 @@ interface ApiResponse<T> {
     message: string;
     data: T;
 }
+
+type DayStatus = "none" | "normal" | "force";
+type DayRow = { date: Date; status: DayStatus; id?: number | null };
 
 const toDateOnly = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const parseISO = (s: string) => new Date(s);
@@ -193,8 +197,6 @@ const DateChip = styled(Chip)(({ theme }) => ({
     marginBottom: theme.spacing(1)
 }));
 
-type DayStatus = "none" | "normal" | "force";
-type DayRow = { date: Date; status: DayStatus; id?: number | null };
 
 const ListProjectPlanningImplementation = () => {
     const navigate = useNavigate();
@@ -285,6 +287,10 @@ const ListProjectPlanningImplementation = () => {
     const [openDownloadModal, setOpenDownloadModal] = useState(false);
 
     const [detailDateId, setDetailDateId] = useState<number | null>(null);
+
+
+    const [rawImplementations, setRawImplementations] = useState<ImplDate[]>([]);
+    const [openHistoryModal, setOpenHistoryModal] = useState(false);
 
     const fetchProjects = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
@@ -394,6 +400,7 @@ const ListProjectPlanningImplementation = () => {
 
             debugger
 
+            setRawImplementations(list);
             const byTime = new Map<number, ImplDate>();
             list.forEach(x => {
                 const t = toDateOnly(parseISO(x.startDate)).getTime();
@@ -422,6 +429,10 @@ const ListProjectPlanningImplementation = () => {
             setDetailDateId(null);
         } finally { setLoading(false); }
     }, [authToken, navigate]);
+
+    const forceMajorHistory = useMemo(() => {
+        return rawImplementations.filter(item => item.forceMajor !== null);
+    }, [rawImplementations]);
 
     useEffect(() => { fetchProjects(); fetchForceMajors(); }, [fetchProjects, fetchForceMajors]);
 
@@ -749,6 +760,18 @@ const ListProjectPlanningImplementation = () => {
                                             />
                                             <Typography variant="body2" >Mücbir Sebep?</Typography>
 
+                                            {forceMajorHistory.length > 0 && (
+                                                <IconButton
+                                                    size="small"
+                                                    color="info"
+                                                    onClick={() => setOpenHistoryModal(true)}
+                                                    sx={{ ml: 1 }}
+                                                    title="Geçmiş Mücbir Sebepleri Görüntüle"
+                                                >
+                                                    <IconReportAnalytics size={20} />
+                                                </IconButton>
+                                            )}
+
                                             {isForceMajor && (
                                                 <>
 
@@ -930,6 +953,35 @@ const ListProjectPlanningImplementation = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenDownloadModal(false)} color="secondary" startIcon={<IconX />}>Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={openHistoryModal} onClose={() => setOpenHistoryModal(false)} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    Mücbir Sebep Geçmişi
+                    <IconButton onClick={() => setOpenHistoryModal(false)}><IconX size={20} /></IconButton>
+                </DialogTitle>
+                <DialogContent dividers>
+                    {forceMajorHistory.length > 0 ? (
+                        <List>
+                            {forceMajorHistory.map((item) => (
+                                <ListItem key={item.id} sx={{ borderBottom: '1px solid #eee' }}>
+                                    <ListItemText
+                                        primary={item.forceMajor?.title}
+                                        secondary={`Tarih: ${fmt(item.startDate)}`}
+                                    />
+                                    <Chip label="Kayıtlı" size="small" color="error" variant="outlined" />
+                                </ListItem>
+                            ))}
+                        </List>
+                    ) : (
+                        <Typography variant="body2" sx={{ p: 2 }}>Kayıtlı mücbir sebep bulunamadi</Typography>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenHistoryModal(false)} variant="contained" color="primary">
+                        Kapat
+                    </Button>
                 </DialogActions>
             </Dialog>
         </>
