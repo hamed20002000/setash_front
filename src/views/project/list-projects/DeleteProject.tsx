@@ -19,7 +19,7 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 type Props = {
     openModal: boolean;
     projectIdToDelete: number | null;
-    projectTitleToDelete: string; // برای نمایش نام پروژه در مودال
+    projectTitleToDelete: string;
     onClose: () => void;
     onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;

@@ -17,7 +17,7 @@ import {
     RadioGroup, FormControlLabel, Radio, FormControl, FormLabel,
     InputAdornment,
     TableSortLabel,
-    TablePagination // ✅ اضافه شده
+    TablePagination
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import "./style.css"
@@ -36,7 +36,6 @@ import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { tr } from 'date-fns/locale';
 
-// --- PDF & Excel Exports ---
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
@@ -45,7 +44,6 @@ import { saveAs } from 'file-saver';
 import Logo from 'src/assets/images/logos/logo.png';
 
 
-// --- STYLES ---
 const visuallyHiddenStyle = {
     border: 0, clip: 'rect(0 0 0 0)', height: '1px', margin: -1,
     overflow: 'hidden', padding: 0, position: 'absolute',
@@ -56,9 +54,6 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans', fontSize: '0.8rem', [theme.breakpoints.up('md')]: { fontSize: '0.9rem', },
     whiteSpace: 'nowrap',
 }));
-
-
-// --- TYPE DEFINITIONS ---
 
 interface WorkhouseType {
     id: number; name: string; code: string; address: string; createAt: string; recordStatus: number;
@@ -104,23 +99,18 @@ interface FilterParams {
     personnelId: number | null;
 }
 
-// --- SORTING HELPERS ---
 type Order = 'asc' | 'desc';
 
 function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
     let aValue: any = a[orderBy];
     let bValue: any = b[orderBy];
 
-    // Sort Numbers
     if (typeof aValue === 'number' && typeof bValue === 'number') {
-        // Standard number comparison
     }
-    // Sort Dates (String ISO format)
     else if (orderBy === 'course_start_date_time' || orderBy === 'class_start_date_time' || orderBy === 'class_end_date_time') {
         aValue = new Date(aValue).getTime();
         bValue = new Date(bValue).getTime();
     }
-    // Sort Strings
     else if (typeof aValue === 'string' && typeof bValue === 'string') {
         aValue = aValue.toLowerCase();
         bValue = bValue.toLowerCase();
@@ -140,8 +130,6 @@ function getComparator<Key extends keyof any>(
         : (a, b) => -descendingComparator(a, b, orderBy);
 }
 
-
-// --- UTILITY FUNCTIONS ---
 const getCurrentYearDates = () => {
     const now = new Date();
     const startOfYear = new Date(now.getFullYear(), 0, 1);
@@ -153,8 +141,6 @@ const getCurrentYearDates = () => {
         endObj: endOfYear,
     };
 };
-
-// --- MODAL FOR SINGLE ROW DETAILS ---
 interface DetailViewModalProps {
     open: boolean;
     onClose: () => void;
@@ -173,7 +159,6 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
             <DialogTitle>{reportTitle}</DialogTitle>
             <DialogContent dividers>
                 <Grid container spacing={2}>
-                    {/* Course Info */}
                     <Grid item xs={12} md={6}>
                         <Typography variant="h6" mb={1} color="primary">Kurs Bilgileri</Typography>
                         <Stack spacing={1}>
@@ -184,7 +169,6 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
                         </Stack>
                     </Grid>
 
-                    {/* Personnel & Dates */}
                     <Grid item xs={12} md={6}>
                         <Typography variant="h6" mb={1} color="success.main">Personel, Şantiye ve Tarihler</Typography>
                         <Stack spacing={1}>
@@ -199,7 +183,6 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
                         </Stack>
                     </Grid>
 
-                    {/* Export Section */}
                     <Grid item xs={12} mt={3}>
                         <Typography variant="h6" mb={1} color="secondary">📥 Bu Kayıt İçin Raporu İndir</Typography>
                         <Stack direction="row" spacing={2}>
@@ -222,27 +205,21 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
     );
 };
 
-
-// --- MAIN COMPONENT ---
 const ListPersonalCourse = () => {
     const navigate = useNavigate();
     const authToken = localStorage.getItem('authToken');
 
-    // --- State Definitions ---
     const { fromDate: defaultFromDateStr, toDate: defaultToDateStr, startObj: initialStartDate, endObj: initialEndDate } = getCurrentYearDates();
 
     const [startDate, setStartDate] = useState<Date | null>(initialStartDate);
     const [endDate, setEndDate] = useState<Date | null>(initialEndDate);
 
-    // Search Term State
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Sort States
     const [order, setOrder] = useState<Order>('desc');
     const [orderBy, setOrderBy] = useState<keyof CoursePersonnelReportRowType>('class_start_date_time');
 
-    // ✅ Client Side Pagination States
-    const [page, setPage] = useState(0); // MUI TablePagination starts at 0
+    const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
 
     const [filterParams, setFilterParams] = useState<FilterParams>({
@@ -250,7 +227,7 @@ const ListPersonalCourse = () => {
         fromDate: defaultFromDateStr,
         toDate: defaultToDateStr,
         page: 1,
-        pageSize: 1000, // ✅ دریافت تعداد بالا برای هندل کردن در کلاینت
+        pageSize: 1000,
         isCenter: 'null',
         teacherId: null,
         personnelId: null,
@@ -261,10 +238,8 @@ const ListPersonalCourse = () => {
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
-    // Dropdown States
     const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
 
-    // Menu/Modal States
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<CoursePersonnelReportRowType | null>(null);
     const openMenu = Boolean(anchorEl);
@@ -284,7 +259,6 @@ const ListPersonalCourse = () => {
         }
     };
 
-    // --- Utility Callbacks ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message); setAlertSeverity(severity);
         setTimeout(() => setAlertMessage(null), 5000);
@@ -320,7 +294,6 @@ const ListPersonalCourse = () => {
         setSelectedReportToDownload(null);
     };
 
-    // --- Data Fetching (Workhouses Dropdown) ---
     const getWorkhousesList = useCallback(async () => {
         const role = localStorage.getItem('activeUserRoleName') || '';
         if (!authToken) { navigate("/"); return; }
@@ -341,7 +314,6 @@ const ListPersonalCourse = () => {
     }, [navigate, authToken, showAlert, handleApiError]);
 
 
-    // --- Main Data Fetching ---
     const fetchCoursePersonnelReportData = useCallback(async () => {
         if (!authToken) { navigate("/"); return; }
 
@@ -353,7 +325,7 @@ const ListPersonalCourse = () => {
             toDate: filterParams.toDate || null,
             center: isCenterParam,
             page: filterParams.page,
-            pageSize: filterParams.pageSize, // ✅ 1000
+            pageSize: filterParams.pageSize,
             teacherId: filterParams.teacherId || null,
             personnelId: filterParams.personnelId || null,
         };
@@ -378,10 +350,6 @@ const ListPersonalCourse = () => {
             setLoadingData(false);
         }
     }, [filterParams, navigate, authToken, showAlert, handleApiError]);
-
-
-    // --- Effects ---
-
     useEffect(() => {
         getWorkhousesList();
     }, [getWorkhousesList]);
@@ -397,8 +365,6 @@ const ListPersonalCourse = () => {
             setFilterParams(prev => ({ ...prev, toDate: format(endDate, 'yyyy-MM-dd'), page: 1 }));
         }
     }, [endDate]);
-
-    // ✨ Auto-Fetch
     useEffect(() => {
         fetchCoursePersonnelReportData();
     }, [
@@ -406,22 +372,18 @@ const ListPersonalCourse = () => {
         filterParams.fromDate,
         filterParams.toDate,
         filterParams.isCenter,
-        // filterParams.page // removed loop dependency
     ]);
 
-    // --- Handlers for Sorting ---
     const handleRequestSort = (property: keyof CoursePersonnelReportRowType) => {
         const isAsc = orderBy === property && order === 'asc';
         setOrder(isAsc ? 'desc' : 'asc');
         setOrderBy(property);
     };
 
-    // ✨ Client-Side Search & Sort Logic
     const filteredReportData = useMemo(() => {
         if (!reportData?.data) return [];
         let data = [...reportData.data];
 
-        // 1. Search Filter
         if (searchTerm) {
             const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
             data = data.filter(row => {
@@ -436,7 +398,6 @@ const ListPersonalCourse = () => {
             });
         }
 
-        // 2. Sort Logic
         if (orderBy) {
             data.sort(getComparator(order, orderBy));
         }
@@ -444,13 +405,11 @@ const ListPersonalCourse = () => {
         return data;
     }, [reportData, searchTerm, order, orderBy]);
 
-    // ✅ Reset page when data/search changes
     useEffect(() => {
         setPage(0);
     }, [searchTerm, filterParams, reportData]);
 
 
-    // ✅ Calculate Visible Rows for Client Side Pagination
     const visibleRows = useMemo(() => {
         return filteredReportData.slice(
             page * rowsPerPage,
@@ -459,7 +418,6 @@ const ListPersonalCourse = () => {
     }, [filteredReportData, page, rowsPerPage]);
 
 
-    // --- Handlers for Pagination ---
     const handleChangePage = (_event: unknown, newPage: number) => {
         setPage(newPage);
     };
@@ -470,7 +428,6 @@ const ListPersonalCourse = () => {
     };
 
 
-    // --- EXPORT HELPERS (PDF/Excel) ---
 
     const addPdfHeader = (doc: jsPDF, title: string) => {
 
@@ -479,10 +436,10 @@ const ListPersonalCourse = () => {
         docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
         const pageWidth = doc.internal.pageSize.getWidth();
-        const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+        const logoWidth = 35;
         const logoHeight = 18;
         const margin = 15;
-        const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+        const logoX = pageWidth - logoWidth - margin;
 
         try {
             doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -492,7 +449,7 @@ const ListPersonalCourse = () => {
 
         doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
-        doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+        doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
         doc.setFontSize(10);
         doc.setFont('NotoSans', 'bold');
@@ -500,8 +457,6 @@ const ListPersonalCourse = () => {
         doc.setFont('NotoSans', 'normal');
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
 
-        // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-        // doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
         doc.line(15, 40, pageWidth - 15, 40);
     };
@@ -619,7 +574,6 @@ const ListPersonalCourse = () => {
         } catch (e: any) { handleApiError(e, 'Excel raporu oluşturulurken bir hata oluştu.'); }
     };
 
-    // ✨ NEW: Fetch All + Apply Client Sort/Search for Export
     const fetchAllFilteredData = useCallback(async () => {
         if (!authToken) { navigate("/"); return null; }
 
@@ -629,7 +583,7 @@ const ListPersonalCourse = () => {
             workhouseId: filterParams.workhouseId || null,
             fromDate: filterParams.fromDate || null,
             toDate: filterParams.toDate || null,
-            isCenter: isCenterParam, // ✅ ارسال string
+            isCenter: isCenterParam,
             page: 1,
             pageSize: 10000,
             teacherId: filterParams.teacherId || null,
@@ -645,7 +599,6 @@ const ListPersonalCourse = () => {
             if (response.data.httpStatusCode === 200 && response.data.data) {
                 let allData = response.data.data.data as CoursePersonnelReportRowType[];
 
-                // 1. Search Filter
                 if (searchTerm) {
                     const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
                     allData = allData.filter(row => {
@@ -660,7 +613,6 @@ const ListPersonalCourse = () => {
                     });
                 }
 
-                // 2. Sort Logic
                 if (orderBy) {
                     allData.sort(getComparator(order, orderBy));
                 }
@@ -676,7 +628,6 @@ const ListPersonalCourse = () => {
     }, [filterParams, navigate, authToken, searchTerm, order, orderBy, showAlert, handleApiError]);
 
 
-    // 3. Export PDF All (Global)
     const handleExportPdfAll = async () => {
         showAlert('Genel PDF raporu hazırlanıyor, lütfen bekleyin...', 'info');
 
@@ -718,7 +669,6 @@ const ListPersonalCourse = () => {
         } catch (e) { handleApiError(e, 'Genel PDF raporu oluşturulurken bir hata oluştu.'); }
     };
 
-    // 4. Export Excel All (Global)
     const handleExportExcelAll = async () => {
         showAlert('Genel Excel raporu hazırlanıyor, lütfen bekleyin...', 'info');
 
@@ -791,12 +741,10 @@ const ListPersonalCourse = () => {
 
             {alertMessage && (<Stack sx={{ width: '100%', mb: 3 }} spacing={2}><Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert></Stack>)}
 
-            {/* --- Filter Section --- */}
             <BlankCard sx={{ mb: 5, p: 3 }}>
                 <Typography variant="h6" mb={2} p={2}>Filtreleme</Typography>
                 <Grid container spacing={3} p={2}>
 
-                    {/* Workhouse (Şantiye) */}
                     <Grid item xs={12} sm={6} md={6}>
                         <Autocomplete
                             id="workhouse-select"
@@ -809,7 +757,6 @@ const ListPersonalCourse = () => {
                         />
                     </Grid>
 
-                    {/* Center Filter (Radio Buttons) */}
                     <Grid item xs={12} sm={6} md={6}>
                         <FormControl component="fieldset" fullWidth>
                             <FormLabel component="legend" sx={{ fontSize: '0.875rem' }}>Merkez Durumu</FormLabel>
@@ -826,7 +773,6 @@ const ListPersonalCourse = () => {
                         </FormControl>
                     </Grid>
 
-                    {/* From Date - DatePicker */}
                     <Grid item xs={12} sm={6} md={6}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <DatePicker
@@ -840,7 +786,6 @@ const ListPersonalCourse = () => {
                                         fullWidth
                                         size="small"
                                         InputLabelProps={{ shrink: true }}
-                                        // جلوگیری از تایپ دستی
                                         onKeyDown={(e) => e.preventDefault()}
                                         InputProps={{
                                             ...params.InputProps,
@@ -849,8 +794,8 @@ const ListPersonalCourse = () => {
                                                     <IconButton
                                                         size="small"
                                                         onClick={(e) => {
-                                                            e.stopPropagation(); // جلوگیری از باز شدن تقویم هنگام کلیک روی ضربدر
-                                                            setStartDate(initialStartDate); // بازگشت به تاریخ پیش‌فرض ابتدای سال
+                                                            e.stopPropagation();
+                                                            setStartDate(initialStartDate);
                                                         }}
                                                         sx={{ marginRight: -1 }}
                                                     >
@@ -866,7 +811,6 @@ const ListPersonalCourse = () => {
                         </LocalizationProvider>
                     </Grid>
 
-                    {/* To Date - DatePicker */}
                     <Grid item xs={12} sm={6} md={6}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <DatePicker
@@ -880,7 +824,6 @@ const ListPersonalCourse = () => {
                                         fullWidth
                                         size="small"
                                         InputLabelProps={{ shrink: true }}
-                                        // جلوگیری از تایپ دستی
                                         onKeyDown={(e) => e.preventDefault()}
                                         InputProps={{
                                             ...params.InputProps,
@@ -890,7 +833,7 @@ const ListPersonalCourse = () => {
                                                         size="small"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            setEndDate(initialEndDate); // بازگشت به تاریخ پیش‌فرض انتهای سال
+                                                            setEndDate(initialEndDate);
                                                         }}
                                                         sx={{ marginRight: -1 }}
                                                     >
@@ -907,7 +850,6 @@ const ListPersonalCourse = () => {
                     </Grid>
                 </Grid>
 
-                {/* Search Button & Export Buttons */}
                 <Box sx={{ p: 2, mt: 1 }}>
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} md={6}>
@@ -932,7 +874,6 @@ const ListPersonalCourse = () => {
 
             <Box sx={{ margin: "20px 0" }}></Box>
 
-            {/* --- Data Table --- */}
             <BlankCard>
                 <TableContainer sx={{ overflowX: 'auto', mt: "3" }}>
                     <Table aria-label="course personnel report table">
@@ -963,7 +904,6 @@ const ListPersonalCourse = () => {
                             {loadingData ? (
                                 <TableRow><StyledTableCell colSpan={tableHeaders.length + 1} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>
                             ) : visibleRows.length ? (
-                                // ✅ استفاده از visibleRows برای نمایش دیتا (برش خورده)
                                 visibleRows.map((row, index) => (
                                     <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                         <StyledTableCell>{row.workhouse_name}</StyledTableCell>
@@ -973,7 +913,6 @@ const ListPersonalCourse = () => {
                                         <StyledTableCell>{format(new Date(row.class_start_date_time), 'dd/MM/yyyy HH:mm')}</StyledTableCell>
                                         <StyledTableCell>{row.personnel_name}</StyledTableCell>
 
-                                        {/* Actions Column (Menu) */}
                                         <StyledTableCell>
                                             <Tooltip title="Detaylar ve İşlemler">
                                                 <IconButton
@@ -1017,7 +956,7 @@ const ListPersonalCourse = () => {
                         <TablePagination
                             rowsPerPageOptions={[5, 10, 25, 50, 100]}
                             component="div"
-                            count={filteredReportData.length} // تعداد کل دیتای فیلتر/جستجو شده
+                            count={filteredReportData.length}
                             rowsPerPage={rowsPerPage}
                             page={page}
                             onPageChange={handleChangePage}
@@ -1031,8 +970,6 @@ const ListPersonalCourse = () => {
                 </>
 
             </BlankCard>
-
-            {/* --- Modal --- */}
             <DetailViewModal
                 open={openDetailViewModal} onClose={handleCloseDetailViewModal}
                 report={selectedReportToDownload} onExportExcel={handleExportExcelSingle} onExportPdf={handleExportPdfSingle}

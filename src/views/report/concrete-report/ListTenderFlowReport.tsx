@@ -16,8 +16,8 @@ import {
     MenuItem,
     InputAdornment,
     TableSortLabel,
-    TablePagination, // ✅ اضافه شده
-    TableFooter // ✅ اضافه شده
+    TablePagination,
+    TableFooter
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -31,7 +31,6 @@ import BlankCard from '../../../components/shared/BlankCard';
 import { format } from 'date-fns';
 
 import "./style.css"
-// --- PDF & Excel Exports ---
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
@@ -39,8 +38,6 @@ import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 import Logo from 'src/assets/images/logos/logo.png';
 
-
-// --- STYLES ---
 const visuallyHiddenStyle = {
     border: 0, clip: 'rect(0 0 0 0)', height: '1px', margin: -1,
     overflow: 'hidden', padding: 0, position: 'absolute',
@@ -53,8 +50,6 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     [theme.breakpoints.up('md')]: { fontSize: '0.9rem', }, whiteSpace: 'nowrap',
 }));
 
-
-// --- TYPE DEFINITIONS ---
 
 type RecordStatus = 0 | 1 | 2;
 
@@ -129,7 +124,7 @@ interface APIResponseData {
     totalCount: number;
     totalDemontaj: number;
     totalMontaj: number;
-    totalDemontajMontaj: number; // Sum 3
+    totalDemontajMontaj: number;
     page: number;
     pageSize: number;
     totalPages: number;
@@ -145,7 +140,6 @@ interface FilterParams {
     pageSize: number;
 }
 
-// --- UTILITY FUNCTIONS ---
 const parseNumberFromString = (value: string | number | null): number => {
     if (value === null) return 0;
     if (typeof value === 'number') return value;
@@ -153,12 +147,6 @@ const parseNumberFromString = (value: string | number | null): number => {
     const parsed = parseFloat(cleanedValue);
     return isNaN(parsed) ? 0 : parsed;
 };
-
-// const formatPriceDisplay = (priceString: string | number | null): string => {
-//     const price = parseNumberFromString(priceString);
-//     return price.toLocaleString('us-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-// };
-
 
 const formatPriceDisplay = (value: string | number | undefined | null): string => {
     if (value === null || value === undefined) return '0,00';
@@ -180,7 +168,6 @@ const formatDateDisplay = (dateString: string | null | undefined): string => {
     }
 };
 
-// --- SORTING HELPERS ---
 type Order = 'asc' | 'desc';
 
 function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
@@ -215,7 +202,6 @@ function getComparator<Key extends keyof any>(
 }
 
 
-// --- MODAL ---
 interface DetailViewModalProps {
     open: boolean;
     onClose: () => void;
@@ -235,25 +221,19 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
             <DialogTitle>{reportTitle}</DialogTitle>
             <DialogContent dividers>
                 <Grid container spacing={3}>
-                    {/* Sütun 1: İhale ve İş Bilgileri */}
                     <Grid item xs={12} md={6}>
                         <Typography variant="h6" mb={1} color="primary">İhale ve İş Bilgileri</Typography>
                         <Stack spacing={1}>
                             <TextField label="İhale Adı" size="small" fullWidth value={report.ihaleTitle} disabled />
                             <TextField label="İhale Kategori" size="small" fullWidth value={report.ihaleCategory} disabled />
-                            {/* <TextField label="İş Adı" size="small" fullWidth value={report.work_name} disabled /> */}
-                            {/* <TextField label="Ağ Başlığı" size="small" fullWidth value={report.network_title} disabled /> */}
                             <TextField label="İhale Kategori ID" size="small" fullWidth value={report.itemId} disabled />
-                            {/* <TextField label="İş ID" size="small" fullWidth value={report.work_id} disabled /> */}
                         </Stack>
                     </Grid>
 
-                    {/* Sütun 2: Miktar ve Fiyatlar */}
                     <Grid item xs={12} md={6}>
                         <Typography variant="h6" mb={1} color="warning.main">Miktar ve Fiyatlar</Typography>
                         <Stack spacing={1}>
                             <TextField label="Ürün Adı" size="small" fullWidth value={report.itmName} disabled />
-                            {/* <TextField label="Birim" size="small" fullWidth value={report.unit} disabled /> */}
                             <TextField label="Toplam Miktar (Makbuz)" size="small" fullWidth value={formatPriceDisplay(report.qty)} disabled />
                             <TextField label="Demontaj Miktarı (Net)" size="small" fullWidth value={formatPriceDisplay(report.demontaj)} disabled />
                             <TextField label="Demontaj+Montaj Miktarı" size="small" fullWidth value={formatPriceDisplay(report.demontajMontaj)} disabled />
@@ -263,39 +243,6 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
                         </Stack>
                     </Grid>
 
-                    {/* Sütun 3: Sipariş و فاکتور (Fatura) */}
-                    {/* <Grid item xs={12} md={3}> */}
-                    {/* <Typography variant="h6" mb={1} color="info">Sipariş ve Fatura Bilgileri</Typography>
-                        <Stack spacing={1}> */}
-                    {/* <TextField label="Sipariş No" size="small" fullWidth value={report.order_no} disabled /> */}
-                    {/* <TextField label="Sipariş Tarihi" size="small" fullWidth value={formatDateDisplay(report.order_date)} disabled /> */}
-                    {/* <TextField label="Sipariş Ürün ID" size="small" fullWidth value={report.order_item_id} disabled /> */}
-                    {/* <TextField label="Sipariş Miktarı" size="small" fullWidth value={formatPriceDisplay(report.order_qty)} disabled /> */}
-                    {/* <TextField label="Fatura No" size="small" fullWidth value={report.invoice_no} disabled /> */}
-                    {/* <TextField label="Fatura Tarihi" size="small" fullWidth value={formatDateDisplay(report.invoice_date)} disabled /> */}
-                    {/* <TextField label="Fatura Ürün ID" size="small" fullWidth value={report.invoice_itemid} disabled /> */}
-                    {/* <TextField label="Fatura Fiyatı" size="small" fullWidth value={formatPriceDisplay(report.invoice_price)} disabled /> */}
-                    {/* <TextField label="Fatura Miktarı" size="small" fullWidth value={formatPriceDisplay(report.invoice_qty)} disabled /> */}
-                    {/* </Stack>
-                    </Grid> */}
-
-                    {/* Sütun 4: انبار ( Depo) و Sevk Akışı */}
-                    {/* <Grid item xs={12} md={3}>
-                        <Typography variant="h6" mb={1} color="success.main"> Depo ve Sevk Akışı</Typography>
-                        <Stack spacing={1}>
-                            <TextField label="Şantiye Adı" size="small" fullWidth value={`${report.workhouse_name} (${report.workhouse_code})`} disabled />
-                            <TextField label=" Depo Adı" size="small" fullWidth value={`${report.warehouse_name} (${report.warehouse_code})`} disabled />
-                            <TextField label=" Depo Sevk Kodu" size="small" fullWidth value={report.warhouse_dispatch_code} disabled />
-                            <TextField label=" Depo Sevk Tarihi" size="small" fullWidth value={formatDateDisplay(report.warhouse_dispatch_date)} disabled />
-                            <TextField label=" Depo Sevk Miktarı" size="small" fullWidth value={formatPriceDisplay(report.warhouse_dispatch_qty)} disabled />
-                            <TextField label=" Depo Makbuz Kodu" size="small" fullWidth value={report.store_receipt_code} disabled />
-                            <TextField label=" Depo Makbuz Tarihi" size="small" fullWidth value={formatDateDisplay(report.store_receipt_date)} disabled />
-                            <TextField label=" Depo Makbuz Miktarı" size="small" fullWidth value={formatPriceDisplay(report.store_receipt_qty)} disabled />
-                            <TextField label=" Depo Stok Adı" size="small" fullWidth value={`${report.store_name} (${report.store_code})`} disabled />
-                        </Stack>
-                    </Grid> */}
-
-                    {/* Export Section */}
                     <Grid item xs={12} mt={3}>
                         <Typography variant="h6" mb={1} color="secondary">📥 Raporu İndir</Typography>
                         <Stack direction="row" spacing={2}>
@@ -319,9 +266,6 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
 };
 
 
-
-
-// --- MAIN COMPONENT ---
 const ListTenderFlowReport = () => {
     const navigate = useNavigate();
     const authToken = localStorage.getItem('authToken');
@@ -330,12 +274,11 @@ const ListTenderFlowReport = () => {
     const [order, setOrder] = useState<Order>('asc');
     const [orderBy, setOrderBy] = useState<keyof TenderFlowReportRowType>('ihaleTitle');
 
-    // ✅ Client Side Pagination States
-    const [page, setPage] = useState(0); // MUI TablePagination starts at 0
+    const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
 
     const [filterParams, setFilterParams] = useState<FilterParams>({
-        tenderId: null, itemId: null, workhouseId: null, page: 1, pageSize: 1000, // ✅ دریافت 1000 تایی
+        tenderId: null, itemId: null, workhouseId: null, page: 1, pageSize: 1000,
     });
 
     const [reportData, setReportData] = useState<APIResponseData | null>(null);
@@ -443,7 +386,7 @@ const ListTenderFlowReport = () => {
             itemId: filterParams.itemId || null,
             workhouseId: filterParams.workhouseId || null,
             page: filterParams.page,
-            pageSize: filterParams.pageSize, // 1000
+            pageSize: filterParams.pageSize,
         };
         setLoadingData(true);
         try {
@@ -470,8 +413,6 @@ const ListTenderFlowReport = () => {
     useEffect(() => { getListTender(); getItemsList(); getWorkhousesList(); }, [getListTender, getItemsList, getWorkhousesList]);
     useEffect(() => { fetchTenderFlowReportData(); }, [filterParams.tenderId, filterParams.itemId, filterParams.workhouseId]);
 
-
-    // --- Client Side Handlers ---
     const handlePageChange = (_event: unknown, newPage: number) => {
         setPage(newPage);
     };
@@ -487,7 +428,6 @@ const ListTenderFlowReport = () => {
         setOrderBy(property);
     };
 
-    // --- Filter & Sort Logic ---
     const filteredReportData = useMemo(() => {
         if (!reportData?.data) return [];
         let data = [...reportData.data];
@@ -504,12 +444,10 @@ const ListTenderFlowReport = () => {
         return data;
     }, [reportData, searchTerm, order, orderBy]);
 
-    // --- Reset page on search ---
     useEffect(() => {
         setPage(0);
     }, [searchTerm, filterParams, reportData]);
 
-    // --- Visible Rows for Client Side Pagination ---
     const visibleRows = useMemo(() => {
         return filteredReportData.slice(
             page * rowsPerPage,
@@ -517,22 +455,13 @@ const ListTenderFlowReport = () => {
         );
     }, [filteredReportData, page, rowsPerPage]);
 
-
-    // ✅✅✅ Calculate Totals (Dynamic based on Filter) ✅✅✅
     const calculatedTotals = useMemo(() => {
         if (!filteredReportData) return { totalDemontaj: 0, totalMontaj: 0, totalDemontajMontaj: 0 };
 
         return filteredReportData.reduce((acc, row) => {
-            // طبق خواسته شما:
-            // totalDemontaj = جمع DemontajPrice
             acc.totalDemontaj += parseNumberFromString(row.demontajPrice);
-
-            // totalMontaj = جمع MontajPrice
             acc.totalMontaj += parseNumberFromString(row.montajPrice);
-
-            // totalDemontajMontaj = جمع DemontajMontajPrice
             acc.totalDemontajMontaj += parseNumberFromString(row.demontajMontajPrice);
-
             return acc;
         }, { totalDemontaj: 0, totalMontaj: 0, totalDemontajMontaj: 0 });
     }, [filteredReportData]);
@@ -545,10 +474,10 @@ const ListTenderFlowReport = () => {
         docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
         const pageWidth = doc.internal.pageSize.getWidth();
-        const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+        const logoWidth = 35;
         const logoHeight = 18;
         const margin = 15;
-        const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+        const logoX = pageWidth - logoWidth - margin;
 
         try {
             doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -558,7 +487,7 @@ const ListTenderFlowReport = () => {
 
         doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
-        doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+        doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
         doc.setFontSize(10);
         doc.setFont('NotoSans', 'bold');
@@ -566,8 +495,6 @@ const ListTenderFlowReport = () => {
         doc.setFont('NotoSans', 'normal');
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
 
-        // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-        // doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
         doc.line(15, 40, pageWidth - 15, 40);
     };
@@ -636,31 +563,7 @@ const ListTenderFlowReport = () => {
         } catch (e: any) { handleApiError(e, 'Excel raporu oluşturulurken bir hata oluştu.'); }
     };
 
-    // const fetchAllFilteredData = useCallback(async () => {
-    //     if (!authToken) { navigate("/"); return null; }
-    //     const requestParams = { tenderId: filterParams.tenderId || null, itemId: filterParams.itemId || null, workhouseId: filterParams.workhouseId || null, page: 1, pageSize: 10000, };
-    //     try {
-    //         const response = await axios.get(server.baseurl + server.report + `get-tender-flow-report-data`, { headers: { "Authorization": `Bearer ${authToken}` }, params: requestParams });
-    //         if (response.data.success && response.data.data) {
-    //             let allData = response.data.data.data as TenderFlowReportRowType[];
-    //             const totals = { totalDemontaj: response.data.data.totalDemontaj, totalMontaj: response.data.data.totalMontaj, totalDemontajMontaj: response.data.data.totalDemontajMontaj };
-    //             if (searchTerm) {
-    //                 const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
-    //                 allData = allData.filter(row => {
-    //                     const columnsToSearch = [row.ihale_title, row.workhouse_name];
-    //                     return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
-    //                 });
-    //             }
-    //             if (orderBy) { allData.sort(getComparator(order, orderBy)); }
-    //             return { data: allData, ...totals };
-    //         }
-    //         showAlert('Dışa aktarılacak veri bulunamadı.', 'error'); return null;
-    //     } catch (e: any) { handleApiError(e, 'Veri alınırken hata oluştu.'); return null; }
-    // }, [filterParams, navigate, authToken, searchTerm, order, orderBy, showAlert, handleApiError]);
-
-
-    const handleExportPdfAll = () => { // نیازی به async نیست چون دیتا در حافظه موجود است
-        // ۱. استفاده مستقیم از دیتای فیلتر شده (همان چیزی که در جدول میبینید)
+    const handleExportPdfAll = () => {
         const dataToExport = filteredReportData;
 
         if (!dataToExport || dataToExport.length === 0) {
@@ -673,19 +576,17 @@ const ListTenderFlowReport = () => {
         try {
             const doc = new jsPDF('landscape', 'pt', 'a4');
 
-            // تنظیمات فونت
             (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
             (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
             doc.setFont("NotoSans", "normal");
 
             addPdfHeader(doc, "İhale Akış Genel Raporu");
 
-            // اضافه کردن ستون "Ürün Adı" برای هماهنگی کامل با جدول
             const tableColumn = ["İhale", "Ürün Adı", "Top. Miktar", "Demontaj", "Dem/Mon", "D+M Fiyat", "Dem Tutarı", "Mon Fiyat", "Dem Fiyat"];
 
             const tableRows = dataToExport.map(row => [
                 row.ihaleTitle,
-                row.itmName, // اضافه شد
+                row.itmName,
                 parseNumberFromString(row.qty).toLocaleString('us-US'),
                 parseNumberFromString(row.demontaj).toLocaleString('us-US'),
                 parseNumberFromString(row.demontajMontaj).toLocaleString('us-US'),
@@ -703,7 +604,6 @@ const ListTenderFlowReport = () => {
                 theme: 'striped',
                 styles: { font: 'NotoSans', fontStyle: "normal", fontSize: 7, cellPadding: 3 },
                 headStyles: { fillColor: [30, 100, 120], textColor: 255 },
-                // استفاده از محاسبات داینامیک calculatedTotals برای فوتر PDF
                 foot: [[
                     'TOPLAM:',
                     '',
@@ -729,7 +629,6 @@ const ListTenderFlowReport = () => {
     };
 
     const handleExportExcelAll = async () => {
-        // ۱. مستقیماً از داده‌های فیلتر شده که در جدول می‌بینید استفاده می‌کنیم
         const dataToExport = filteredReportData;
 
         if (!dataToExport || dataToExport.length === 0) {
@@ -745,12 +644,10 @@ const ListTenderFlowReport = () => {
 
             const headerRowData = ["İhale", "Ürün Adı", "Toplam Miktar", "Demontaj", "DemontajMontaj", "DemontajMontajPrice", "DemontajTutari", "MontajPrice", "DemontajPrice"];
 
-            // عنوان گزارش
             sheet.addRow(["İhale Akış Genel Raporu"]);
-            sheet.mergeCells('A1:J1'); // چون یک ستون (Ürün Adı) اضافه کردیم، تا J ادغام شد
+            sheet.mergeCells('A1:J1');
             sheet.getRow(1).font = { bold: true, size: 14 };
 
-            // ردیف اطلاعات کلی (استفاده از calculatedTotals که در useMemo محاسبه شده)
             sheet.addRow([
                 `Toplam Kayıt: ${dataToExport.length}`,
                 "",
@@ -761,9 +658,8 @@ const ListTenderFlowReport = () => {
                 `Top. Montaj: ${calculatedTotals.totalMontaj.toLocaleString()}`
             ]);
             sheet.getRow(2).font = { bold: true, color: { argb: 'FFBF00' } };
-            sheet.addRow([]); // ردیف خالی برای فاصله
+            sheet.addRow([]);
 
-            // هدر جدول
             const headerRow = sheet.addRow(headerRowData);
             headerRow.eachCell((cell) => {
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC0E6F0' } };
@@ -771,11 +667,10 @@ const ListTenderFlowReport = () => {
                 cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
             });
 
-            // افزودن داده‌ها
             dataToExport.forEach(row => {
                 const newRow = sheet.addRow([
                     row.ihaleTitle,
-                    row.itmName, // اضافه شدن نام محصول به اکسل
+                    row.itmName,
                     parseNumberFromString(row.qty),
                     parseNumberFromString(row.demontaj),
                     parseNumberFromString(row.demontajMontaj),
@@ -785,16 +680,14 @@ const ListTenderFlowReport = () => {
                     parseNumberFromString(row.demontajPrice),
                 ]);
 
-                // فرمت‌بندی اعداد و حذف علامت $ (سه رقم سه رقم جدا کردن)
-                [4, 5, 6].forEach(idx => newRow.getCell(idx).numFmt = '#,##0.00'); // مقادیر کمی
-                [7, 8, 9, 10].forEach(idx => newRow.getCell(idx).numFmt = '#,##0.00'); // مقادیر پولی (بدون $)
+                [4, 5, 6].forEach(idx => newRow.getCell(idx).numFmt = '#,##0.00');
+                [7, 8, 9, 10].forEach(idx => newRow.getCell(idx).numFmt = '#,##0.00');
 
                 newRow.eachCell((cell) => {
                     cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
                 });
             });
 
-            // تنظیم عرض ستون‌ها
             sheet.columns.forEach((column, index) => {
                 column.width = index < 3 ? 30 : 15;
             });
@@ -810,16 +703,16 @@ const ListTenderFlowReport = () => {
 
     const tableHeaders: { label: string; key: keyof TenderFlowReportRowType | 'actions' }[] = [
         { label: 'İhale Başlığı', key: 'ihaleTitle' },
-        { label: 'Ürün Adı', key: 'itmName' },         // نام کارگاه/سایت
-        { label: 'Top. Miktar', key: 'qty' },               // مقدار کل
-        { label: 'Demontaj Miktarı', key: 'demontaj' },          // مقدار دمونتاژ
+        { label: 'Ürün Adı', key: 'itmName' },
+        { label: 'Top. Miktar', key: 'qty' },
+        { label: 'Demontaj Miktarı', key: 'demontaj' },
         { label: 'D+M Miktarı', key: 'demontajMontaj' },
-        { label: 'Demontaj Tutarı', key: 'demontajTutari' },      // مقدار دمونتاژ + مونتاژ (مخفف D+M)
+        { label: 'Demontaj Tutarı', key: 'demontajTutari' },
         { label: 'D+M Fiyatı', key: 'demontajMontajPrice' },
 
-        { label: 'Montaj Fiyatı', key: 'montajPrice' },          // مبلغ مونتاژ
-        { label: 'Demontaj Fiyatı', key: 'demontajPrice' },      // قیمت واحد دمونتاژ
-        { label: 'İşlemler', key: 'actions' },                   // عملیات
+        { label: 'Montaj Fiyatı', key: 'montajPrice' },
+        { label: 'Demontaj Fiyatı', key: 'demontajPrice' },
+        { label: 'İşlemler', key: 'actions' },
     ];
 
 
@@ -875,7 +768,6 @@ const ListTenderFlowReport = () => {
                         </TableHead>
                         <TableBody>
                             {loadingData ? (<TableRow><StyledTableCell colSpan={tableHeaders.length} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>) : visibleRows.length ? (
-                                // ✅ فقط ردیف‌های برش خورده نمایش داده شوند
                                 visibleRows.map((row, index) => (
                                     <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                         <StyledTableCell>{row.ihaleTitle}</StyledTableCell>
@@ -883,16 +775,11 @@ const ListTenderFlowReport = () => {
                                         <StyledTableCell>{row.itmName}</StyledTableCell>
                                         <StyledTableCell>{parseNumberFromString(row.qty)}</StyledTableCell>
 
-
-
-                                        {/* مقدار دمونتاژ */}
                                         <StyledTableCell>
                                             {parseNumberFromString(row.demontaj).toLocaleString('us-US', {
                                                 maximumFractionDigits: 0
                                             })}
                                         </StyledTableCell>
-
-                                        {/* مقدار D+M */}
                                         <StyledTableCell>
                                             {parseNumberFromString(row.demontajMontaj).toLocaleString('us-US', {
                                                 maximumFractionDigits: 0
@@ -916,7 +803,6 @@ const ListTenderFlowReport = () => {
                             ) : (<TableRow><StyledTableCell colSpan={tableHeaders.length} align="center"><Typography variant="subtitle1" color="textSecondary" sx={{ my: 2 }}>Filtrelenen kritere uygun ihale akış raporu bulunamadı.</Typography></StyledTableCell></TableRow>)}
                         </TableBody>
 
-                        {/* ✅ Footer با مقادیر محاسبه شده داینامیک */}
                         {reportData && (
                             <TableFooter>
                                 <TableRow>
@@ -944,7 +830,7 @@ const ListTenderFlowReport = () => {
                         <TablePagination
                             rowsPerPageOptions={[5, 10, 25, 50, 100]}
                             component="div"
-                            count={filteredReportData.length} // تعداد کل دیتای فیلتر/جستجو شده
+                            count={filteredReportData.length}
                             rowsPerPage={rowsPerPage}
                             page={page}
                             onPageChange={handlePageChange}

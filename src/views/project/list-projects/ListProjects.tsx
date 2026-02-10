@@ -46,11 +46,10 @@ import DeleteProject from './DeleteProject';
 
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    fontFamily: 'NotoSans',
+    fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: {
-        fontSize: '1rem', // Masaüstünde daha büyük
+        fontSize: '1rem',
     },
 }));
 
@@ -87,7 +86,6 @@ interface ProjectType {
 }
 type SortableProjectKeys = keyof Pick<ProjectType, 'title' | 'code' | 'startDate' | 'predictEndDate' | 'recordStatus'>;
 
-// === Styled Components ===
 const blinkAnimation = keyframes`
     0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
     50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
@@ -111,7 +109,6 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
     },
 }));
 
-// === Utility Functions ===
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "-";
     try {
@@ -153,11 +150,10 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
-
+    const logoX = pageWidth - logoWidth - margin;
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
     } catch (e) {
@@ -174,8 +170,6 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     doc.setFont('NotoSans', 'normal');
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -262,7 +256,6 @@ const ListProjects = () => {
     const idsSet = new Set<number>(notifIds);
 
 
-    // States for Project Form
     const [title, setTitle] = useState<string>('');
     const [code, setCode] = useState<string>('');
     const [type, setType] = useState<0 | 1 | 2>(0);
@@ -274,13 +267,11 @@ const ListProjects = () => {
     const [selectedWorkhouseId, setSelectedWorkhouseId] = useState<number | null>(null);
     const [selectedFirmId, setSelectedFirmId] = useState<number | null>(null);
 
-    // States for Lists
     const [projectsList, setProjectsList] = useState<ProjectType[]>([]);
     const [displayedProjects, setDisplayedProjects] = useState<ProjectType[]>([]);
     const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
     const [firmsList, setFirmsList] = useState<FirmType[]>([]);
 
-    // UI States
     const [editingId, setEditingId] = useState<number | null>(null);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
@@ -293,7 +284,6 @@ const ListProjects = () => {
     const [endProjectDate, setEndProjectDate] = useState<Date | null>(null);
     const [endProjectError, setEndProjectError] = useState(false);
 
-    // Table States
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
@@ -301,24 +291,20 @@ const ListProjects = () => {
     const [orderBy, setOrderBy] = useState<SortableProjectKeys>('startDate');
     const [order, setOrder] = useState<'asc' | 'desc'>('desc');
 
-    // Menu & Modals
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<ProjectType | null>(null);
 
-    // const openMenu = Boolean(anchorEl);
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
     const [projectIdToDelete, setProjectIdToDelete] = useState<number | null>(null);
     const [projectTitleToDelete, setProjectTitleToDelete] = useState<string>('');
     const [openFirmManagementModal, setOpenFirmManagementModal] = useState(false);
 
-    // Error States
     const [titleError, setTitleError] = useState(false);
     const [codeError, setCodeError] = useState(false);
     const [startDateError, setStartDateError] = useState(false);
     const [predictEndDateError, setPredictEndDateError] = useState(false);
     const [workhouseIdError, setWorkhouseIdError] = useState(false);
 
-    // ✨ NEW: State for download modals
     const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
     const [openDownloadFilteredModal, setOpenDownloadFilteredModal] = useState(false);
     const [openRowDownloadModal, setOpenRowDownloadModal] = useState(false);
@@ -326,19 +312,15 @@ const ListProjects = () => {
 
 
     const [isFilterActive, setIsFilterActive] = useState(false);
-    // Contexts & Refs
     const { isTooltipGloballyEnabled } = useTooltip();
-    // const { allowedOperations } = useAuth();
     const titleInputRef = useRef<HTMLInputElement>(null);
 
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -347,24 +329,18 @@ const ListProjects = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -376,9 +352,6 @@ const ListProjects = () => {
     const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
-
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
-
 
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -394,7 +367,6 @@ const ListProjects = () => {
         setOrderBy(property);
         setPage(0);
     };
-    // API Calls
     const fetchProjects = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -413,7 +385,6 @@ const ListProjects = () => {
                 params: requestParams
             });
             if (response.data.httpStatusCode === 200) {
-                debugger
                 const projects = response.data.data.map((item: any) => ({
                     ...item,
                     recordStatus: item.recordStatus,
@@ -497,7 +468,6 @@ const ListProjects = () => {
         fetchFirms();
     }, [fetchProjects, fetchWorkhouses, fetchFirms]);
 
-    // Filtering, Sorting, and Pagination Logic
     useEffect(() => {
         const hasSearch = searchTerm.trim() !== '';
         const hasStatusFilter = statusFilter !== 'all';
@@ -519,7 +489,6 @@ const ListProjects = () => {
                 (!filterStartDate || createDate >= filterStartDate) &&
                 (!filterEndDate || createDate <= filterEndDate);
 
-            // ⬅️ شرط جدید: اگر notifIds ارسال شده باشد، فقط ردیف‌هایی که idشان در لیست است بمانند
             const matchesNotifIds = !hasIdsFilter || idsSet.has(Number(proj.id));
 
             return matchesSearch && matchesStatus && matchesDate && matchesNotifIds;
@@ -528,7 +497,6 @@ const ListProjects = () => {
         const sortedData = stableSort(filteredBySearchAndStatus, getComparator(order, orderBy));
         setDisplayedProjects(sortedData);
         setPage(0);
-        // }, [projectsList, searchTerm, statusFilter, order, orderBy, filterStartDate, filterEndDate]);
     }, [projectsList, searchTerm, statusFilter, order, orderBy, filterStartDate, filterEndDate, notifIds]);
 
 
@@ -558,7 +526,6 @@ const ListProjects = () => {
         return displayedProjects.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
     }, [displayedProjects, page, rowsPerPage]);
 
-    // Form Handlers
     const validateForm = (): boolean => {
         let isValid = true;
         const isTitleValid = !!title.trim();
@@ -579,7 +546,6 @@ const ListProjects = () => {
         isValid = isTitleValid && isCodeValid && isStartDateValid && isPredictEndDateValid && isWorkhouseIdValid && isDateRangeValid;
         if (!isValid) {
             if (!isDateRangeValid) {
-                // Do nothing, the specific error is already shown.
             } else {
                 showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning');
             }
@@ -729,16 +695,12 @@ const ListProjects = () => {
         }
     };
 
-
-    // ListProjects.tsx - در کنار سایر توابع submit/edit (حدود خط 560)
     const submitEndProject = async () => {
         if (!selectedProjectForDownload || !endProjectDate) {
             setEndProjectError(true);
             showAlert('Lütfen gerçek bitiş tarihini seçin.', 'warning');
             return;
         }
-
-        // اعتبارسنجی: تاریخ پایان نباید از تاریخ شروع کمتر باشد
         const startDate = new Date(selectedProjectForDownload.startDate);
         if (endProjectDate < startDate) {
             setEndProjectError(true);
@@ -779,7 +741,6 @@ const ListProjects = () => {
         }
     };
 
-    // Table Actions
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: ProjectType) => {
         setAnchorEl(event.currentTarget);
         setSelectedRowForMenu(row);
@@ -883,7 +844,6 @@ const ListProjects = () => {
         }
     };
 
-    // ✨ NEW: Consolidated Excel export function
     const exportProjectsToExcel = (data: ProjectType[], title: string, subtitle?: string) => {
         if (!data || data.length === 0) {
             showAlert('Excel oluşturulacak proje bulunamadı.', 'warning');
@@ -942,7 +902,6 @@ const ListProjects = () => {
         });
     };
 
-    // ✨ NEW: Unified download handler for all/filtered data
     const handleDownload = (format: 'pdf' | 'excel', isFiltered: boolean) => {
         const dataToDownload = isFiltered ? displayedProjects : projectsList;
         const title = isFiltered ? 'Filtrelenmiş Projeler Raporu' : 'Tüm Projeler Raporu';
@@ -955,7 +914,6 @@ const ListProjects = () => {
         }
     };
 
-    // ✨ NEW: Unified download handler for a single row
     const handleDownloadSingleProject = (format: 'pdf' | 'excel') => {
         if (!selectedProjectForDownload) return;
         const data = [selectedProjectForDownload];
@@ -1007,7 +965,6 @@ const ListProjects = () => {
 
     const handlePlanlamaClick = () => {
         if (selectedRowForMenu) {
-            // از navigate برای رفتن به مسیر جدید با project ID استفاده می‌شود
             navigate(`/project/project-planing/${selectedRowForMenu.id}`);
         }
         handleCloseMenu();
@@ -1053,10 +1010,8 @@ const ListProjects = () => {
                             <Grid item xs={12} sm={6}>
                                 <CustomFormLabel htmlFor="project-type" required>Proje Tipi</CustomFormLabel>
                                 <RadioGroup row value={type} onChange={(e) => setType(parseInt(e.target.value, 10) as 0 | 1 | 2)}>
-                                    {/* این بخش را تغییر دهید */}
                                     <FormControlLabel value={0} control={<Radio />} label="AG" />
                                     <FormControlLabel value={1} control={<Radio />} label="OG" />
-                                    {/* <FormControlLabel value={2} control={<Radio />} label="YG" /> */}
                                     <FormControlLabel value={2} control={<Radio />} label="Tesis-Ket" />
                                 </RadioGroup>
                             </Grid>
@@ -1148,19 +1103,6 @@ const ListProjects = () => {
                                     />
                                 </LocalizationProvider>
                             </Grid>
-                            {/* <Grid item xs={12} sm={6}>
-                                <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                                    <CustomFormLabel htmlFor="end-date">Gerçek Bitiş Tarihi</CustomFormLabel>
-                                    <DatePicker
-                                        label="Gerçek Bitiş Tarihi"
-                                        value={endDate}
-                                        onChange={(newValue) => setEndDate(newValue)}
-                                        inputFormat="dd/MM/yyyy"
-                                        minDate={startDate || undefined}
-                                        renderInput={(params) => <TextField {...params} size="small" fullWidth />}
-                                    />
-                                </LocalizationProvider>
-                            </Grid> */}
                             <Grid item xs={12}>
                                 <Stack direction="row" spacing={1} justifyContent="flex-end">
                                     {editingId !== null ? (
@@ -1339,7 +1281,7 @@ const ListProjects = () => {
                                             sx={{
                                                 '&:last-child td, &:last-child th': { border: 0 },
                                                 ...(row.endDate && row.endDate !== "N/A"
-                                                    ? { backgroundColor: '#ffa7a76e' } // رنگ Hex مستقیم + Opacity
+                                                    ? { backgroundColor: '#ffa7a76e' }
                                                     : {}
                                                 )
                                             }}
@@ -1363,7 +1305,6 @@ const ListProjects = () => {
                                                 <Menu anchorEl={anchorEl} open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
                                                     <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Proje için planlama sayfasına git" : ""}>
                                                         <MuiMenuItem onClick={handlePlanlamaClick}>
-                                                            {/* می‌توانید از آیکونی مانند IconPlus یا IconEdit استفاده کنید */}
                                                             <ListItemIcon><IconPlus width={18} /></ListItemIcon>
                                                             Planlama Sayfasına Git
                                                         </MuiMenuItem>
@@ -1371,9 +1312,9 @@ const ListProjects = () => {
                                                     {hasEditPermission && row.recordStatus === 0 && row.endDate === null && (
                                                         <MuiMenuItem
                                                             onClick={() => {
-                                                                setSelectedProjectForDownload(row); // استفاده مجدد از state موقت
-                                                                setEndDate(null); // تاریخ پایان موقت را ریست می‌کنیم
-                                                                setOpenEndProjectModal(true); // مودال جدید
+                                                                setSelectedProjectForDownload(row);
+                                                                setEndDate(null);
+                                                                setOpenEndProjectModal(true);
                                                                 handleCloseMenu();
                                                             }}
                                                         >
@@ -1446,7 +1387,6 @@ const ListProjects = () => {
                 showAlert={showAlert}
             />
 
-            {/* ✨ NEW: Modal for all downloads */}
             <Dialog open={openDownloadAllModal} onClose={handleCloseDownloadAllModal} maxWidth="xs">
                 <DialogTitle>Tüm Projeleri İndir</DialogTitle>
                 <DialogContent>
@@ -1470,7 +1410,6 @@ const ListProjects = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* ✨ NEW: Modal for filtered downloads */}
             <Dialog open={openDownloadFilteredModal} onClose={handleCloseDownloadFilteredModal} maxWidth="xs">
                 <DialogTitle>Filtrelenmiş Projeleri İndir</DialogTitle>
                 <DialogContent>
@@ -1494,7 +1433,6 @@ const ListProjects = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* ✨ NEW: Modal for single row download */}
             <Dialog open={openRowDownloadModal} onClose={handleCloseRowDownloadModal} maxWidth="xs">
                 <DialogTitle>Dosya Formatını Seçin</DialogTitle>
                 <DialogContent>
@@ -1543,7 +1481,6 @@ const ListProjects = () => {
                                     )}
                                 />
                             </LocalizationProvider>
-                            {/* <Alert severity="info">Bu işlem projeyi pasif duruma alacaktır.</Alert> */}
                         </Stack>
                     )}
                 </DialogContent>

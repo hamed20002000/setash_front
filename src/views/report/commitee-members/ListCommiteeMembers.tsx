@@ -28,9 +28,7 @@ import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
 
 import { useAuth } from 'src/context/AuthContext';
-// Importations for reporting
 import jsPDF from 'jspdf';
-// @ts-ignore
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import { TimesNewRoman } from 'src/assets/fonts/Times';
@@ -39,21 +37,10 @@ import Logo from 'src/assets/images/logos/logo.png';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 
-
-// --- Enums and Utility Types (POZISYON GÜNCEL) ---
-
-/**
- * @description Komite Üyesi Pozisyonları
- */
 export enum CommiteMemberPosition {
-    Baskan = 0, // رئیس
-    Uye = 1     // عضو
+    Baskan = 0,
+    Uye = 1
 }
-
-/**
- * @description Pozisyon ID'sine göre metin döndürür
- * @param position 
- */
 const getPositionText = (position: CommiteMemberPosition | number | string): string => {
     const posId = Number(position);
     switch (posId) {
@@ -99,9 +86,6 @@ interface CommiteeMemberType {
 }
 
 const MOCK_MEMBERS: CommiteeMemberType[] = [];
-// ------------------------------------
-
-// --- Styled Components (UNCHANGED) ---
 const blinkAnimation = keyframes`
     0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
     50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
@@ -142,10 +126,6 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
         fontSize: '1rem',
     },
 }));
-// ------------------------------------
-
-
-// --- Sorting and Filtering Logic (UNCHANGED) ---
 const descendingComparator = <T, Key extends keyof T>(
     a: T,
     b: T,
@@ -194,13 +174,11 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     });
     return stabilizedThis.map((el) => el[0]);
 };
-// ------------------------------------
 
 
 const ListCommiteeMembers = () => {
     const navigate = useNavigate();
 
-    // --- State Management ---
     const [name, setName] = useState<string>('');
     const [family, setFamily] = useState<string>('');
     const [selectedPositionId, setSelectedPositionId] = useState<CommiteMemberPosition | ''>('');
@@ -211,7 +189,6 @@ const ListCommiteeMembers = () => {
     const [originalFamily, setOriginalFamily] = useState<string>('');
     const [originalPositionId, setOriginalPositionId] = useState<CommiteMemberPosition | ''>('');
 
-    // --- Validation States ---
     const [nameError, setNameError] = useState<boolean>(false);
     const [nameHelperText, setNameHelperText] = useState<string>('');
     const [familyError, setFamilyError] = useState<boolean>(false);
@@ -219,7 +196,6 @@ const ListCommiteeMembers = () => {
     const [positionError, setPositionError] = useState<boolean>(false);
     const [positionHelperText, setPositionHelperText] = useState<string>('');
 
-    // --- General & Table States ---
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
@@ -251,32 +227,10 @@ const ListCommiteeMembers = () => {
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
 
-    // const { allowedOperations } = useAuth();
-
-    // // Permission checks (UNCHANGED)
-    // const hasCreatePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-    // }, [allowedOperations]);
-
-    // const hasEditPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-    // }, [allowedOperations]);
-
-    // const hasDeletePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-    // }, [allowedOperations]);
-
-    // const hasDownloadPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
-    // }, [allowedOperations]);
-
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
-
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -284,25 +238,19 @@ const ListCommiteeMembers = () => {
         }
         return null;
     };
-
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
 
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -314,11 +262,6 @@ const ListCommiteeMembers = () => {
     const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
-
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
-
-
-    // --- Utility Functions ---
 
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -372,7 +315,6 @@ const ListCommiteeMembers = () => {
         clearAlert();
     };
 
-    // --- Menu and Delete Modal Handlers ---
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: CommiteeMemberType) => {
         setAnchorEl(event.currentTarget);
         setSelectedRowForMenu(row);
@@ -394,14 +336,13 @@ const ListCommiteeMembers = () => {
     const handleClickCloseDeleteModal = () => {
         setOpenDeleteModal(false);
         setMemberIdToDelete(null);
-        getListCommiteeMembers(); // Refresh list after deletion
+        getListCommiteeMembers();
     };
 
     const handleEditClick = () => {
         if (selectedRowForMenu) {
             setName(selectedRowForMenu.name);
             setFamily(selectedRowForMenu.family);
-            // Cast to new enum type
             setSelectedPositionId(selectedRowForMenu.positionId as CommiteMemberPosition);
 
             setOriginalName(selectedRowForMenu.name);
@@ -431,9 +372,6 @@ const ListCommiteeMembers = () => {
         resetFormAndState();
     };
 
-
-    // --- CRUD Operations ---
-
     const validateForm = (): boolean => {
         let isValid = true;
 
@@ -455,7 +393,6 @@ const ListCommiteeMembers = () => {
             setFamilyHelperText('');
         }
 
-        // Validate Radio Button selection (0 or 1)
         if (selectedPositionId === '' || isNaN(Number(selectedPositionId))) {
             setPositionError(true);
             setPositionHelperText('Pozisyon seçimi zorunludur!');
@@ -490,7 +427,7 @@ const ListCommiteeMembers = () => {
                 {
                     name: name,
                     family: family,
-                    position: Number(selectedPositionId) // Send ID (0 or 1)
+                    position: Number(selectedPositionId)
                 },
                 {
                     headers: {
@@ -543,7 +480,7 @@ const ListCommiteeMembers = () => {
                     id: Number(editingId),
                     name: name,
                     family: family,
-                    position: Number(selectedPositionId) // Send ID (0 or 1)
+                    position: Number(selectedPositionId)
                 },
                 {
                     headers: {
@@ -555,7 +492,6 @@ const ListCommiteeMembers = () => {
             );
             if (response.data.httpStatusCode === 200) {
                 showAlert('Komite Üyesi başarıyla güncellendi!', 'success');
-                // Optimistic UI update
                 const newPositionId = Number(selectedPositionId) as CommiteMemberPosition;
                 setMembersList(prevList =>
                     prevList.map(member => (member.id === editingId ? {
@@ -627,8 +563,6 @@ const ListCommiteeMembers = () => {
         }
     };
 
-    // --- Data Fetching ---
-
     const getListCommiteeMembers = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
 
@@ -656,9 +590,8 @@ const ListCommiteeMembers = () => {
                     id: item.id,
                     name: item.name,
                     family: item.family,
-                    // Assume API returns position ID (0 or 1)
                     positionId: item.position as CommiteMemberPosition,
-                    positionTitle: getPositionText(item.position), // Use utility function
+                    positionTitle: getPositionText(item.position),
                     createAt: item.createAt,
                     recordStatus: item.recordStatus,
                     status: PositionStatus.Text(item.recordStatus),
@@ -688,7 +621,6 @@ const ListCommiteeMembers = () => {
         };
     }, []);
 
-    // --- Table & Pagination Logic (UNCHANGED) ---
     const handleStatusFilterChange = (
         _event: React.MouseEvent<HTMLElement>,
         newFilter: 'all' | 'active' | 'inactive' | null,
@@ -738,7 +670,6 @@ const ListCommiteeMembers = () => {
 
     const paginatedMembers = sortedAndFilteredMembers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-    // --- Reporting Functions (UNCHANGED) ---
 
     const handleDownloadAllMembersPDF = () => {
         if (!sortedAndFilteredMembers || sortedAndFilteredMembers.length === 0) {
@@ -751,7 +682,6 @@ const ListCommiteeMembers = () => {
         const pageHeight = doc.internal.pageSize.getHeight();
 
         try {
-            // ... (Font settings)
             doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
             doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
             doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
@@ -942,7 +872,6 @@ const ListCommiteeMembers = () => {
         }
     };
 
-    // --- JSX Render ---
     return (
         <>
             <div style={{
@@ -994,7 +923,6 @@ const ListCommiteeMembers = () => {
                 {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                     <Grid container spacing={2}>
 
-                        {/* Fild Adı (Name) */}
                         <Grid item xs={12} sm={6}>
                             <CustomFormLabel htmlFor="member-name" required>Adı</CustomFormLabel>
                             <CustomTextField
@@ -1016,7 +944,6 @@ const ListCommiteeMembers = () => {
                             />
                         </Grid>
 
-                        {/* Fild نام خانوادگی (Family) */}
                         <Grid item xs={12} sm={6}>
                             <CustomFormLabel htmlFor="member-family" required>Soyadı</CustomFormLabel>
                             <CustomTextField
@@ -1038,7 +965,6 @@ const ListCommiteeMembers = () => {
                             />
                         </Grid>
 
-                        {/* Fild موقعیت (Position - Radio Buttons) (BAŞKAN VE ÜYE) */}
                         <Grid item xs={12} sm={12}>
                             <CustomFormLabel htmlFor="member-position" required>Pozisyon</CustomFormLabel>
                             <FormControl fullWidth size="small" error={positionError} sx={{ mt: 1 }}>
@@ -1072,7 +998,6 @@ const ListCommiteeMembers = () => {
                             </FormControl>
                         </Grid>
 
-                        {/* Submission Buttons */}
                         <Grid item xs={12} display="flex" justifyContent="flex-end" mt={1}>
                             <Stack direction="row" spacing={1}>
                                 {editingId !== null ? (
@@ -1393,7 +1318,6 @@ const ListCommiteeMembers = () => {
                 />
             </BlankCard>
 
-            {/* Delete Modal */}
             <DeleteCommiteeMembers
                 openModal={openDeleteModal}
                 onClose={handleClickCloseDeleteModal}
@@ -1402,7 +1326,6 @@ const ListCommiteeMembers = () => {
                 showAlert={showAlert}
             />
 
-            {/* Download Modal */}
             <Dialog
                 open={openDownloadModal}
                 onClose={() => setOpenDownloadModal(false)}

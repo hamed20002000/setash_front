@@ -28,9 +28,7 @@ import {
     IconX
 } from '@tabler/icons-react';
 import axios from 'axios';
-import jsPDF from 'jspdf'; // برای تایپ‌ها نیاز است، اما لاجیک اصلی داینامیک لود می‌شود
-
-// مسیر فایل سرور را چک کنید
+import jsPDF from 'jspdf';
 import server from '../../../assets/address.json';
 
 import BlankCard from '../../../components/shared/BlankCard';
@@ -39,17 +37,13 @@ import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { tr } from 'date-fns/locale';
 
-// فونت و لوگو
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
 
-// --- STYLES ---
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans', fontSize: '0.8rem', [theme.breakpoints.up('md')]: { fontSize: '0.9rem', },
     whiteSpace: 'nowrap',
 }));
-
-// --- TYPE DEFINITIONS ---
 interface WorkhouseType { id: number; name: string; code: string; address: string; createAt: string; recordStatus: number; }
 
 interface RollCallRowType {
@@ -75,11 +69,8 @@ interface FilterParams {
 
 type Order = 'asc' | 'desc';
 
-// --- PDF HELPER FUNCTIONS (HEADER & FOOTER) ---
-// این توابع را بیرون کامپوننت تعریف می‌کنیم تا تمیزتر باشد
 const addPdfHeader = (doc: jsPDF, title: string) => {
     const docAny = doc as any;
-    // اضافه کردن فونت به VFS (سیستم فایل مجازی jsPDF)
     if (!docAny.vfs || !docAny.vfs['NotoSans-Regular.ttf']) {
         docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
@@ -106,7 +97,6 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     doc.setFont('NotoSans', 'normal');
     doc.text(`Rapor Tarihi:`, 15, 35);
     doc.setFont('NotoSans', 'normal');
-    // استفاده از فرمت ساده تاریخ برای جلوگیری از وابستگی به توابع خارجی
     doc.text(`${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 80, 35);
 
     doc.setLineWidth(0.5);
@@ -157,7 +147,6 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
         '&:hover': { backgroundColor: theme.palette.action.hover },
     },
 }));
-// --- COMPONENT: DETAIL MODAL ---
 interface DetailModalProps {
     open: boolean;
     onClose: () => void;
@@ -231,14 +220,11 @@ const DetailModal: React.FC<DetailModalProps> = ({ open, onClose, data, onExport
     );
 };
 
-
-// --- MAIN COMPONENT ---
 const ListRollCallsReport = () => {
     const navigate = useNavigate();
     const currentYearStart = startOfYear(new Date());
     const currentYearEnd = endOfYear(new Date());
 
-    // States
     const [startDate, setStartDate] = useState<Date | null>(currentYearStart);
     const [endDate, setEndDate] = useState<Date | null>(currentYearEnd);
     const [searchTerm, setSearchTerm] = useState('');
@@ -255,13 +241,11 @@ const ListRollCallsReport = () => {
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
-    // Menu & Modal States
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowMenu, setSelectedRowMenu] = useState<RollCallRowType | null>(null);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [selectedRowDetail, setSelectedRowDetail] = useState<RollCallRowType | null>(null);
 
-    // Sorting & Pagination
     const [order, setOrder] = useState<Order>('desc');
     const [orderBy, setOrderBy] = useState<keyof RollCallRowType>('rollcall_date');
     const [page, setPage] = useState(0);
@@ -269,7 +253,6 @@ const ListRollCallsReport = () => {
 
     const [attendanceFilter, setAttendanceFilter] = useState<'all' | 'present' | 'absent'>('all');
 
-    // --- UTILS ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message); setAlertSeverity(severity);
         setTimeout(() => setAlertMessage(null), 5000);
@@ -284,7 +267,6 @@ const ListRollCallsReport = () => {
         }
     }, [navigate, showAlert]);
 
-    // --- FETCH DATA ---
     const getWorkhousesList = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) return;
@@ -334,7 +316,6 @@ const ListRollCallsReport = () => {
     useEffect(() => { if (endDate) setFilterParams(prev => ({ ...prev, toDate: format(endDate, 'yyyy-MM-dd') })); }, [endDate]);
     useEffect(() => { fetchRollCallData(); }, [fetchRollCallData]);
 
-    // --- SORTING & PROCESSING ---
     function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
         if (orderBy === 'rollcall_date') {
             return new Date(a[orderBy] as any).getTime() < new Date(b[orderBy] as any).getTime() ? 1 : -1;
@@ -347,14 +328,12 @@ const ListRollCallsReport = () => {
     const processedData = useMemo(() => {
         let data = [...reportData];
 
-        // ۱. فیلتر بر اساس حضور و غیاب
         if (attendanceFilter === 'present') {
             data = data.filter(row => row.rollcall_absence === false);
         } else if (attendanceFilter === 'absent') {
             data = data.filter(row => row.rollcall_absence === true);
         }
 
-        // ۲. فیلتر بر اساس متن جستجو
         if (searchTerm) {
             const lowerTerm = searchTerm.toLowerCase();
             data = data.filter(row =>
@@ -364,7 +343,6 @@ const ListRollCallsReport = () => {
             );
         }
 
-        // ۳. مرتب‌سازی
         if (orderBy) {
             data.sort(order === 'desc'
                 ? (a, b) => descendingComparator(a, b, orderBy)
@@ -372,12 +350,10 @@ const ListRollCallsReport = () => {
             );
         }
         return data;
-    }, [reportData, searchTerm, order, orderBy, attendanceFilter]); // attendanceFilter را به دیپندنسی‌ها اضافه کردیم
+    }, [reportData, searchTerm, order, orderBy, attendanceFilter]);
 
     const visibleRows = useMemo(() => processedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage), [processedData, page, rowsPerPage]);
 
-
-    // --- EXPORT FUNCTIONS (ALL) ---
     const handleExportExcelAll = async () => {
         if (processedData.length === 0) return showAlert('Veri yok.', 'warning');
         showAlert('Tüm liste Excel olarak hazırlanıyor...', 'info');
@@ -387,15 +363,12 @@ const ListRollCallsReport = () => {
             const workbook = new Excel.Workbook();
             const sheet = workbook.addWorksheet('Yoklama Listesi');
 
-            // Headers
             const headers = ["Şantiye", "Personel Adı", "TC No", "Tarih", "Giriş", "Çıkış", "Durum"];
             const headerRow = sheet.addRow(headers);
             headerRow.font = { bold: true };
             headerRow.eachCell(cell => {
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
             });
-
-            // Data
             processedData.forEach(row => {
                 const newRow = sheet.addRow([
                     row.workhouse,
@@ -424,10 +397,7 @@ const ListRollCallsReport = () => {
             const jsPDF = (await import('jspdf')).default;
             const autoTable = (await import('jspdf-autotable')).default;
             const doc = new jsPDF('landscape', 'pt', 'a4');
-
-            // ✅ استفاده از تابع هدر شما
             addPdfHeader(doc, "Yoklama Raporu Listesi");
-
             const body = processedData.map(row => [
                 row.workhouse,
                 `${row.personnel_name} ${row.personnel_family}`,
@@ -452,7 +422,6 @@ const ListRollCallsReport = () => {
                     }
                 },
                 didDrawPage: (_data) => {
-                    // ✅ استفاده از تابع فوتر شما در هر صفحه
                     addPdfFooter(doc);
                 }
             });
@@ -465,8 +434,6 @@ const ListRollCallsReport = () => {
         }
     };
 
-
-    // --- EXPORT FUNCTIONS (SINGLE) ---
     const handleExportExcelSingle = async (row: RollCallRowType) => {
         try {
             const Excel = (await import('exceljs')).default;
@@ -499,8 +466,6 @@ const ListRollCallsReport = () => {
             const jsPDF = (await import('jspdf')).default;
             const autoTable = (await import('jspdf-autotable')).default;
             const doc = new jsPDF('p', 'pt', 'a4');
-
-            // ✅ استفاده از تابع هدر شما
             addPdfHeader(doc, `Yoklama Detayı: ${row.personnel_name} ${row.personnel_family}`);
 
             const body = [
@@ -520,7 +485,6 @@ const ListRollCallsReport = () => {
                 styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10 },
                 columnStyles: { 0: { fontStyle: 'normal', fillColor: [240, 240, 240], cellWidth: 100 } },
                 didDrawPage: (_data) => {
-                    // ✅ استفاده از تابع فوتر شما
                     addPdfFooter(doc);
                 }
             });
@@ -529,9 +493,6 @@ const ListRollCallsReport = () => {
             showAlert('PDF indirildi.', 'success');
         } catch (e) { showAlert('Hata oluştu.', 'error'); }
     };
-
-
-    // --- HANDLERS ---
     const handleMenuClick = (event: React.MouseEvent<HTMLElement>, row: RollCallRowType) => {
         setAnchorEl(event.currentTarget);
         setSelectedRowMenu(row);
@@ -555,7 +516,6 @@ const ListRollCallsReport = () => {
 
             {alertMessage && (<Alert severity={alertSeverity} onClose={() => setAlertMessage(null)} sx={{ mb: 2 }}>{alertMessage}</Alert>)}
 
-            {/* --- FILTER & SEARCH & BULK EXPORT SECTION --- */}
             <BlankCard sx={{ mb: 5, p: 3 }}>
                 <Typography variant="h6" mb={2} p={2}>Filtreleme</Typography>
                 <Grid container spacing={3} p={2}>
@@ -565,8 +525,6 @@ const ListRollCallsReport = () => {
                             options={workhousesList}
                             getOptionLabel={(o) => `${o.name} (${o.code})`}
                             value={workhousesList.find(wh => wh.id === filterParams.workhouseId) || null}
-                            // onChange={(_, newValue) => handleFilterChange('workhouseId', newValue?.id || null)}
-
                             onChange={(_, v) => setFilterParams(prev => ({ ...prev, workhouseId: v?.id || null }))}
                             isOptionEqualToValue={(o, v) => o.id === v.id}
                             renderInput={(params) => (<TextField {...params} label="Şantiye" fullWidth size="small" />)}
@@ -585,7 +543,6 @@ const ListRollCallsReport = () => {
                                         fullWidth
                                         size="small"
                                         InputLabelProps={{ shrink: true }}
-                                        // جلوگیری از تایپ دستی
                                         onKeyDown={(e) => e.preventDefault()}
                                         InputProps={{
                                             ...params.InputProps,
@@ -594,12 +551,12 @@ const ListRollCallsReport = () => {
                                                     <IconButton
                                                         size="small"
                                                         onClick={(e) => {
-                                                            e.stopPropagation(); // جلوگیری از باز شدن تقویم
+                                                            e.stopPropagation();
                                                             setStartDate(currentYearStart);
                                                         }}
                                                         sx={{ marginRight: -1 }}
                                                     >
-                                                        <IconX size={16} /> {/* فراموش نکنید IconX را ایمپورت کنید */}
+                                                        <IconX size={16} />
                                                     </IconButton>
                                                     {params.InputProps?.endAdornment}
                                                 </InputAdornment>
@@ -624,7 +581,6 @@ const ListRollCallsReport = () => {
                                         fullWidth
                                         size="small"
                                         InputLabelProps={{ shrink: true }}
-                                        // جلوگیری از تایپ دستی
                                         onKeyDown={(e) => e.preventDefault()}
                                         InputProps={{
                                             ...params.InputProps,
@@ -715,7 +671,6 @@ const ListRollCallsReport = () => {
             <Box sx={{ margin: "20px 0" }}></Box>
 
 
-            {/* --- TABLE SECTION --- */}
             <BlankCard>
                 <TableContainer>
                     <Table>
@@ -780,7 +735,6 @@ const ListRollCallsReport = () => {
                 </TableContainer>
             </BlankCard>
 
-            {/* --- ACTION MENU --- */}
             <Menu
                 anchorEl={anchorEl}
                 open={Boolean(anchorEl)}
@@ -797,7 +751,6 @@ const ListRollCallsReport = () => {
                 </MenuItem>
             </Menu>
 
-            {/* --- DETAIL MODAL --- */}
             <DetailModal
                 open={detailModalOpen}
                 onClose={() => setDetailModalOpen(false)}

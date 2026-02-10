@@ -14,12 +14,10 @@ import server from '../../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// تعریف مراحل گزارش برای انتخاب API صحیح
 type ReportPhase = 'confirmation' | 'members_link' | 'member_answer';
 
 type Props = {
     openModal: boolean;
-    // تغییر نوع به string | null برای سازگاری با IDهای API
     reportIdToDelete: string | null;
     phase: ReportPhase;
     onClose: () => void;
@@ -32,10 +30,6 @@ const DeleteCommiteeMembersReport = ({ openModal, reportIdToDelete, phase, onClo
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-
-    // **********************************
-    // ** منطق اصلی حذف گزارش بر اساس مرحله (Phase) **
-    // **********************************
     const handleDeleteReportItem = async () => {
         if (reportIdToDelete === null) {
             showAlert('Silinecek öğe seçilmedi.', 'warning');
@@ -50,24 +44,20 @@ const DeleteCommiteeMembersReport = ({ openModal, reportIdToDelete, phase, onClo
             return;
         }
 
-        // تعیین API بر اساس مرحله (Phase)
         let endpoint: string;
         let successMessage: string;
         let deleteId: number = Number(reportIdToDelete);
 
         switch (phase) {
             case 'confirmation':
-                // مرحله ۱: حذف گزارش تأییدیه پروژه
                 endpoint = `${server.initialoperations}delete-confirmation-project-report`;
                 successMessage = 'Onay Proje Raporu başarıyla silindi!';
                 break;
             case 'members_link':
-                // مرحله ۲: حذف عضو کمیته از گزارش (حذف لینک)
                 endpoint = `${server.report}delete-confirmation-report-commite-member`;
                 successMessage = 'Komite Üyesi ataması başarıyla kaldırıldı!';
                 break;
             case 'member_answer':
-                // مرحله ۳: حذف پاسخ عضو کمیته
                 endpoint = `${server.report}delete-confirmation-report-commite-member-answer`;
                 successMessage = 'Üye cevabı başarıyla silindi!';
                 break;
@@ -79,11 +69,10 @@ const DeleteCommiteeMembersReport = ({ openModal, reportIdToDelete, phase, onClo
 
         setLoading(true);
         try {
-            // توجه: برای delete در Axios با Body (PayLoad) باید از متد DELETE و آبجکت data استفاده شود.
             const response = await axios.delete(
                 `${server.baseurl}${endpoint}`,
                 {
-                    data: { id: deleteId }, // ارسال ID در بدنه درخواست (برای APIهای PUT/DELETE با Payload)
+                    data: { id: deleteId },
                     headers: {
                         "Accept": "application/json",
                         "Authorization": `Bearer ${authToken}`,

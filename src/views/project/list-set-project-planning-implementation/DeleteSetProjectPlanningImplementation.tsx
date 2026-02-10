@@ -17,10 +17,9 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type Props = {
     openModal: boolean;
-    // Değişiklik: implementationIdToDelete olarak yeniden adlandırıldı
     implementationIdToDelete: number | null;
     onClose: () => void;
-    onDeleteSuccess: () => void; // Tabii ki listeyi yenilemek için
+    onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
@@ -36,7 +35,6 @@ const DeleteSetProjectPlanningImplementation = ({
     const { isTooltipGloballyEnabled } = useTooltip();
 
     const handleDeleteImplementation = async () => {
-        // Kontrol: Silinecek ID'nin varlığı
         if (implementationIdToDelete === null) {
             showAlert('Silinecek uygulama kaydı seçilmedi.', 'warning');
             onClose();
@@ -53,7 +51,6 @@ const DeleteSetProjectPlanningImplementation = ({
         setLoading(true);
         try {
             const response = await axios.delete(
-                // Değişiklik: Yeni API endpoint'i kullanıldı
                 `${server.baseurl}${server.warehouse}delete-project-planning-implementation/${implementationIdToDelete}`,
                 {
                     headers: {

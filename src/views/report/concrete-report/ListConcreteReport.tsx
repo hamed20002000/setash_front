@@ -15,7 +15,7 @@ import {
     MenuItem,
     TableFooter,
     TableSortLabel,
-    TablePagination // ✅ اضافه شده برای صفحه‌بندی کلاینت
+    TablePagination
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -26,7 +26,6 @@ import {
 } from '@tabler/icons-react';
 import axios from 'axios';
 
-// ⚠️⚠️⚠️ مهم: مطمئن شو که مسیر فایل سرور درسته ⚠️⚠️⚠️
 import server from '../../../assets/address.json';
 
 import BlankCard from '../../../components/shared/BlankCard';
@@ -36,7 +35,6 @@ import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { tr } from 'date-fns/locale';
 
-// --- PDF & Excel Exports ---
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
@@ -45,7 +43,6 @@ import { saveAs } from 'file-saver';
 import Logo from 'src/assets/images/logos/logo.png';
 
 
-// تعریف دستی استایل برای جلوگیری از ارور ایمپورت
 const visuallyHiddenStyle = {
     border: 0,
     clip: 'rect(0 0 0 0)',
@@ -58,7 +55,6 @@ const visuallyHiddenStyle = {
     width: '1px',
 };
 
-// --- TYPE DEFINITIONS ---
 interface WorkhouseType { id: number; name: string; code: string; address: string; createAt: string; recordStatus: number; }
 interface ConcreteReportRowType {
     workhouse_id: string; workhouse_code: string; workhousen_name: string;
@@ -75,7 +71,6 @@ interface FilterParams {
     storeId: number | null; dispatchId: string | null;
 }
 
-// --- Helper Functions for Sorting ---
 type Order = 'asc' | 'desc';
 
 const cleanNumber = (value: string | number): number => {
@@ -131,7 +126,6 @@ const cleanCurrencyValue = (value: string | number | undefined | null): number =
 
 
 
-// --- MODAL FOR SINGLE ROW DETAILS ---
 interface DetailViewModalProps {
     open: boolean;
     onClose: () => void;
@@ -202,25 +196,20 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
     );
 };
 
-
-// --- MAIN COMPONENT ---
 const ListConcreteReport = () => {
     const navigate = useNavigate();
 
     const currentYearStart = startOfYear(new Date());
     const currentYearEnd = endOfYear(new Date());
 
-    // --- State Definitions ---
     const [startDate, setStartDate] = useState<Date | null>(currentYearStart);
     const [endDate, setEndDate] = useState<Date | null>(currentYearEnd);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Sort States
     const [order, setOrder] = useState<Order>('desc');
     const [orderBy, setOrderBy] = useState<keyof ConcreteReportRowType>('tarih');
 
-    // ✅ Client Side Pagination States
-    const [page, setPage] = useState(0); // MUI TablePagination starts at 0
+    const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
 
     const [filterParams, setFilterParams] = useState<FilterParams>({
@@ -230,8 +219,8 @@ const ListConcreteReport = () => {
         workhouseId: null,
         maxQuantity: null,
         minQuantity: null,
-        page: 1,      // همیشه صفحه ۱ از سرور می‌گیریم
-        pageSize: 1000, // ✅ دریافت تعداد بالا برای هندل کردن در کلاینت
+        page: 1,
+        pageSize: 1000,
         storeId: null,
         dispatchId: null,
     });
@@ -241,10 +230,8 @@ const ListConcreteReport = () => {
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
-    // Dropdown States
     const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
 
-    // Menu/Modal States
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<ConcreteReportRowType | null>(null);
     const openMenu = Boolean(anchorEl);
@@ -262,12 +249,6 @@ const ListConcreteReport = () => {
             return '-';
         }
     };
-
-    // const cleanCurrencyValue = (value: string) => {
-    //     return parseFloat(value.replace(/[^0-9,.]/g, '').replace(',', '')) || 0;
-    // };
-
-    // --- Utility Callbacks ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message); setAlertSeverity(severity);
         setTimeout(() => setAlertMessage(null), 5000);
@@ -285,7 +266,6 @@ const ListConcreteReport = () => {
         setFilterParams(prev => ({ ...prev, [name]: value, page: 1 }));
     };
 
-    // --- Data Fetching ---
     const getWorkhousesList = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         const role = localStorage.getItem('activeUserRoleName') || '';
@@ -322,7 +302,7 @@ const ListConcreteReport = () => {
             maxQuantity: filterParams.maxQuantity || null,
             minQuantity: filterParams.minQuantity || null,
             page: filterParams.page,
-            pageSize: filterParams.pageSize, // ✅ 1000
+            pageSize: filterParams.pageSize,
         };
 
         setLoadingData(true);
@@ -332,7 +312,7 @@ const ListConcreteReport = () => {
                 {
                     headers: { "Authorization": `Bearer ${authToken}` },
                     params: requestParams,
-                    timeout: 20000 // افزایش تایم اوت چون حجم دیتا ممکن است زیاد باشد
+                    timeout: 20000
                 }
             );
 
@@ -356,7 +336,6 @@ const ListConcreteReport = () => {
     ]);
 
 
-    // --- Effects ---
     useEffect(() => {
         getWorkhousesList();
     }, [getWorkhousesList]);
@@ -374,11 +353,9 @@ const ListConcreteReport = () => {
     }, [
         filterParams.fromDate, filterParams.toDate, filterParams.projectId,
         filterParams.workhouseId, filterParams.maxQuantity, filterParams.minQuantity
-        // filterParams.page رو برداشتیم چون صفحه‌بندی سمت سرور دیگه تغییر نمیکنه
     ]);
 
 
-    // --- Sorting & Searching Logic (Client Side) ---
     const handleRequestSort = (property: keyof ConcreteReportRowType) => {
         const isAsc = orderBy === property && order === 'asc';
         setOrder(isAsc ? 'desc' : 'asc');
@@ -390,7 +367,6 @@ const ListConcreteReport = () => {
 
         let data = [...reportData.data];
 
-        // 1. فیلتر جستجو
         if (searchTerm) {
             const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
             data = data.filter(row => {
@@ -406,7 +382,6 @@ const ListConcreteReport = () => {
             });
         }
 
-        // 2. مرتب‌سازی
         if (orderBy) {
             data.sort(getComparator(order, orderBy));
         }
@@ -414,13 +389,10 @@ const ListConcreteReport = () => {
         return data;
     }, [reportData, searchTerm, order, orderBy]);
 
-    // ✅ Reset page when data/search changes
     useEffect(() => {
         setPage(0);
     }, [searchTerm, filterParams, reportData]);
 
-
-    // ✅ Calculate Visible Rows for Client Side Pagination
     const visibleRows = useMemo(() => {
         return processedData.slice(
             page * rowsPerPage,
@@ -429,7 +401,6 @@ const ListConcreteReport = () => {
     }, [processedData, page, rowsPerPage]);
 
 
-    // --- Handlers for Pagination, Menu, Modal ---
     const handleChangePage = (_event: unknown, newPage: number) => {
         setPage(newPage);
     };
@@ -458,8 +429,6 @@ const ListConcreteReport = () => {
         setSelectedReportToDownload(null);
     };
 
-
-    // --- Export Functions ---
     const addPdfHeader = (doc: jsPDF, title: string) => {
 
         const docAny = doc as any;
@@ -467,10 +436,10 @@ const ListConcreteReport = () => {
         docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
         const pageWidth = doc.internal.pageSize.getWidth();
-        const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+        const logoWidth = 35;
         const logoHeight = 18;
         const margin = 15;
-        const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+        const logoX = pageWidth - logoWidth - margin;
 
         try {
             doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -480,7 +449,7 @@ const ListConcreteReport = () => {
 
         doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
-        doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+        doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
         doc.setFontSize(10);
         doc.setFont('NotoSans', 'bold');
@@ -488,8 +457,6 @@ const ListConcreteReport = () => {
         doc.setFont('NotoSans', 'normal');
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
 
-        // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-        // doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
         doc.line(15, 40, pageWidth - 15, 40);
     };
@@ -554,7 +521,6 @@ const ListConcreteReport = () => {
                 ["Toplam Tutar (Total)", report.total],
             ];
             doc.setFontSize(14);
-            // doc.text(`Beton Raporu Detayı: ${report.proje_adi}`, 40, 40);
 
             autoTable(doc, {
                 startY: 60,
@@ -775,11 +741,8 @@ const ListConcreteReport = () => {
             <Typography variant="h4" mb={4} sx={{ display: 'flex', alignItems: 'center' }}>
                 <IconClipboardList size={28} style={{ marginRight: 8 }} /> Beton Raporları
             </Typography>
-
-            {/* --- Alert Section --- */}
             {alertMessage && (<Stack sx={{ width: '100%', mb: 3 }} spacing={2}><Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert></Stack>)}
 
-            {/* --- Filter Section --- */}
             <BlankCard sx={{ mb: 5, p: 3 }}>
                 <Typography variant="h6" mb={2} p={2}>Filtreleme</Typography>
                 <Grid container spacing={3} p={2}>
@@ -794,7 +757,6 @@ const ListConcreteReport = () => {
                             renderInput={(params) => (<TextField {...params} label="Şantiye" fullWidth size="small" />)}
                         />
                     </Grid>
-                    {/* --- Filter Section --- */}
                     <Grid item xs={12} sm={6} md={3}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <DatePicker
@@ -808,7 +770,6 @@ const ListConcreteReport = () => {
                                         fullWidth
                                         size="small"
                                         InputLabelProps={{ shrink: true }}
-                                        // جلوگیری از تایپ دستی
                                         onKeyDown={(e) => e.preventDefault()}
                                         InputProps={{
                                             ...params.InputProps,
@@ -817,12 +778,12 @@ const ListConcreteReport = () => {
                                                     <IconButton
                                                         size="small"
                                                         onClick={(e) => {
-                                                            e.stopPropagation(); // جلوگیری از باز شدن تقویم
+                                                            e.stopPropagation();
                                                             setStartDate(currentYearStart);
                                                         }}
                                                         sx={{ marginRight: -1 }}
                                                     >
-                                                        <IconX size={16} /> {/* فراموش نکنید IconX را ایمپورت کنید */}
+                                                        <IconX size={16} />
                                                     </IconButton>
                                                     {params.InputProps?.endAdornment}
                                                 </InputAdornment>
@@ -847,7 +808,6 @@ const ListConcreteReport = () => {
                                         fullWidth
                                         size="small"
                                         InputLabelProps={{ shrink: true }}
-                                        // جلوگیری از تایپ دستی
                                         onKeyDown={(e) => e.preventDefault()}
                                         InputProps={{
                                             ...params.InputProps,
@@ -948,7 +908,6 @@ const ListConcreteReport = () => {
                             {loadingData ? (
                                 <TableRow><StyledTableCell colSpan={tableHeaders.length + 1} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>
                             ) : visibleRows.length ? (
-                                // ✅ فقط ردیف‌های برش خورده (صفحه جاری) نمایش داده می‌شوند
                                 visibleRows.map((row, index) => (
                                     <TableRow key={`${row.proje_kodu}-${row.tarih}-${index}`} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                         <StyledTableCell>{row.workhousen_name}</StyledTableCell>
@@ -957,10 +916,8 @@ const ListConcreteReport = () => {
                                         <StyledTableCell>{row.is_turu}</StyledTableCell>
                                         <StyledTableCell><Typography fontWeight="bold">{row.quantity}</Typography></StyledTableCell>
                                         <StyledTableCell>{row.unit}</StyledTableCell>
-                                        {/* <StyledTableCell><Typography color="primary" fontWeight="bold">{row.total}</Typography></StyledTableCell> */}
                                         <StyledTableCell>
                                             <Typography color="primary" fontWeight="bold">
-                                                {/* تبدیل به عدد و سپس فرمت‌بندی با جداکننده هزارگان */}
                                                 {cleanCurrencyValue(row.total).toLocaleString('us-US', {
                                                     minimumFractionDigits: 2,
                                                     maximumFractionDigits: 2
@@ -1029,7 +986,7 @@ const ListConcreteReport = () => {
                         <TablePagination
                             rowsPerPageOptions={[5, 10, 25, 50, 100]}
                             component="div"
-                            count={processedData.length} // تعداد کل دیتای فیلتر/جستجو شده
+                            count={processedData.length}
                             rowsPerPage={rowsPerPage}
                             page={page}
                             onPageChange={handleChangePage}

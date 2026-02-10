@@ -30,7 +30,6 @@ import { saveAs } from 'file-saver';
 import { tr } from "date-fns/locale";
 
 
-// --- Enums and Utility Types ---
 export enum CommiteMemberPosition { Baskan = 0, Uye = 1 }
 const getCommiteMemberPositionText = (position: number): string => {
     switch (position) { case CommiteMemberPosition.Baskan: return 'Başkan'; case CommiteMemberPosition.Uye: return 'Üye'; default: return 'Bilinmiyor'; }
@@ -57,7 +56,7 @@ export interface ConfirmationCommiteeMemberType {
     commiteMember: CommiteeMemberDropdownType;
     createAt: string;
     answer?: number | null;
-    memberStatus?: boolean; // false: Gecici, true: Kesin
+    memberStatus?: boolean;
 }
 
 export interface MemberAnswerDTO {
@@ -67,7 +66,6 @@ export interface MemberAnswerDTO {
     confirmationReportCommiteMemberId: string;
 }
 
-// --- NEW INTERFACE FOR FULL ANSWER LIST ---
 export interface FullAnswerDTO {
     id: string;
     answer: number;
@@ -100,7 +98,6 @@ export interface DisplayReportType extends ProjectReportType {
     imzalandiCount: number;
 }
 
-// const TesisTypeMap: { [key: number]: string } = { 0: 'Merkez', 1: 'Ana', 2: 'Şube', 3: 'Tasarım', };
 const TesisTypeMap: { [key: number]: string } = { 0: 'AG', 1: 'OG', 2: 'TesisKet' };
 const getTesisTypeText = (type: number): string => { return TesisTypeMap[type] || 'Bilinmiyor'; };
 
@@ -109,7 +106,6 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     whiteSpace: 'nowrap',
 }));
 
-// --- MODAL TYPE DEFINITIONS ---
 interface ModalFormValues { year: number; city: string; town: string | null; region: string | null; tesisType: number; tradi: string | null; projectCount: number; geciciDurum: boolean; kesinDurum: boolean; }
 interface ConfirmationModalProps {
     open: boolean; onClose: () => void; report: DisplayReportType | null;
@@ -130,7 +126,6 @@ interface DetailViewModalProps {
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 }
 
-// --- NEW MODAL COMPONENT: AnswersListModal ---
 interface AnswersListModalProps {
     open: boolean;
     onClose: () => void;
@@ -211,8 +206,6 @@ const AnswersListModal: React.FC<AnswersListModalProps> = ({ open, onClose, repo
         </Dialog>
     );
 };
-
-// --- Other Modal Components ---
 
 interface DownloadRowModalProps {
     open: boolean;
@@ -640,7 +633,7 @@ const MemberAnswerModal: React.FC<MemberAnswerModalProps> = ({
             showAlert("Cevap başarıyla kaydedildi.", 'success');
             setSelectedAnswer('');
             await fetchAnswersByMemberId(selectedMemberReportId);
-            await fetchAllAnswersForReport(); // Update the list of who answered
+            await fetchAllAnswersForReport();
             await refreshData();
         } catch (e: any) { showAlert(e.response?.data?.message || 'Cevap kaydı sırasında bir hata oluştu.', 'error'); } finally { setLoadingSubmission(false); }
     };
@@ -730,33 +723,6 @@ const MemberAnswerModal: React.FC<MemberAnswerModalProps> = ({
         </Dialog>
     );
 };
-
-// const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
-//     const pageWidth = doc.internal.pageSize.getWidth();
-//     const docAny = doc as any;
-//     try { docAny.addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular); docAny.addFont("NotoSans-Regular.ttf", "NotoSans", "normal"); doc.setFont("NotoSans"); } catch (e) { }
-//     docAny.addImage(Logo, "PNG", pageWidth - 50, 15, 40, 25);
-//     doc.setFontSize(18); doc.text(title, pageWidth / 2, 15, { align: "center" });
-//     doc.setFontSize(10); doc.text(`Rapor Tarihi:`, 15, 30); doc.text(`${new Date().toLocaleDateString('tr-TR')}`, 80, 30);
-//     if (subtitle) doc.text(subtitle, pageWidth / 2, 55, { align: "center" });
-// };
-
-// const addPdfFooter = (doc: jsPDF) => {
-//     const pageWidth = doc.internal.pageSize.getWidth();
-//     const pageHeight = doc.internal.pageSize.getHeight();
-//     doc.setFontSize(8);
-//     const companyInfo = ['SETAŞ SİSTEM BİLİŞİم İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.', 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11', 'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'];
-//     let footerY = pageHeight - 50;
-//     companyInfo.forEach((line) => { doc.text(line, pageWidth / 2, footerY, { align: "center" }); footerY += 10; });
-//     doc.setFontSize(10); doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-//     doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-//     const docAny = doc as any;
-//     const pageCount = docAny.internal.getNumberOfPages();
-//     doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-// };
-
-
-
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "-";
     try {
@@ -775,10 +741,10 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -788,7 +754,7 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
@@ -796,8 +762,6 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     doc.setFont('NotoSans', 'normal');
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
     if (subtitle) doc.text(subtitle, pageWidth / 2, 55, { align: "center" });
@@ -862,13 +826,11 @@ const ListCommiteeMembersReport = () => {
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<DisplayReportType | null>(null);
     const [openDetailViewModal, setOpenDetailViewModal] = useState(false);
 
-    // --- New States for Answer List Modal ---
     const [openAnswersListModal, setOpenAnswersListModal] = useState(false);
     const [selectedReportIdForAnswers, setSelectedReportIdForAnswers] = useState<string | null>(null);
 
     const openMenu = Boolean(anchorEl);
 
-    // --- Answer List Handlers ---
     const handleOpenAnswersListModal = (confirmationId: string) => { setSelectedReportIdForAnswers(confirmationId); setOpenAnswersListModal(true); };
     const handleCloseAnswersListModal = () => { setOpenAnswersListModal(false); setSelectedReportIdForAnswers(null); };
 
@@ -1166,7 +1128,6 @@ const ListCommiteeMembersReport = () => {
         { label: 'Tesis', key: 'tesistype' },
         { label: 'TrAdi', key: 'tradi' },
         { label: 'Proje', key: 'projectcount' },
-        // 👇 اینجا width اضافه شد
         { label: 'Komite Üyeleri', key: 'memberCount' },
         { label: 'Üye Cevabı', key: 'memberAnswer' },
         { label: '', key: 'actions' },

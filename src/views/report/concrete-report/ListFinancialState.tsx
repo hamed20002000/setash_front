@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
     Grid, Box, Typography, Stack, Avatar,
     Autocomplete, TextField, Skeleton, Button, Paper,
@@ -8,14 +8,12 @@ import axios from 'axios';
 import server from 'src/assets/address.json';
 import { format } from 'date-fns';
 
-// Icons
 import {
     IconFileDownload, IconFileSpreadsheet, IconDropletFilled,
     IconCurrencyLira, IconTools, IconUsers, IconGasStation,
     IconBuildingBridge, IconArrowRightBar, IconChartBar,
 } from '@tabler/icons-react';
 
-// Export Libraries
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
@@ -23,12 +21,29 @@ import Logo from 'src/assets/images/logos/logo.png';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 
-/* ========= Types (حل مشکل خطایnever) ========= */
-interface BaseType { id: number; title?: string; name?: string; }
-interface TenderType extends BaseType { title: string; }
-interface WorkType extends BaseType { title: string; }
-interface WorkhouseType extends BaseType { name: string; }
-interface ProjectType extends BaseType { title: string; }
+// --- Interfaces بر اساس دیتای واقعی شما ---
+interface TenderType {
+    id: string;
+    title: string;
+}
+
+interface WorkType {
+    id: string;
+    title: string;
+    tender: { id: string };
+}
+
+interface WorkhouseType {
+    id: string;
+    name: string;
+    work: { id: string };
+}
+
+interface ProjectType {
+    id: string;
+    title: string;
+    workhouse: { id: string };
+}
 
 interface Selections {
     tender: TenderType | null;
@@ -37,7 +52,7 @@ interface Selections {
     project: ProjectType | null;
 }
 
-/* ========= Styled Components ========= */
+// --- Styled Components ---
 const DashboardCard = styled(Paper)(({ theme }) => ({
     padding: theme.spacing(3),
     borderRadius: '24px',
@@ -54,15 +69,13 @@ const DashboardCard = styled(Paper)(({ theme }) => ({
 }));
 
 const IconWrapper = styled(Avatar)(({ theme, color }: any) => ({
-    backgroundColor: alpha(theme.palette[color].main, 0.12),
-    color: theme.palette[color].main,
+    backgroundColor: alpha(theme.palette[color || 'primary'].main, 0.12),
+    color: theme.palette[color || 'primary'].main,
     width: 54, height: 54, borderRadius: '16px', marginBottom: theme.spacing(2),
 }));
 
-/* ========= Main Component ========= */
 const ListFinancialState = () => {
-
-    // مقداردهی اولیه استیت با تایپ مشخص برای رفع خطای تصویر
+    // --- States ---
     const [selections, setSelections] = useState<Selections>({
         tender: null, work: null, workhouse: null, project: null
     });
@@ -80,74 +93,30 @@ const ListFinancialState = () => {
     const authToken = localStorage.getItem('authToken');
     const headers = { Authorization: `Bearer ${authToken}` };
 
-    // تابع کمکی فرمت تاریخ
+    // --- Helpers ---
     const formatDateDisplay = (dateString: string): string => {
         try {
             return format(new Date(dateString), 'dd/MM/yyyy HH:mm');
         } catch { return '-'; }
     };
 
-    /* ========= PDF Header & Footer (دقیقاً طبق نمونه شما) ========= */
-    const addPdfHeader = (doc: jsPDF, title: string) => {
-        const docAny = doc as any;
-        docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-        doc.setFont('NotoSans');
+    // --- منطق فیلتر کلاینت (Client-side Filtering) ---
+    const filteredWorks = useMemo(() => {
+        if (!selections.tender) return [];
+        return dataLists.works.filter(item => String(item.tender?.id) === String(selections.tender?.id));
+    }, [selections.tender, dataLists.works]);
 
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const logoWidth = 35;
-        const logoHeight = 18;
-        const margin = 15;
-        const logoX = pageWidth - logoWidth - margin;
+    const filteredWorkhouses = useMemo(() => {
+        if (!selections.work) return [];
+        return dataLists.workhouses.filter(item => String(item.work?.id) === String(selections.work?.id));
+    }, [selections.work, dataLists.workhouses]);
 
-        try {
-            doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
-        } catch (e) { console.error("Logo yüklenemedi", e); }
+    const filteredProjects = useMemo(() => {
+        if (!selections.workhouse) return [];
+        return dataLists.projects.filter(item => String(item.workhouse?.id) === String(selections.workhouse?.id));
+    }, [selections.workhouse, dataLists.projects]);
 
-        doc.setFont('NotoSans', 'normal');
-        doc.setFontSize(14);
-        doc.text(title, pageWidth / 2, 25, { align: 'center' });
-
-        doc.setFontSize(10);
-        doc.setFont('NotoSans', 'bold');
-        doc.text(`Rapor Tarihi:`, 15, 35);
-        doc.setFont('NotoSans', 'normal');
-        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
-
-        doc.setLineWidth(0.5);
-        doc.line(15, 40, pageWidth - 15, 40);
-    };
-
-    const addPdfFooter = (doc: jsPDF) => {
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-
-        doc.setFontSize(8);
-        doc.setFont('NotoSans', 'normal');
-        doc.setTextColor(100);
-
-        const companyInfo = [
-            'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
-            'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
-        ];
-        let footerY = pageHeight - 40;
-        companyInfo.forEach(line => {
-            doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-            footerY += 10;
-        });
-
-        doc.setTextColor(0);
-        doc.setFontSize(10);
-        doc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
-        doc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
-
-        const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
-        const pageCount = (doc as any).internal.getNumberOfPages();
-        doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-    };
-
-    /* ========= API Calls ========= */
+    // --- API Calls ---
     const fetchStats = useCallback(async () => {
         setLoading(true);
         try {
@@ -164,65 +133,80 @@ const ListFinancialState = () => {
 
     useEffect(() => {
         const init = async () => {
-            const res = await axios.get(`${server.baseurl}${server.initialoperations}get-tenders`, { headers });
-            setDataLists(prev => ({ ...prev, tenders: res.data.data || [] }));
+            try {
+                const [tenders, works, workhouses, projects] = await Promise.all([
+                    axios.get(`${server.baseurl}${server.initialoperations}get-tenders`, { headers }),
+                    axios.get(`${server.baseurl}${server.initialoperations}get-works`, { headers }),
+                    axios.get(`${server.baseurl}${server.initialoperations}get-workhouse`, { headers }),
+                    axios.get(`${server.baseurl}${server.warehouse}get-project`, { headers })
+                ]);
+                setDataLists({
+                    tenders: tenders.data.data || [],
+                    works: works.data.data || [],
+                    workhouses: workhouses.data.data || [],
+                    projects: projects.data.data || []
+                });
+            } catch (e) { console.error(e); } finally { }
         };
         init();
-        fetchStats();
     }, []);
 
     useEffect(() => { fetchStats(); }, [fetchStats]);
 
-    // Cascading Handlers
-    const handleTenderChange = async (val: any) => {
-        setSelections({ tender: val, work: null, workhouse: null, project: null });
-        if (val) {
-            const res = await axios.get(`${server.baseurl}${server.initialoperations}get-works`, { headers, params: { tenderId: val.id } });
-            setDataLists(prev => ({ ...prev, works: res.data.data || [] }));
-        }
-    };
-
-    const handleWorkChange = async (val: any) => {
-        setSelections(prev => ({ ...prev, work: val, workhouse: null, project: null }));
-        if (val) {
-            const res = await axios.get(`${server.baseurl}${server.initialoperations}get-workhouse`, { headers, params: { workId: val.id } });
-            setDataLists(prev => ({ ...prev, workhouses: res.data.data || [] }));
-        }
-    };
-
-    const handleWorkhouseChange = async (val: any) => {
-        setSelections(prev => ({ ...prev, workhouse: val, project: null }));
-        if (val) {
-            const res = await axios.get(`${server.baseurl}${server.warehouse}get-project`, { headers, params: { workhouseId: val.id } });
-            setDataLists(prev => ({ ...prev, projects: res.data.data || [] }));
-        }
-    };
-
-    /* ========= Export Actions ========= */
     const exportPDF = () => {
         const doc = new jsPDF('p', 'pt', 'a4');
-        addPdfHeader(doc, "Genel Raporu");
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        const addHeader = (doc: jsPDF) => {
+            const docAny = doc as any;
+            docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+            docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+            doc.setFont('NotoSans');
+
+            doc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
+            doc.setFontSize(14);
+            doc.text("Genel Finansal Rapor", pageWidth / 2, 25, { align: 'center' });
+            doc.setFontSize(10);
+            doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, 15, 35);
+            doc.line(15, 40, pageWidth - 15, 40);
+        };
+
+        const addFooter = (doc: jsPDF) => {
+            doc.setFontSize(8);
+            doc.setTextColor(100);
+            const companyInfo = [
+                'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+                'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
+            ];
+            let footerY = pageHeight - 40;
+            companyInfo.forEach(line => { doc.text(line, pageWidth / 2, footerY, { align: 'center' }); footerY += 10; });
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+            doc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+        };
 
         const tableBody = [
-            ["Beton Miktarı", `${Number(stats?.totalBetonQuantity || 0).toLocaleString('tr-TR')} m3`],
-            ["Beton Bedeli", `${Number(stats?.totalBetonPrice || 0).toLocaleString('tr-TR')} TL`],
-            ["Malzeme Bedeli", `${Number(stats?.totalUsedItemsPrice || 0).toLocaleString('tr-TR')} TL`],
-            ["Yakıt Bedeli", `${Number(stats?.totalFuelPrice || 0).toLocaleString('tr-TR')} TL`],
-            ["Ödenen Maaşlar", `${Number(stats?.totalPaidSalary || 0).toLocaleString('tr-TR')} TL`],
-            ["Montaj Toplam", `${Number(stats?.totalMontaj || 0).toLocaleString('tr-TR')} TL`],
-            ["Demontaj Toplam", `${Number(stats?.totalDemontaj || 0).toLocaleString('tr-TR')} TL`]
+            ["Beton Miktarı", `${(stats?.totalBetonQuantity || 0).toLocaleString('tr-TR')} m3`],
+            ["Beton Bedeli", `${(stats?.totalBetonPrice || 0).toLocaleString('tr-TR')} TL`],
+            ["Malzeme Bedeli", `${(stats?.totalUsedItemsPrice || 0).toLocaleString('tr-TR')} TL`],
+            ["Yakıt Bedeli", `${(stats?.totalFuelPrice || 0).toLocaleString('tr-TR')} TL`],
+            ["Maaşlar", `${(stats?.totalPaidSalary || 0).toLocaleString('tr-TR')} TL`],
+            ["Montaj/Demontaj", `${(stats?.totalDemontajMontaj || 0).toLocaleString('tr-TR')} TL`]
         ];
 
+        addHeader(doc);
         autoTable(doc, {
             startY: 50,
-            head: [["Açıklama", "Tutar / Miktar"]],
+            head: [["Açıklama", "Değer"]],
             body: tableBody,
             styles: { font: 'NotoSans', fontSize: 10 },
             headStyles: { fillColor: [33, 150, 243] },
-            didDrawPage: () => addPdfFooter(doc)
+            didDrawPage: () => addFooter(doc)
         });
 
-        doc.save(`Finansal_Durum_${format(new Date(), 'yyyyMMdd')}.pdf`);
+        doc.save(`Finansal_Rapor_${format(new Date(), 'yyyyMMdd')}.pdf`);
     };
 
     const exportExcel = async () => {
@@ -230,7 +214,7 @@ const ListFinancialState = () => {
         const sheet = workbook.addWorksheet('Finansal Rapor');
         sheet.addRow(['Açıklama', 'Değer']);
         sheet.addRows([
-            ['Beton Miktarı', stats?.totalBetonQuantity],
+            ['Beton Miktاری', stats?.totalBetonQuantity],
             ['Beton Bedeli', stats?.totalBetonPrice],
             ['Malzeme Bedeli', stats?.totalUsedItemsPrice],
             ['Yakıt Bedeli', stats?.totalFuelPrice],
@@ -247,7 +231,7 @@ const ListFinancialState = () => {
                 <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>{title}</Typography>
                 <Typography variant="h4" sx={{ fontWeight: 800 }}>
                     {loading ? <Skeleton width="70%" /> :
-                        isCurrency ? `${Number(value || 0).toLocaleString('us-US')} ₺` : Number(value || 0).toLocaleString('tr-TR')}
+                        isCurrency ? `${Number(value || 0).toLocaleString('tr-TR')} ₺` : Number(value || 0).toLocaleString('tr-TR')}
                 </Typography>
             </DashboardCard>
         </Grid>
@@ -257,8 +241,8 @@ const ListFinancialState = () => {
         <Box sx={{ p: { xs: 2, md: 4 } }}>
             <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" mb={4} spacing={2}>
                 <Box>
-                    <Typography variant="h3" fontWeight="900">Genel Raporu</Typography>
-                    <Typography variant="body1" color="text.secondary">Proje bazlı maliyet </Typography>
+                    <Typography variant="h3" fontWeight="900">Genel Finansal Durum</Typography>
+                    <Typography variant="body1" color="text.secondary">Filtrelere göre anlık maliyet analیزی</Typography>
                 </Box>
                 <Stack direction="row" spacing={2}>
                     <Button variant="contained" startIcon={<IconFileDownload />} onClick={exportPDF}>PDF</Button>
@@ -268,21 +252,48 @@ const ListFinancialState = () => {
 
             <Paper sx={{ p: 3, mb: 4, borderRadius: '24px' }}>
                 <Grid container spacing={2}>
+                    {/* کمبوی ۱: Ihale */}
                     <Grid item xs={12} sm={6} md={3}>
-                        <Autocomplete options={dataLists.tenders} getOptionLabel={(o: any) => o.title} value={selections.tender}
-                            onChange={(_, v) => handleTenderChange(v)} renderInput={(p) => <TextField {...p} label="İhale" size="small" />} />
+                        <Autocomplete
+                            options={dataLists.tenders}
+                            getOptionLabel={(o) => o.title || ""}
+                            value={selections.tender}
+                            onChange={(_, v) => setSelections({ tender: v, work: null, workhouse: null, project: null })}
+                            renderInput={(p) => <TextField {...p} label="İhale" size="small" />}
+                        />
                     </Grid>
+                    {/* کمبوی ۲: Is (فیلتر شده بر اساس tender.id کلاینت) */}
                     <Grid item xs={12} sm={6} md={3}>
-                        <Autocomplete options={dataLists.works} getOptionLabel={(o: any) => o.title} value={selections.work}
-                            disabled={!selections.tender} onChange={(_, v) => handleWorkChange(v)} renderInput={(p) => <TextField {...p} label="İş" size="small" />} />
+                        <Autocomplete
+                            options={filteredWorks}
+                            getOptionLabel={(o) => o.title || ""}
+                            value={selections.work}
+                            disabled={!selections.tender}
+                            onChange={(_, v) => setSelections(p => ({ ...p, work: v, workhouse: null, project: null }))}
+                            renderInput={(p) => <TextField {...p} label="İş" size="small" />}
+                        />
                     </Grid>
+                    {/* کمبوی ۳: Santiye (فیلتر شده بر اساس work.id کلاینت) */}
                     <Grid item xs={12} sm={6} md={3}>
-                        <Autocomplete options={dataLists.workhouses} getOptionLabel={(o: any) => o.name} value={selections.workhouse}
-                            disabled={!selections.work} onChange={(_, v) => handleWorkhouseChange(v)} renderInput={(p) => <TextField {...p} label="Şantiye" size="small" />} />
+                        <Autocomplete
+                            options={filteredWorkhouses}
+                            getOptionLabel={(o) => o.name || ""}
+                            value={selections.workhouse}
+                            disabled={!selections.work}
+                            onChange={(_, v) => setSelections(p => ({ ...p, workhouse: v, project: null }))}
+                            renderInput={(p) => <TextField {...p} label="Şantiye" size="small" />}
+                        />
                     </Grid>
+                    {/* کمبوی ۴: Proje (فیلتر شده بر اساس workhouse.id کلاینت) */}
                     <Grid item xs={12} sm={6} md={3}>
-                        <Autocomplete options={dataLists.projects} getOptionLabel={(o: any) => o.title} value={selections.project}
-                            disabled={!selections.workhouse} onChange={(_, v) => setSelections(p => ({ ...p, project: v }))} renderInput={(p) => <TextField {...p} label="Proje" size="small" />} />
+                        <Autocomplete
+                            options={filteredProjects}
+                            getOptionLabel={(o) => o.title || ""}
+                            value={selections.project}
+                            disabled={!selections.workhouse}
+                            onChange={(_, v) => setSelections(p => ({ ...p, project: v }))}
+                            renderInput={(p) => <TextField {...p} label="Proje" size="small" />}
+                        />
                     </Grid>
                 </Grid>
             </Paper>

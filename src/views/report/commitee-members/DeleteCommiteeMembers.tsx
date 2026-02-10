@@ -7,16 +7,15 @@ import {
     DialogContent,
     DialogContentText,
     DialogActions,
-    CircularProgress // اضافه کردن برای نمایش بارگذاری
+    CircularProgress
 } from '@mui/material';
 import axios from 'axios';
-import server from '../../../assets/address.json'; // فرض بر وجود آدرس سرور
+import server from '../../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type Props = {
     openModal: boolean;
-    // تغییر نام props: positionIdToDelete به memberIdToDelete
     memberIdToDelete: number | null;
     onClose: () => void;
     onDeleteSuccess: () => void;
@@ -28,13 +27,9 @@ const DeleteCommiteeMembers = ({ openModal, memberIdToDelete, onClose, onDeleteS
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-
-    // **********************************
-    // ** منطق حذف عضو کمیته (Commitee Member) **
-    // **********************************
-    const handleDeleteCommiteeMember = async () => { // <--- تغییر نام تابع
+    const handleDeleteCommiteeMember = async () => {
         if (memberIdToDelete === null) {
-            showAlert('Silinecek Komite Üyesi seçilmedi.', 'warning'); // <--- تغییر متن
+            showAlert('Silinecek Komite Üyesi seçilmedi.', 'warning');
             onClose();
             return;
         }
@@ -49,8 +44,7 @@ const DeleteCommiteeMembers = ({ openModal, memberIdToDelete, onClose, onDeleteS
         setLoading(true);
         try {
             const response = await axios.delete(
-                // API جدید برای حذف عضو کمیته
-                `${server.baseurl}${server.report}delete-commitee-member/${memberIdToDelete}`, // <--- تغییر API
+                `${server.baseurl}${server.report}delete-commitee-member/${memberIdToDelete}`,
                 {
                     headers: {
                         "Accept": "application/json",
@@ -60,18 +54,18 @@ const DeleteCommiteeMembers = ({ openModal, memberIdToDelete, onClose, onDeleteS
             );
 
             if (response.data.httpStatusCode === 200) {
-                showAlert('Komite Üyesi başarıyla silindi!', 'success'); // <--- تغییر متن موفقیت
+                showAlert('Komite Üyesi başarıyla silindi!', 'success');
                 onDeleteSuccess();
                 onClose();
             } else {
-                showAlert(response.data.message || 'Komite Üyesi silinirken bir hata oluştu.', 'error'); // <--- تغییر متن خطا
+                showAlert(response.data.message || 'Komite Üyesi silinirken bir hata oluştu.', 'error');
                 onClose();
             }
         } catch (e: any) {
             console.error("Error deleting commitee member:", e);
 
             if (e.response && e.response.status === 500) {
-                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez.', 'error'); // <--- حفظ متن 500
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez.', 'error');
                 onClose();
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
@@ -96,7 +90,6 @@ const DeleteCommiteeMembers = ({ openModal, memberIdToDelete, onClose, onDeleteS
                 aria-labelledby="alert-dialog-title"
                 aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">
-                    {/* تغییر متن عنوان */}
                     {"Bu Komite Üyesini silmek istediğinizden emin misiniz?"}
                 </DialogTitle>
                 <DialogContent>
@@ -114,7 +107,7 @@ const DeleteCommiteeMembers = ({ openModal, memberIdToDelete, onClose, onDeleteS
                         <Button
                             color="error"
                             variant="contained"
-                            onClick={handleDeleteCommiteeMember} // <--- فراخوانی تابع جدید
+                            onClick={handleDeleteCommiteeMember}
                             autoFocus
                             disabled={loading}
                         >

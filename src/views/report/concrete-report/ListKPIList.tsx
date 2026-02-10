@@ -8,11 +8,32 @@ import {
 import {
     IconUsers, IconLayoutBoard, IconChevronRight, IconRefresh,
     IconId, IconArrowLeft, IconUser, IconBuildingCommunity, IconX,
-    IconSearch, IconFilterOff
+    IconSearch, IconFilterOff,
+    IconFileDownload
 } from '@tabler/icons-react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import axios from 'axios';
 import server from 'src/assets/address.json';
+
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { tr } from 'date-fns/locale';
+import { format } from 'date-fns';
+import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import { TimesNewRoman } from 'src/assets/fonts/Times';
+import { ArialFont } from 'src/assets/fonts/Arial';
+import Logo from 'src/assets/images/logos/logo.png';
+
+const formatDate = (dateString: string | null): string => {
+    if (!dateString) return "-";
+    try {
+        const date = new Date(dateString);
+        return format(date, 'dd MMMM yyyy', { locale: tr });
+    } catch (e) {
+        console.log("Tarih biçimlendirilirken hata oluştu:", e);
+        return "Geçersiz Tarih";
+    }
+};
 
 const KPIGauge = ({ value, loading }: { value: number | null, loading: boolean }) => {
     if (loading) return <CircularProgress size={40} />;
@@ -123,6 +144,86 @@ const ListKPIList = () => {
         fetchData(newMode);
     };
 
+    const handleDownloadPDF = () => {
+        if (!selectedItem) return;
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        try {
+            doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+            doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+            doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+            doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+            doc.addFileToVFS('Arial.ttf', ArialFont);
+            doc.addFont('Arial.ttf', 'Arial', 'normal');
+
+            doc.setFont('Arial', 'bold');
+            doc.setFontSize(14);
+            doc.text('Performans Analiz Raporu', pageWidth / 2, 15, { align: 'center' });
+
+            doc.setFontSize(10);
+            doc.setFont('NotoSans', 'bold');
+            doc.text(`Rapor Tarihi:`, 15, 40);
+            doc.setFont('NotoSans', 'normal');
+            doc.text(`${formatDate(new Date().toISOString())}`, 40, 40);
+
+            doc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
+
+            doc.setLineWidth(0.5);
+            doc.line(15, 45, pageWidth - 15, 45);
+            const safeKpiValue = kpiValue ?? 0;
+
+            const kpiColor = safeKpiValue >= 0 ? [16, 185, 129] : [244, 63, 94];
+            const bodyData = [
+                [{ content: 'GENEL BİLGİLER', colSpan: 2, styles: { halign: 'center', fillColor: [240, 240, 240], fontStyle: 'normal' } }],
+                ['İsim / Başlık:', mode === 'personnel' ? `${selectedItem.name} ${selectedItem.family}` : selectedItem.title],
+                ['Kod / TC:', mode === 'personnel' ? selectedItem.identityNumber : selectedItem.code],
+                ['KPI SKORU:', { content: `%${kpiValue || 0}`, styles: { textColor: kpiColor, fontStyle: 'normal', fontSize: 12 } }],
+                [{ content: 'DETAYLAR', colSpan: 2, styles: { halign: 'center', fillColor: [240, 240, 240], fontStyle: 'normal' } }],
+            ];
+
+            if (mode === 'personnel') {
+                bodyData.push(['Pozisyon:', selectedItem.position?.title || '-']);
+                bodyData.push(['Giriş Tarihi:', formatDate(selectedItem.workStartDate)]);
+            } else {
+                bodyData.push(['Şantiye:', selectedItem.workhouse?.name || '-']);
+                bodyData.push(['Başlama Tarihi:', formatDate(selectedItem.startDate)]);
+            }
+
+            autoTable(doc, {
+                startY: 55,
+                body: bodyData,
+                theme: 'grid',
+                styles: { font: 'Arial', fontSize: 10, cellPadding: 5 },
+                columnStyles: { 0: { cellWidth: 50, fontStyle: 'normal' } },
+                margin: { left: 15, right: 15 }
+            });
+
+            const companyInfo = [
+                'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+            ];
+
+            doc.setFontSize(8);
+            doc.setFont('NotoSans', 'normal');
+            let footerY = pageHeight - 25;
+            companyInfo.forEach(line => {
+                doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+                footerY += 4;
+            });
+
+            doc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+            doc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+            doc.text(`Sayfa 1 / 1`, 15, pageHeight - 10);
+
+            doc.save(`KPI_Raporu_${selectedItem.id}.pdf`);
+        } catch (error) {
+            console.error("PDF Error:", error);
+        }
+    };
     return (
         <Box p={2} sx={{ minHeight: '100vh', backgroundColor: '#f4f6f8' }}>
 
@@ -270,8 +371,24 @@ const ListKPIList = () => {
                         </Stack>
                     )}
                 </DialogContent>
-                <DialogActions sx={{ p: 3 }}>
-                    <Button onClick={() => setOpenModal(false)} variant="contained" fullWidth size="large" sx={{ borderRadius: 3, fontWeight: 800 }}>KAPAT</Button>
+                <DialogActions sx={{ p: 3, gap: 1 }}>
+                    <Button
+                        onClick={handleDownloadPDF}
+                        variant="contained"
+                        color="secondary"
+                        startIcon={<IconFileDownload />}
+                        sx={{ borderRadius: 3, fontWeight: 800, px: 4 }}
+                    >
+                        PDF OLARAK İNDİR
+                    </Button>
+
+                    <Button
+                        onClick={() => setOpenModal(false)}
+                        variant="outlined"
+                        sx={{ borderRadius: 3, fontWeight: 800 }}
+                    >
+                        KAPAT
+                    </Button>
                 </DialogActions>
             </Dialog>
         </Box>

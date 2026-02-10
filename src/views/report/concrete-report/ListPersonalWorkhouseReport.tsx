@@ -16,8 +16,8 @@ import {
     MenuItem,
     InputAdornment,
     TableSortLabel,
-    TablePagination, // ✅ اضافه شده
-    TableFooter // ✅ اضافه شده
+    TablePagination,
+    TableFooter
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -30,11 +30,6 @@ import server from '../../../assets/address.json';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
 import { format } from 'date-fns';
-// import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
-// import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-// import { tr } from 'date-fns/locale';
-
-// --- PDF & Excel Exports ---
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
@@ -44,7 +39,6 @@ import { saveAs } from 'file-saver';
 import Logo from 'src/assets/images/logos/logo.png';
 
 
-// --- STYLES ---
 const visuallyHiddenStyle = {
     border: 0, clip: 'rect(0 0 0 0)', height: '1px', margin: -1,
     overflow: 'hidden', padding: 0, position: 'absolute',
@@ -55,8 +49,6 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans', fontSize: '0.8rem', [theme.breakpoints.up('md')]: { fontSize: '0.9rem', }, whiteSpace: 'nowrap',
 }));
 
-
-// --- TYPE DEFINITIONS ---
 
 interface WorkhouseType {
     id: number; name: string; code: string; address: string; createAt: string; recordStatus: number;
@@ -96,13 +88,11 @@ interface FilterParams {
     position: string;
 }
 
-// --- SORTING HELPERS ---
 type Order = 'asc' | 'desc';
 
 const cleanNumber = (value: string | number | null): number => {
     if (typeof value === 'number') return value;
     if (!value) return 0;
-    // حذف تمام کاراکترها غیر از اعداد، نقطه و خط تیره
     return parseFloat(value.toString().replace(/[^0-9.-]+/g, "")) || 0;
 };
 
@@ -110,17 +100,14 @@ function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
     let aValue: any = a[orderBy];
     let bValue: any = b[orderBy];
 
-    // مرتب‌سازی بر اساس تاریخ
     if (orderBy === 'personnel_start_date') {
         aValue = new Date(aValue).getTime();
         bValue = new Date(bValue).getTime();
     }
-    // مرتب‌سازی بر اساس حقوق (عدد)
     else if (orderBy === 'personnel_salary') {
         aValue = cleanNumber(aValue);
         bValue = cleanNumber(bValue);
     }
-    // مرتب‌سازی رشته‌ها (الفبا)
     else {
         aValue = (aValue || '').toString().toLowerCase();
         bValue = (bValue || '').toString().toLowerCase();
@@ -140,8 +127,6 @@ function getComparator<Key extends keyof any>(
         : (a, b) => -descendingComparator(a, b, orderBy);
 }
 
-
-// --- MODAL FOR SINGLE ROW DETAILS ---
 interface DetailViewModalProps {
     open: boolean;
     onClose: () => void;
@@ -207,8 +192,6 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
     );
 };
 
-
-// --- UTILITY FUNCTIONS ---
 const getCurrentYearDates = () => {
     const now = new Date();
     const startOfYear = new Date(now.getFullYear(), 0, 1);
@@ -219,22 +202,18 @@ const getCurrentYearDates = () => {
     };
 };
 
-// --- MAIN COMPONENT ---
 const ListPersonnelWorkhouseReport = () => {
     const navigate = useNavigate();
     const authToken = localStorage.getItem('authToken');
 
     const { fromDate: defaultFromDate, toDate: defaultToDate } = getCurrentYearDates();
 
-    // --- State Definitions ---
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Sort States
     const [order, setOrder] = useState<Order>('desc');
     const [orderBy, setOrderBy] = useState<keyof PersonnelReportRowType>('personnel_start_date');
 
-    // ✅ Client Side Pagination States
-    const [page, setPage] = useState(0); // MUI TablePagination starts at 0
+    const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
 
     const [filterParams, setFilterParams] = useState<FilterParams>({
@@ -242,7 +221,7 @@ const ListPersonnelWorkhouseReport = () => {
         toDate: defaultToDate,
         workhouseId: null,
         page: 1,
-        pageSize: 1000, // ✅ دریافت 1000 تایی
+        pageSize: 1000,
         personnelId: null,
         identityNumber: '',
         position: '',
@@ -275,7 +254,6 @@ const ListPersonnelWorkhouseReport = () => {
     };
 
 
-    // --- Utility Callbacks ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message); setAlertSeverity(severity);
         setTimeout(() => setAlertMessage(null), 5000);
@@ -315,8 +293,6 @@ const ListPersonnelWorkhouseReport = () => {
         setSelectedReportToDownload(null);
     };
 
-    // --- Data Fetching (Workhouses Dropdown) ---
-
     const getWorkhousesList = useCallback(async () => {
         const role = localStorage.getItem('activeUserRoleName') || '';
         if (!authToken) { navigate("/"); return; }
@@ -337,7 +313,6 @@ const ListPersonnelWorkhouseReport = () => {
     }, [navigate, authToken, showAlert, handleApiError]);
 
 
-    // --- Main Data Fetching ---
 
     const fetchPersonnelWorkhouseReportData = useCallback(async () => {
         if (!authToken) { navigate("/"); return; }
@@ -382,9 +357,6 @@ const ListPersonnelWorkhouseReport = () => {
     }, [filterParams, navigate, authToken, showAlert, handleApiError]);
 
 
-
-
-    // --- Effects for Data Loading ---
     useEffect(() => {
         getWorkhousesList();
     }, [getWorkhousesList]);
@@ -393,22 +365,18 @@ const ListPersonnelWorkhouseReport = () => {
         fetchPersonnelWorkhouseReportData();
     }, [
         filterParams.workhouseId,
-        // filterParams.page, // loop dependency removed
     ]);
 
-    // --- Handlers for Sorting ---
     const handleRequestSort = (property: keyof PersonnelReportRowType) => {
         const isAsc = orderBy === property && order === 'asc';
         setOrder(isAsc ? 'desc' : 'asc');
         setOrderBy(property);
     };
 
-    // ✨ Client-Side Search & Sort Logic
     const filteredReportData = useMemo(() => {
         if (!reportData?.data) return [];
         let data = [...reportData.data];
 
-        // 1. Search Filter
         if (searchTerm) {
             const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
             data = data.filter(row => {
@@ -425,7 +393,6 @@ const ListPersonnelWorkhouseReport = () => {
             });
         }
 
-        // 2. Sort
         if (orderBy) {
             data.sort(getComparator(order, orderBy));
         }
@@ -433,12 +400,9 @@ const ListPersonnelWorkhouseReport = () => {
         return data;
     }, [reportData, searchTerm, order, orderBy]);
 
-    // ✅ Reset page on search
     useEffect(() => {
         setPage(0);
     }, [searchTerm, filterParams, reportData]);
-
-    // ✅ Visible Rows for Client Side Pagination
     const visibleRows = useMemo(() => {
         return filteredReportData.slice(
             page * rowsPerPage,
@@ -446,20 +410,13 @@ const ListPersonnelWorkhouseReport = () => {
         );
     }, [filteredReportData, page, rowsPerPage]);
 
-
-    // ✅✅✅ Calculated Total Salary (Unique by Name/ID) ✅✅✅
     const calculatedTotalSalary = useMemo(() => {
         if (!filteredReportData) return 0;
 
-        // استفاده از Map برای ذخیره پرسنل یکتا
-        // کلید Map ترکیبی از نام و نام خانوادگی (یا ID اگر دارید) باشد
         const uniquePersonnelMap = new Map();
 
         filteredReportData.forEach(row => {
-            // ساخت یک کلید یکتا برای شناسایی پرسنل (مثلاً ترکیب نام و نام خانوادگی)
-            // اگر personnel_id یکتا دارید بهتر است از آن استفاده کنید: row.personnel_id
             const uniqueKey = `${row.personnel_name}_${row.personnel_family}`.trim();
-            // اگر personnel_id دارید: const uniqueKey = row.personnel_id;
 
             if (!uniquePersonnelMap.has(uniqueKey)) {
                 const salaryString = String(row.personnel_salary).replace(/[^0-9.-]+/g, "");
@@ -468,7 +425,6 @@ const ListPersonnelWorkhouseReport = () => {
             }
         });
 
-        // جمع زدن مقادیر یکتا
         let total = 0;
         uniquePersonnelMap.forEach((salary) => {
             total += salary;
@@ -478,7 +434,6 @@ const ListPersonnelWorkhouseReport = () => {
     }, [filteredReportData]);
 
 
-    // --- Client Side Handlers ---
     const handlePageChange = (_event: unknown, newPage: number) => {
         setPage(newPage);
     };
@@ -488,7 +443,6 @@ const ListPersonnelWorkhouseReport = () => {
         setPage(0);
     };
 
-    // PDF Helpers
     const addPdfHeader = (doc: jsPDF, title: string) => {
 
         const docAny = doc as any;
@@ -496,11 +450,10 @@ const ListPersonnelWorkhouseReport = () => {
         docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
         const pageWidth = doc.internal.pageSize.getWidth();
-        const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+        const logoWidth = 35;
         const logoHeight = 18;
         const margin = 15;
-        const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
-
+        const logoX = pageWidth - logoWidth - margin;
         try {
             doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
         } catch (e) {
@@ -509,7 +462,7 @@ const ListPersonnelWorkhouseReport = () => {
 
         doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
-        doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+        doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
         doc.setFontSize(10);
         doc.setFont('NotoSans', 'bold');
@@ -517,8 +470,6 @@ const ListPersonnelWorkhouseReport = () => {
         doc.setFont('NotoSans', 'normal');
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
 
-        // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-        // doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
         doc.line(15, 40, pageWidth - 15, 40);
     };
@@ -595,7 +546,6 @@ const ListPersonnelWorkhouseReport = () => {
         } catch (e: any) { handleApiError(e, 'PDF raporu oluşturulurken bir hata oluştu.'); }
     };
 
-    // ✨ NEW: Function to fetch all data and apply client-side search & SORT for export
     const fetchAllFilteredData = useCallback(async () => {
         if (!authToken) { navigate("/"); return null; }
 
@@ -605,7 +555,7 @@ const ListPersonnelWorkhouseReport = () => {
             identityNumber: filterParams.identityNumber || null,
             position: filterParams.position || null,
             page: 1,
-            pageSize: 10000, // Fetch all
+            pageSize: 10000,
         };
 
         try {
@@ -622,7 +572,6 @@ const ListPersonnelWorkhouseReport = () => {
                     return { ...item, personnel_name: name, personnel_family: family }
                 }) as PersonnelReportRowType[];
 
-                // 1. Apply Search Filter
                 if (searchTerm) {
                     const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
                     allData = allData.filter(row => {
@@ -639,7 +588,6 @@ const ListPersonnelWorkhouseReport = () => {
                     });
                 }
 
-                // 2. Apply Sort
                 if (orderBy) {
                     allData.sort(getComparator(order, orderBy));
                 }
@@ -655,7 +603,6 @@ const ListPersonnelWorkhouseReport = () => {
     }, [filterParams, navigate, authToken, searchTerm, order, orderBy, showAlert, handleApiError]);
 
 
-    // 3. Export PDF (Global)
     const handleExportPdfAll = async () => {
         showAlert('Genel PDF raporu hazırlanıyor, lütfen bekleyin...', 'info');
 
@@ -675,7 +622,6 @@ const ListPersonnelWorkhouseReport = () => {
 
             const tableColumn = ["Şantiye Adı", "Şantiye Kodu", "Adı Soyadı", "Başlangıç Tarihi", "Maaş (TL)"];
 
-            // محاسبه حقوق کل برای PDF هم با منطق یکتا
             const uniquePersonnelMapPdf = new Map();
             result.data.forEach(row => {
                 const uniqueKey = `${row.personnel_name}_${row.personnel_family}`.trim();
@@ -715,7 +661,6 @@ const ListPersonnelWorkhouseReport = () => {
         } catch (e) { handleApiError(e, 'Genel PDF raporu oluşturulurken bir hata oluştu.'); }
     };
 
-    // 4. Export Excel (Global)
     const handleExportExcelAll = async () => {
         showAlert('Genel Excel raporu hazırlanıyor, lütfen bekleyin...', 'info');
 
@@ -729,7 +674,6 @@ const ListPersonnelWorkhouseReport = () => {
             const workbook = new Excel.Workbook();
             const sheet = workbook.addWorksheet('Genel Personel Raporu', { views: [{ rightToLeft: false }] });
 
-            // محاسبه حقوق کل برای Excel هم با منطق یکتا
             const uniquePersonnelMapExcel = new Map();
             result.data.forEach(row => {
                 const uniqueKey = `${row.personnel_name}_${row.personnel_family}`.trim();
@@ -845,7 +789,6 @@ const ListPersonnelWorkhouseReport = () => {
 
             {alertMessage && (<Stack sx={{ width: '100%', mb: 3 }} spacing={2}><Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert></Stack>)}
 
-            {/* --- Filter Section --- */}
             <BlankCard sx={{ mb: 5, p: 3 }}>
                 <Typography variant="h6" mb={2} p={2}>Filtreleme</Typography>
                 <Grid container spacing={3} p={2} alignItems="flex-end">
@@ -861,7 +804,6 @@ const ListPersonnelWorkhouseReport = () => {
                     </Grid>
                 </Grid>
 
-                {/* ✨ NEW: Search Bar & Global Export Buttons */}
                 <Box sx={{ p: 2, mt: 1 }}>
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} md={6}>
@@ -884,7 +826,6 @@ const ListPersonnelWorkhouseReport = () => {
                 </Box>
             </BlankCard>
 
-            {/* --- Data Table --- */}
             <BlankCard>
                 <TableContainer sx={{ overflowX: 'auto', mt: "3" }}>
                     <Table aria-label="personnel report table">
@@ -915,7 +856,6 @@ const ListPersonnelWorkhouseReport = () => {
                             {loadingData ? (
                                 <TableRow><StyledTableCell colSpan={tableHeaders.length + 1} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>
                             ) : visibleRows.length ? (
-                                // ✅ استفاده از visibleRows برای نمایش دیتا (برش خورده)
                                 visibleRows.map((row, index) => (
                                     <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                         <StyledTableCell>{row.workhouse_name}</StyledTableCell>
@@ -955,14 +895,12 @@ const ListPersonnelWorkhouseReport = () => {
                             )}
                         </TableBody>
 
-                        {/* ✅ Footer با مقادیر محاسبه شده داینامیک */}
                         {reportData && (
                             <TableFooter>
                                 <TableRow>
                                     <StyledTableCell colSpan={7} align="right" sx={{ p: 2, background: '#fafafa', borderTop: '1px solid #ddd' }}>
                                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
                                             <Typography variant="h6" color="success.main">
-                                                {/* ✅ استفاده از محاسبه‌گر جدید برای جمع حقوق */}
                                                 Toplam Maaş : {calculatedTotalSalary.toLocaleString('us-US', { style: 'currency', currency: 'TRY' })}
                                             </Typography>
                                         </Box>
@@ -977,7 +915,7 @@ const ListPersonnelWorkhouseReport = () => {
                         <TablePagination
                             rowsPerPageOptions={[5, 10, 25, 50, 100]}
                             component="div"
-                            count={filteredReportData.length} // تعداد کل دیتای فیلتر/جستجو شده
+                            count={filteredReportData.length}
                             rowsPerPage={rowsPerPage}
                             page={page}
                             onPageChange={handlePageChange}
@@ -992,7 +930,6 @@ const ListPersonnelWorkhouseReport = () => {
 
             </BlankCard>
 
-            {/* --- Modal --- */}
             <DetailViewModal
                 open={openDetailViewModal} onClose={handleCloseDetailViewModal}
                 report={selectedReportToDownload} onExportExcel={handleExportExcelSingle} onExportPdf={handleExportPdfSingle}

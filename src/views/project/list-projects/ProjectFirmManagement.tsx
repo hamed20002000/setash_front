@@ -35,16 +35,13 @@ const ProjectFirmManagement: React.FC<ProjectFirmManagementProps> = ({ open, onC
     const [abbreviation, setAbbreviation] = useState('');
     const [editingId, setEditingId] = useState<number | null>(null);
 
-    // States for local alert
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
-    // Menu States
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedFirmForMenu, setSelectedFirmForMenu] = useState<FirmType | null>(null);
     const openMenu = Boolean(anchorEl);
 
-    // Delete Modal States
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
     const [firmIdToDelete, setFirmIdToDelete] = useState<number | null>(null);
     const [firmTitleToDelete, setFirmTitleToDelete] = useState<string>('');
@@ -324,7 +321,7 @@ const ProjectFirmManagement: React.FC<ProjectFirmManagementProps> = ({ open, onC
                     onFirmChange();
                     handleCloseDeleteModal();
                 }}
-                showAlert={showAlert} // This prop is still needed for the DeleteFirm component
+                showAlert={showAlert}
             />
         </Dialog>
     );

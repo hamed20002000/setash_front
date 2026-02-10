@@ -109,7 +109,6 @@ const ProjectOverallStats = () => {
                 const res = await axios.get(`${server.baseurl}${server.warehouse}get-projects-overall-progress`,
                     { headers });
                 const data = res.data.data || [];
-                debugger
                 setProjects(data);
                 if (data.length > 0) setSelectedProject(data[0]);
             } catch (error) {

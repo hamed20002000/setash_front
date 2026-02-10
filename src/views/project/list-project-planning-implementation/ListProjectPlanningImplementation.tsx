@@ -398,7 +398,6 @@ const ListProjectPlanningImplementation = () => {
             const data = res.data?.data;
             const list: ImplDate[] = Array.isArray(data) ? data : (data ? [data] : []);
 
-            debugger
 
             setRawImplementations(list);
             const byTime = new Map<number, ImplDate>();

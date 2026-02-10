@@ -19,7 +19,7 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 type Props = {
     openModal: boolean;
     firmIdToDelete: number | null;
-    firmTitleToDelete: string; // برای نمایش نام شرکت در مودال
+    firmTitleToDelete: string;
     onClose: () => void;
     onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;

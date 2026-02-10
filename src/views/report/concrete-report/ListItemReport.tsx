@@ -13,7 +13,7 @@ import {
     ListItemIcon,
     Autocomplete,
     TableSortLabel,
-    TablePagination // ✅ اضافه شده برای صفحه‌بندی کلاینت
+    TablePagination
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -31,7 +31,6 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { tr } from 'date-fns/locale';
 
 import "./style.css"
-// --- PDF & Excel Exports ---
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
@@ -39,7 +38,6 @@ import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 import Logo from 'src/assets/images/logos/logo.png';
 
-// --- STYLES ---
 const visuallyHiddenStyle = {
     border: 0, clip: 'rect(0 0 0 0)', height: '1px', margin: -1,
     overflow: 'hidden', padding: 0, position: 'absolute',
@@ -51,7 +49,6 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     whiteSpace: 'nowrap',
 }));
 
-// --- TYPE DEFINITIONS ---
 interface WorkhouseType { id: number; name: string; code: string; address: string; createAt: string; recordStatus: number; }
 
 interface ReportRowType {
@@ -60,7 +57,7 @@ interface ReportRowType {
     ilce: string; proje_adi: string; is_turu: string; itemcode: string | null;
     itemname: string; unit: string; quantity: string; price: string | null; discount: string | null;
     total: string | null;
-    invoice_no: string | null;      // اضافه شد
+    invoice_no: string | null;
     discount_percent: string | null;
 
 }
@@ -96,7 +93,6 @@ interface FilterParams {
     storeId: number | null; dispatchId: string | null; itemId: number | null;
 }
 
-// --- SORTING HELPERS ---
 type Order = 'asc' | 'desc';
 
 
@@ -111,24 +107,20 @@ const cleanNumber = (value: string | number | undefined | null): number => {
 
 const cleanCurrency = (value: string | null): string => {
     if (!value) return '0.00';
-    // حذف علامت $ و کاما (جداکننده هزارگان)
     return value.replace(/[$,]/g, "");
 };
 function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
     let aValue: any = a[orderBy];
     let bValue: any = b[orderBy];
 
-    // سورت ستون‌های عددی
     if (['quantity', 'price', 'total', 'discount'].includes(orderBy as string)) {
         aValue = cleanNumber(aValue);
         bValue = cleanNumber(bValue);
     }
-    // سورت تاریخ
     else if (orderBy === 'tarih') {
         aValue = new Date(aValue).getTime();
         bValue = new Date(bValue).getTime();
     }
-    // سورت رشته‌ها
     else {
         aValue = (aValue || '').toString().toLowerCase();
         bValue = (bValue || '').toString().toLowerCase();
@@ -149,67 +141,10 @@ function getComparator<Key extends keyof any>(
 }
 
 
-// --- MODAL FOR SINGLE ROW DETAILS ---
 interface DetailViewModalProps {
     open: boolean; onClose: () => void; report: ReportRowType | null;
     onExportExcel: (report: ReportRowType) => Promise<void>; onExportPdf: (report: ReportRowType) => Promise<void>;
 }
-
-// const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report, onExportExcel, onExportPdf }) => {
-//     if (!report) return null;
-//     const reportTitle = report.itemname ? `Ürün Raporu Detayları: ${report.itemname}` : `Rapor Detayları: ${report.proje_adi}`;
-
-//     return (
-//         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-//             <DialogTitle>{reportTitle}</DialogTitle>
-//             <DialogContent dividers>
-//                 <Grid container spacing={2}>
-//                     <Grid item xs={12} md={6}>
-//                         <Typography variant="h6" mb={1} color="primary">Malzeme Bilgileri</Typography>
-//                         <Stack spacing={1}>
-//                             <CustomTextField label="Malzeme Adı" size="small" fullWidth value={report.itemname} disabled />
-//                             <CustomTextField label="Malzeme Kodu" size="small" fullWidth value={report.itemcode || '-'} disabled />
-//                             <CustomTextField label="Proje Adı" size="small" fullWidth value={report.proje_adi} disabled />
-//                             <CustomTextField label="Tarih" size="small" fullWidth value={format(new Date(report.tarih), 'dd/MM/yyyy')} disabled />
-//                         </Stack>
-//                     </Grid>
-//                     <Grid item xs={12} md={6}>
-//                         <Typography variant="h6" mb={1} color="success.main">Miktar ve Maliyet</Typography>
-//                         <Stack spacing={1}>
-//                             <CustomTextField label="Miktar" size="small" fullWidth value={report.quantity} disabled />
-//                             <CustomTextField label="Birim" size="small" fullWidth value={report.unit} disabled />
-//                             <CustomTextField label="Birim Fiyat" size="small" fullWidth value={report.price ? `${report.price}` : '-'} disabled />
-//                             <CustomTextField label="Toplam Tutar" size="small" fullWidth value={report.total ? `${report.total}` : '-'} disabled />
-//                         </Stack>
-//                     </Grid>
-//                     <Grid item xs={12}>
-//                         <Typography variant="h6" mt={2} mb={1} color="info">Konum ve Şantiye</Typography>
-//                         <Stack spacing={1}>
-//                             <CustomTextField label="Şantiye Adı" size="small" fullWidth value={report.workhousen_name} disabled />
-//                             <CustomTextField label="Bölge" size="small" fullWidth value={report.bolge_adi} disabled />
-//                             <CustomTextField label="İl / İlçe" size="small" fullWidth value={`${report.il || '-'} / ${report.ilce}`} disabled />
-//                         </Stack>
-//                     </Grid>
-//                     <Grid item xs={12} mt={3}>
-//                         <Typography variant="h6" mb={1} color="secondary">📥 Raporu İndir</Typography>
-//                         <Stack direction="row" spacing={2}>
-//                             <Button variant="contained" color="success" startIcon={<IconFileDownload />} onClick={() => onExportPdf(report)} fullWidth>PDF Olarak İndir</Button>
-//                             <Button variant="contained" color="primary" startIcon={<IconFileDownload />} onClick={() => onExportExcel(report)} fullWidth>Excel Olarak İndir</Button>
-//                         </Stack>
-//                     </Grid>
-//                 </Grid>
-//             </DialogContent>
-//             <DialogActions>
-//                 <Button onClick={onClose} color="secondary">Kapat</Button>
-//             </DialogActions>
-//         </Dialog>
-//     );
-// };
-
-
-// --- MAIN COMPONENT ---
-
-
 const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report, onExportExcel, onExportPdf }) => {
     if (!report) return null;
     const reportTitle = report.itemname ? `Ürün Raporu Detayları: ${report.itemname}` : `Rapor Detayları: ${report.proje_adi}`;
@@ -219,7 +154,6 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
             <DialogTitle>{reportTitle}</DialogTitle>
             <DialogContent dividers>
                 <Grid container spacing={2}>
-                    {/* اطلاعات فاکتور و پروژه */}
                     <Grid item xs={12}>
                         <Typography variant="h6" mb={1} color="primary">Genel Bilgiler</Typography>
                         <Stack spacing={1}>
@@ -229,7 +163,6 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
                         </Stack>
                     </Grid>
 
-                    {/* اطلاعات کالا */}
                     <Grid item xs={12} md={6}>
                         <Typography variant="h6" mt={1} mb={1} color="info.main">Malzeme Bilgileri</Typography>
                         <Stack spacing={1}>
@@ -240,7 +173,6 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
                         </Stack>
                     </Grid>
 
-                    {/* مبالغ و محاسبات */}
                     <Grid item xs={12} md={6}>
                         <Typography variant="h6" mt={1} mb={1} color="success.main">Miktar ve Maliyet</Typography>
                         <Stack spacing={1}>
@@ -255,7 +187,6 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
                         </Stack>
                     </Grid>
 
-                    {/* اطلاعات موقعیت */}
                     <Grid item xs={12}>
                         <Typography variant="h6" mt={1} mb={1} color="secondary">Konum ve Şantiye</Typography>
                         <Stack direction="row" spacing={1}>
@@ -284,17 +215,14 @@ const ListItemReport = () => {
     const currentYearStart = startOfYear(new Date());
     const currentYearEnd = endOfYear(new Date());
 
-    // --- State Definitions ---
     const [startDate, setStartDate] = useState<Date | null>(currentYearStart);
     const [endDate, setEndDate] = useState<Date | null>(currentYearEnd);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Sort States
     const [order, setOrder] = useState<Order>('desc');
     const [orderBy, setOrderBy] = useState<keyof ReportRowType>('tarih');
 
-    // ✅ Client Side Pagination States
-    const [page, setPage] = useState(0); // MUI TablePagination starts at 0
+    const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
 
 
@@ -313,7 +241,7 @@ const ListItemReport = () => {
         projectId: null, workhouseId: null,
         maxQuantity: null, minQuantity: null,
         page: 1,
-        pageSize: 1000, // ✅ دریافت تعداد بالا برای هندل کردن در کلاینت
+        pageSize: 1000,
         storeId: null, dispatchId: null, itemId: null,
     });
 
@@ -347,12 +275,6 @@ const ListItemReport = () => {
     const handleFilterChange = (name: keyof FilterParams, value: any) => {
         setFilterParams(prev => ({ ...prev, [name]: value, page: 1 }));
     };
-
-    // const cleanCurrencyValue = (value: string | null): number => {
-    //     return cleanNumber(value);
-    // };
-
-    // --- Data Fetching ---
     const getWorkhousesList = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         const role = localStorage.getItem('activeUserRoleName') || '';
@@ -378,7 +300,6 @@ const ListItemReport = () => {
                 headers: { "Authorization": `Bearer ${authToken}` }
             });
             if (response.data.httpStatusCode === 200) {
-                // فقط پروژه‌های فعال را فیلتر می‌کنیم
                 const activeProjects = response.data.data.filter((p: ProjectType) => p.recordStatus === 0);
                 setProjectsList(activeProjects);
             }
@@ -389,7 +310,6 @@ const ListItemReport = () => {
         }
     }, [handleApiError]);
 
-    // فراخوانی در useEffect
     useEffect(() => {
         getProjectsList();
     }, [getProjectsList]);
@@ -401,14 +321,14 @@ const ListItemReport = () => {
             fromDate: filterParams.fromDate || null, toDate: filterParams.toDate || null,
             projectId: Number(filterParams.projectId) || null, workhouseId: Number(filterParams.workhouseId) || null,
             maxQuantity: filterParams.maxQuantity || null, minQuantity: filterParams.minQuantity || null,
-            page: filterParams.page, pageSize: filterParams.pageSize, // ✅ 1000
+            page: filterParams.page, pageSize: filterParams.pageSize,
         };
         setLoadingData(true);
         try {
             const response = await axios.get(server.baseurl + server.report + `get-other-items-filtered-report-data`, {
                 headers: { "Authorization": `Bearer ${authToken}` },
                 params: requestParams,
-                timeout: 20000 // افزایش تایم اوت
+                timeout: 20000
             });
             if (response.data.httpStatusCode === 200 && response.data.data) {
                 setReportData(response.data.data as ReportResponseType);
@@ -427,22 +347,18 @@ const ListItemReport = () => {
     }, [
         filterParams.fromDate, filterParams.toDate, filterParams.projectId,
         filterParams.workhouseId, filterParams.maxQuantity, filterParams.minQuantity
-        // page removed from dependency to avoid loop since we fetch all at once
     ]);
 
-    // Sorting Handler
     const handleRequestSort = (property: keyof ReportRowType) => {
         const isAsc = orderBy === property && order === 'asc';
         setOrder(isAsc ? 'desc' : 'asc');
         setOrderBy(property);
     };
 
-    // Filter & Sort Logic (Client-Side)
     const processedData = useMemo(() => {
         if (!reportData?.data) return [];
         let data = [...reportData.data];
 
-        // 1. Search
         if (searchTerm) {
             const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
             data = data.filter(row => {
@@ -450,20 +366,16 @@ const ListItemReport = () => {
                 return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
             });
         }
-        // 2. Sort
         if (orderBy) {
             data.sort(getComparator(order, orderBy));
         }
         return data;
     }, [reportData, searchTerm, order, orderBy]);
 
-    // ✅ Reset page when data/search changes
     useEffect(() => {
         setPage(0);
     }, [searchTerm, filterParams, reportData]);
 
-
-    // ✅ Calculate Visible Rows for Client Side Pagination
     const visibleRows = useMemo(() => {
         return processedData.slice(
             page * rowsPerPage,
@@ -471,8 +383,6 @@ const ListItemReport = () => {
         );
     }, [processedData, page, rowsPerPage]);
 
-
-    // --- UI Handlers ---
     const handleChangePage = (_event: unknown, newPage: number) => {
         setPage(newPage);
     };
@@ -487,7 +397,6 @@ const ListItemReport = () => {
     const handleOpenDetailViewModal = (report: ReportRowType) => { setSelectedReportToDownload(report); setOpenDetailViewModal(true); handleCloseMenu(); };
     const handleCloseDetailViewModal = () => { setOpenDetailViewModal(false); setSelectedReportToDownload(null); };
 
-    // --- EXPORT Logic ---
     const addPdfHeader = (doc: jsPDF, title: string) => {
 
         const docAny = doc as any;
@@ -495,10 +404,10 @@ const ListItemReport = () => {
         docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
         const pageWidth = doc.internal.pageSize.getWidth();
-        const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+        const logoWidth = 35;
         const logoHeight = 18;
         const margin = 15;
-        const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+        const logoX = pageWidth - logoWidth - margin;
 
         try {
             doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -508,7 +417,7 @@ const ListItemReport = () => {
 
         doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
-        doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+        doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
         doc.setFontSize(10);
         doc.setFont('NotoSans', 'bold');
@@ -516,8 +425,6 @@ const ListItemReport = () => {
         doc.setFont('NotoSans', 'normal');
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
 
-        // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-        // doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
         doc.line(15, 40, pageWidth - 15, 40);
     };
@@ -553,7 +460,6 @@ const ListItemReport = () => {
     };
 
 
-    // 1. PDF Single (تکی)
     const handleExportPdfSingle = async (report: ReportRowType) => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { showAlert('Lütfen giriş yapın.', 'warning'); return; }
@@ -575,8 +481,8 @@ const ListItemReport = () => {
                 ["Tarih", format(new Date(report.tarih), 'dd/MM/yyyy')],
                 ["Miktar", report.quantity],
                 ["Birim", report.unit],
-                ["Birim Fiyat", cleanCurrency(report.price)], // اصلاح شد
-                ["İndirim", cleanCurrency(report.discount)],   // اضافه شد
+                ["Birim Fiyat", cleanCurrency(report.price)],
+                ["İndirim", cleanCurrency(report.discount)],
                 ["Toplam Tutar", cleanCurrency(report.total) + " TL"],
             ];
 
@@ -595,7 +501,6 @@ const ListItemReport = () => {
         } catch (e: any) { handleApiError(e, 'PDF hatası.'); }
     };
 
-    // 2. Excel Single (تکی)
     const handleExportExcelSingle = async (report: ReportRowType) => {
         showAlert('Excel hazırlanıyor...', 'info');
         try {
@@ -633,7 +538,6 @@ const ListItemReport = () => {
         } catch (e: any) { handleApiError(e, 'Excel hatası.'); }
     };
 
-    // 3. PDF All (همه)
     const handleExportPdfAll = (data: ReportRowType[]) => {
         if (!data || data.length === 0) { showAlert('Veri yok.', 'warning'); return; }
         try {
@@ -674,7 +578,6 @@ const ListItemReport = () => {
         } catch (e: any) { handleApiError(e, 'PDF hatası.'); }
     };
 
-    // 4. Excel All (همه)
     const handleExportExcelAll = async (data: ReportRowType[]) => {
         if (!data || data.length === 0) { showAlert('Veri yok.', 'warning'); return; }
         try {
@@ -707,7 +610,6 @@ const ListItemReport = () => {
         } catch (e: any) { handleApiError(e, 'Excel hatası.'); }
     };
 
-    // ✨✨✨ LOGIC FOR EXPORT WITH SEARCH & SORT APPLIED ✨✨✨
     const fetchFullReportData = useCallback(async (exportType: 'pdf' | 'excel') => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { showAlert('Lütfen giriş yapın.', 'warning'); return; }
@@ -715,7 +617,7 @@ const ListItemReport = () => {
             fromDate: filterParams.fromDate || null, toDate: filterParams.toDate || null,
             projectId: Number(filterParams.projectId) || null, workhouseId: Number(filterParams.workhouseId) || null,
             maxQuantity: filterParams.maxQuantity || null, minQuantity: filterParams.minQuantity || null,
-            // بدون پیج بندی برای دریافت کل دیتا
+
         };
         const exportMessage = `Tüm rapor verileri için ${exportType.toUpperCase()} hazırlanıyor, lütfen bekleyin...`;
         showAlert(exportMessage, 'info');
@@ -727,7 +629,6 @@ const ListItemReport = () => {
             if (response.data.httpStatusCode === 200 && response.data.data?.data) {
                 let allData = response.data.data.data as ReportRowType[];
 
-                // 1. اعمال فیلتر جستجو روی کل داده‌ها
                 if (searchTerm) {
                     const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
                     allData = allData.filter(row => {
@@ -736,36 +637,33 @@ const ListItemReport = () => {
                     });
                 }
 
-                // 2. اعمال سورت روی کل داده‌ها
                 if (orderBy) {
                     allData.sort(getComparator(order, orderBy));
                 }
 
-                // ارسال داده‌های پردازش شده برای دانلود
                 if (exportType === 'pdf') { handleExportPdfAll(allData); } else { handleExportExcelAll(allData); }
             } else { showAlert('İndirilecek rapor verisi bulunamadı.', 'error'); }
         } catch (e: any) { handleApiError(e, `Tüm raporu indirirken bir sorun oluştu.`); }
     }, [filterParams, showAlert, handleApiError, handleExportPdfAll, handleExportExcelAll, searchTerm, order, orderBy]);
 
-    // ✨ محاسبه جمع کل بر اساس داده‌های فیلتر شده (سرچ شده)
     const calculatedFilteredTotalPrice = useMemo(() => {
         if (!processedData) return 0;
         return processedData.reduce((acc, row) => {
-            const val = cleanNumber(row.total); // تبدیل رشته به عدد
+            const val = cleanNumber(row.total);
             return acc + val;
         }, 0);
     }, [processedData]);
 
     const tableHeaders: { label: string; key: keyof ReportRowType }[] = [
-        { label: 'Fatura No', key: 'invoice_no' }, // اضافه شد
+        { label: 'Fatura No', key: 'invoice_no' },
         { label: 'Malzeme Adı', key: 'itemname' },
         { label: 'Şantiye Adı', key: 'workhousen_name' },
         { label: 'Proje Adı', key: 'proje_adi' },
         { label: 'Tarih', key: 'tarih' },
         { label: 'Miktar', key: 'quantity' },
         { label: 'Birim', key: 'unit' },
-        { label: 'Birim Fiyat', key: 'price' },    // اضافه شد
-        { label: 'İndirim', key: 'discount' },     // اضافه شد
+        { label: 'Birim Fiyat', key: 'price' },
+        { label: 'İndirim', key: 'discount' },
         { label: 'Toplam Tutar (TL)', key: 'total' },
     ];
 
@@ -807,7 +705,6 @@ const ListItemReport = () => {
                             )}
                         />
                     </Grid>
-                    {/* --- فیلتر تاریخ شروع --- */}
                     <Grid item xs={12} sm={6} md={3}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <DatePicker
@@ -821,7 +718,6 @@ const ListItemReport = () => {
                                         fullWidth
                                         size="small"
                                         InputLabelProps={{ shrink: true }}
-                                        // غیرفعال کردن تایپ دستی
                                         onKeyDown={(e) => e.preventDefault()}
                                         InputProps={{
                                             ...params.InputProps,
@@ -830,7 +726,7 @@ const ListItemReport = () => {
                                                     <IconButton
                                                         size="small"
                                                         onClick={(e) => {
-                                                            e.stopPropagation(); // جلوگیری از باز شدن تقویم
+                                                            e.stopPropagation();
                                                             setStartDate(currentYearStart);
                                                         }}
                                                         sx={{ marginRight: -1 }}
@@ -847,7 +743,6 @@ const ListItemReport = () => {
                         </LocalizationProvider>
                     </Grid>
 
-                    {/* --- فیلتر تاریخ پایان --- */}
                     <Grid item xs={12} sm={6} md={3}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <DatePicker
@@ -861,7 +756,6 @@ const ListItemReport = () => {
                                         fullWidth
                                         size="small"
                                         InputLabelProps={{ shrink: true }}
-                                        // غیرفعال کردن تایپ دستی
                                         onKeyDown={(e) => e.preventDefault()}
                                         InputProps={{
                                             ...params.InputProps,
@@ -870,7 +764,7 @@ const ListItemReport = () => {
                                                     <IconButton
                                                         size="small"
                                                         onClick={(e) => {
-                                                            e.stopPropagation(); // جلوگیری از باز شدن تقویم
+                                                            e.stopPropagation();
                                                             setEndDate(currentYearEnd);
                                                         }}
                                                         sx={{ marginRight: -1 }}
@@ -886,8 +780,6 @@ const ListItemReport = () => {
                             />
                         </LocalizationProvider>
                     </Grid>
-                    {/* <Grid item xs={12} sm={6} md={3}><CustomTextField label="Min. Miktar" size="small" type="number" fullWidth value={filterParams.minQuantity || ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFilterChange('minQuantity', Number(e.target.value) || null)} /></Grid>
-                    <Grid item xs={12} sm={6} md={3}><CustomTextField label="Max. Miktar" size="small" type="number" fullWidth value={filterParams.maxQuantity || ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFilterChange('maxQuantity', Number(e.target.value) || null)} /></Grid> */}
                 </Grid>
 
                 <Box sx={{ p: 2 }}>
@@ -928,10 +820,9 @@ const ListItemReport = () => {
                             {loadingData ? (
                                 <TableRow><StyledTableCell colSpan={tableHeaders.length + 1} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>
                             ) : visibleRows.length ? (
-                                // ✅ استفاده از visibleRows برای نمایش دیتا (برش خورده)
                                 visibleRows.map((row, index) => (
                                     <TableRow key={`${row.tarih}-${row.itemcode}-${index}`} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                        <StyledTableCell>{row.invoice_no || '-'}</StyledTableCell> {/* فاکتور */}
+                                        <StyledTableCell>{row.invoice_no || '-'}</StyledTableCell>
                                         <StyledTableCell sx={{ width: '140px', minWidth: '140px', maxWidth: '140px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
                                             {row.itemname}
                                         </StyledTableCell>
@@ -940,16 +831,11 @@ const ListItemReport = () => {
                                         <StyledTableCell>{format(new Date(row.tarih), 'dd/MM/yyyy')}</StyledTableCell>
                                         <StyledTableCell><Typography fontWeight="bold">{row.quantity}</Typography></StyledTableCell>
                                         <StyledTableCell>{row.unit}</StyledTableCell>
-                                        <StyledTableCell>{cleanCurrency(row.price)}</StyledTableCell>    {/* قیمت واحد */}
-                                        <StyledTableCell>{cleanCurrency(row.discount)}</StyledTableCell> {/* تخفیف */}
-                                        {/* <StyledTableCell>
-                                            <Typography color="primary" fontWeight="bold">
-                                                {cleanCurrency(row.total)} TL
-                                            </Typography>
-                                        </StyledTableCell> */}
+                                        <StyledTableCell>{cleanCurrency(row.price)}</StyledTableCell>
+                                        <StyledTableCell>{cleanCurrency(row.discount)}</StyledTableCell>
+
                                         <StyledTableCell>
                                             <Typography color="primary" fontWeight="bold">
-                                                {/* تبدیل به عدد و سپس فرمت‌بندی با جداکننده هزارگان */}
                                                 {cleanNumber(row.total).toLocaleString('us-US', {
                                                     minimumFractionDigits: 2,
                                                     maximumFractionDigits: 2
@@ -993,7 +879,7 @@ const ListItemReport = () => {
                         <TablePagination
                             rowsPerPageOptions={[5, 10, 25, 50, 100]}
                             component="div"
-                            count={processedData.length} // تعداد کل دیتای فیلتر/جستجو شده
+                            count={processedData.length}
                             rowsPerPage={rowsPerPage}
                             page={page}
                             onPageChange={handleChangePage}

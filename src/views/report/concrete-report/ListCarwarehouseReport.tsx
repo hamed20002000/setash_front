@@ -35,7 +35,6 @@ import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { tr } from 'date-fns/locale';
 
-// --- PDF & Excel Exports ---
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
@@ -44,15 +43,11 @@ import { saveAs } from 'file-saver';
 import Logo from 'src/assets/images/logos/logo.png';
 import CustomTextField from 'src/components/forms/theme-elements/CustomTextField';
 
-
-// --- STYLES ---
 const visuallyHiddenStyle = {
     border: 0, clip: 'rect(0 0 0 0)', height: '1px', margin: -1,
     overflow: 'hidden', padding: 0, position: 'absolute',
     whiteSpace: 'nowrap', width: '1px',
 };
-
-// --- TYPE DEFINITIONS ---
 
 interface WorkhouseType {
     id: number; name: string; code: string; address: string; createAt: string; recordStatus: number;
@@ -90,7 +85,7 @@ interface CarReportResponseType {
 interface FilterParams {
     fromDate: string;
     toDate: string;
-    workhouseId: number | null; // null: همه, -1: بدون شانتیه, >0: شانتیه خاص
+    workhouseId: number | null;
     storeId: number | null;
     dispatchId: string | null;
     page: number;
@@ -106,7 +101,6 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     [theme.breakpoints.up('md')]: { fontSize: '0.9rem', }, whiteSpace: 'nowrap',
 }));
 
-// --- Helper function to safely parse and clean currency string ---
 const parseCurrencyToNumber = (currencyString: string | number): number => {
     if (typeof currencyString === 'number') return currencyString;
     if (!currencyString) return 0;
@@ -121,7 +115,6 @@ const parseCurrencyToNumber = (currencyString: string | number): number => {
     return parseFloat(clean) || 0;
 };
 
-// --- SORTING HELPERS ---
 type Order = 'asc' | 'desc';
 
 function descendingComparator<T>(a: T, b: T, orderBy: keyof T | string) {
@@ -163,8 +156,6 @@ function getComparator<Key extends keyof any>(
         : (a, b) => -descendingComparator(a, b, orderBy);
 }
 
-
-// --- MODAL FOR SINGLE ROW DETAILS ---
 interface DetailViewModalProps {
     open: boolean;
     onClose: () => void;
@@ -229,8 +220,6 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
     );
 };
 
-
-// --- MAIN COMPONENT ---
 const ListCarwarehouseReport = () => {
     const navigate = useNavigate();
     const authToken = localStorage.getItem('authToken');
@@ -242,12 +231,10 @@ const ListCarwarehouseReport = () => {
     const [endDate, setEndDate] = useState<Date | null>(currentYearEnd);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Sort States
     const [order, setOrder] = useState<Order>('desc');
     const [orderBy, setOrderBy] = useState<keyof CarReportRowType | string>('fuel_date');
 
-    // ✅ Client Side Pagination States
-    const [page, setPage] = useState(0); // MUI TablePagination starts at 0
+    const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
 
     const [filterParams, setFilterParams] = useState<FilterParams>({
@@ -291,7 +278,6 @@ const ListCarwarehouseReport = () => {
     };
 
 
-    // --- Utility Callbacks ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message); setAlertSeverity(severity);
         setTimeout(() => setAlertMessage(null), 5000);
@@ -308,7 +294,6 @@ const ListCarwarehouseReport = () => {
         setFilterParams(prev => ({ ...prev, [name]: value, page: 1 }));
     };
 
-    // --- Menu/Modal Handlers ---
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: CarReportRowType) => {
         setAnchorEl(event.currentTarget);
         setSelectedRowForMenu(row);
@@ -328,9 +313,6 @@ const ListCarwarehouseReport = () => {
         setSelectedReportToDownload(null);
     };
 
-
-    // --- Data Fetching ---
-
     const getWorkhousesList = useCallback(async () => {
         const role = localStorage.getItem('activeUserRoleName') || '';
         if (!authToken) { navigate("/"); return; }
@@ -344,10 +326,9 @@ const ListCarwarehouseReport = () => {
             if (response.data.httpStatusCode === 200) {
                 const activeWorkhouses = response.data.data.filter((wh: WorkhouseType) => wh.recordStatus === 0);
 
-                // ✅ گزینه "نمایش بدون شانتیه" را به لیست اضافه می‌کنیم
                 const noWorkhouseOption: WorkhouseType = {
-                    id: -1, // شناسه خاص برای این مورد
-                    name: "Şantiyesiz (Boş)", // نمایش بدون شانتیه
+                    id: -1,
+                    name: "Şantiyesiz (Boş)",
                     code: "",
                     address: "",
                     createAt: "",
@@ -361,18 +342,12 @@ const ListCarwarehouseReport = () => {
         } catch (e: any) { handleApiError(e, 'Şantiye listesi alınamadı.'); }
     }, [navigate, showAlert, handleApiError, authToken]);
 
-
-    // --- Main Data Fetching ---
     const fetchCarwarehouseReportData = useCallback(async () => {
         if (!authToken) { navigate("/"); return; }
-
-        // ✅ اگر کاربر گزینه "-1" (بدون شانتیه) را انتخاب کرده، به API نال می‌فرستیم.
-        // ✅ اگر کاربر هیچ چیزی انتخاب نکرده (null)، باز هم به API نال می‌فرستیم (همه داده‌ها).
-        // تفاوت در فیلترینگ سمت کلاینت (processedData) است.
         const workhouseIdToSend = filterParams.workhouseId === -1 ? null : filterParams.workhouseId;
 
         const requestParams = {
-            workhouseId: workhouseIdToSend, // به API همان null می‌رود
+            workhouseId: workhouseIdToSend,
             workId: Number(filterParams.workId) || null,
             personnelId: filterParams.personnelId || null,
             brand: filterParams.brand || null,
@@ -404,8 +379,6 @@ const ListCarwarehouseReport = () => {
         }
     }, [filterParams, navigate, authToken, showAlert, handleApiError]);
 
-
-    // --- Effects ---
     useEffect(() => {
         getWorkhousesList();
     }, [getWorkhousesList]);
@@ -427,29 +400,21 @@ const ListCarwarehouseReport = () => {
         filterParams.toDate,
         filterParams.workhouseId,
         filterParams.workId,
-        // filterParams.page // removed from dependency loop
     ]);
 
-
-    // --- Sorting Handler ---
     const handleRequestSort = (property: keyof CarReportRowType | string) => {
         const isAsc = orderBy === property && order === 'asc';
         setOrder(isAsc ? 'desc' : 'asc');
         setOrderBy(property);
     };
 
-    // ✨ Client-Side Filtering & Sorting for Table View
     const processedData = useMemo(() => {
         if (!reportData?.data) return [];
         let data = [...reportData.data];
-
-        // ✅ فیلتر مخصوص "بدون شانتیه"
-        // اگر کاربر گزینه -1 را انتخاب کرده باشد، فقط ردیف‌هایی که workhouse_id ندارند را نشان بده
         if (filterParams.workhouseId === -1) {
             data = data.filter(row => !row.workhouse_id || row.workhouse_id === null);
         }
 
-        // 1. Search
         if (searchTerm) {
             const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
             data = data.filter(row => {
@@ -461,21 +426,18 @@ const ListCarwarehouseReport = () => {
             });
         }
 
-        // 2. Sort
         if (orderBy) {
             data.sort(getComparator(order, orderBy));
         }
 
         return data;
-    }, [reportData, searchTerm, order, orderBy, filterParams.workhouseId]); // وابستگی به filterParams.workhouseId اضافه شد
+    }, [reportData, searchTerm, order, orderBy, filterParams.workhouseId]);
 
-    // ✅ Reset page when data/search changes
     useEffect(() => {
         setPage(0);
     }, [searchTerm, filterParams, reportData]);
 
 
-    // ✅ Calculate Visible Rows for Client Side Pagination
     const visibleRows = useMemo(() => {
         return processedData.slice(
             page * rowsPerPage,
@@ -483,8 +445,6 @@ const ListCarwarehouseReport = () => {
         );
     }, [processedData, page, rowsPerPage]);
 
-
-    // --- Handlers for Pagination ---
     const handleChangePage = (_event: unknown, newPage: number) => {
         setPage(newPage);
     };
@@ -494,9 +454,6 @@ const ListCarwarehouseReport = () => {
         setPage(0);
     };
 
-
-    // --- PDF & EXCEL HELPERS ---
-
     const addPdfHeader = (doc: jsPDF, title: string) => {
 
         const docAny = doc as any;
@@ -504,10 +461,10 @@ const ListCarwarehouseReport = () => {
         docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
         const pageWidth = doc.internal.pageSize.getWidth();
-        const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+        const logoWidth = 35;
         const logoHeight = 18;
         const margin = 15;
-        const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+        const logoX = pageWidth - logoWidth - margin;
 
         try {
             doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -517,7 +474,7 @@ const ListCarwarehouseReport = () => {
 
         doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
-        doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+        doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
         doc.setFontSize(10);
         doc.setFont('NotoSans', 'bold');
@@ -525,8 +482,6 @@ const ListCarwarehouseReport = () => {
         doc.setFont('NotoSans', 'normal');
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
 
-        // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-        // doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
         doc.line(15, 40, pageWidth - 15, 40);
     };
@@ -605,11 +560,9 @@ const ListCarwarehouseReport = () => {
         } catch (e: any) { handleApiError(e, 'PDF raporu oluşturulurken bir hata oluştu.'); }
     };
 
-    // ✨ FETCH ALL FOR EXPORT WITH SORT & SEARCH
     const fetchAllFilteredData = useCallback(async () => {
         if (!authToken) { navigate("/"); return null; }
 
-        // ✅ همان لاجیک فیلترینگ برای اکسپورت هم صدق می‌کند
         const workhouseIdToSend = filterParams.workhouseId === -1 ? null : filterParams.workhouseId;
 
         const requestParams = {
@@ -630,12 +583,9 @@ const ListCarwarehouseReport = () => {
             if (response.data.httpStatusCode === 200 && response.data.data) {
                 let allData = response.data.data.data as CarReportRowType[];
 
-                // ✅ 1. فیلتر مخصوص "بدون شانتیه" برای اکسپورت
                 if (filterParams.workhouseId === -1) {
                     allData = allData.filter(row => !row.workhouse_id || row.workhouse_id === null);
                 }
-
-                // 2. Search Filter
                 if (searchTerm) {
                     const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
                     allData = allData.filter(row => {
@@ -647,7 +597,6 @@ const ListCarwarehouseReport = () => {
                     });
                 }
 
-                // 3. Sort
                 if (orderBy) {
                     allData.sort(getComparator(order, orderBy));
                 }
@@ -831,7 +780,6 @@ const ListCarwarehouseReport = () => {
         { label: 'Yakıt Tipi', key: 'fuel_type' },
         { label: 'Miktar', key: 'fuel_amount' },
         { label: 'Birim Fiyat', key: 'fuel_fee' },
-        // { label: 'Yakıt Tarihi', key: 'fuel_date' },
         { label: 'Toplam', key: 'total_price' },
         { label: '', key: 'actions' },
     ];
@@ -845,7 +793,6 @@ const ListCarwarehouseReport = () => {
 
             {alertMessage && (<Stack sx={{ width: '100%', mb: 3 }} spacing={2}><Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert></Stack>)}
 
-            {/* --- Filter Section --- */}
             <BlankCard sx={{ mb: 5, p: 3 }}>
                 <Typography variant="h6" mb={2} p={2}>Filtreleme</Typography>
                 <Grid container spacing={3} p={2}>
@@ -869,7 +816,6 @@ const ListCarwarehouseReport = () => {
                                         {...params}
                                         fullWidth
                                         size="small"
-                                        // جلوگیری از تایپ دستی
                                         onKeyDown={(e) => e.preventDefault()}
                                         InputProps={{
                                             ...params.InputProps,
@@ -878,11 +824,11 @@ const ListCarwarehouseReport = () => {
                                                     <IconButton
                                                         size="small"
                                                         onClick={(e) => {
-                                                            e.stopPropagation(); // جلوگیری از باز شدن تقویم هنگام کلیک روی ضربدر
+                                                            e.stopPropagation();
                                                             setStartDate(currentYearStart);
                                                         }}
                                                     >
-                                                        <IconX size={16} /> {/* نیاز به import از tabler-icons دارد */}
+                                                        <IconX size={16} />
                                                     </IconButton>
                                                     {params.InputProps?.endAdornment}
                                                 </InputAdornment>
@@ -906,7 +852,6 @@ const ListCarwarehouseReport = () => {
                                         {...params}
                                         fullWidth
                                         size="small"
-                                        // جلوگیری از تایپ دستی
                                         onKeyDown={(e) => e.preventDefault()}
                                         InputProps={{
                                             ...params.InputProps,
@@ -953,9 +898,6 @@ const ListCarwarehouseReport = () => {
                     </Grid>
                 </Box>
             </BlankCard>
-
-
-            {/* --- Data Table --- */}
             <BlankCard>
                 <TableContainer sx={{ overflowX: 'auto', mt: "3" }}>
                     <Table aria-label="car report table">
@@ -979,14 +921,12 @@ const ListCarwarehouseReport = () => {
                                         </TableSortLabel>
                                     </StyledTableCell>
                                 ))}
-                                {/* <StyledTableCell><Typography variant="h6" fontWeight="bold"></Typography></StyledTableCell> */}
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {loadingData ? (
                                 <TableRow><StyledTableCell colSpan={tableHeaders.length + 1} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>
                             ) : visibleRows.length ? (
-                                // ✅ استفاده از visibleRows برای نمایش دیتا (برش خورده)
                                 visibleRows.map((row, index) => {
                                     const totalCostNumber = parseCurrencyToNumber(row.total_price);
                                     const fuelFeeNumber = parseCurrencyToNumber(row.fuel_fee);
@@ -999,10 +939,7 @@ const ListCarwarehouseReport = () => {
                                             <StyledTableCell>{row.fuel_type}</StyledTableCell>
                                             <StyledTableCell>{row.fuel_amount}</StyledTableCell>
                                             <StyledTableCell>{fuelFeeNumber.toLocaleString('us-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}</StyledTableCell>
-                                            {/* <StyledTableCell>{format(new Date(row.fuel_date), 'dd/MM/yyyy')}</StyledTableCell> */}
                                             <StyledTableCell><Typography color="primary">{totalCostNumber.toLocaleString('us-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}</Typography></StyledTableCell>
-
-                                            {/* Actions Column (Menu) */}
                                             <StyledTableCell>
                                                 <Tooltip title="Detaylar ve İşlemler">
                                                     <IconButton
@@ -1065,7 +1002,7 @@ const ListCarwarehouseReport = () => {
                         <TablePagination
                             rowsPerPageOptions={[5, 10, 25, 50, 100]}
                             component="div"
-                            count={processedData.length} // تعداد کل دیتای فیلتر/جستجو شده
+                            count={processedData.length}
                             rowsPerPage={rowsPerPage}
                             page={page}
                             onPageChange={handleChangePage}
