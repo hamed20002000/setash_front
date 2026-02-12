@@ -157,7 +157,7 @@ const DashboardStats = () => {
 
             <Grid container spacing={3} mb={3}>
 
-                <Grid item xs={12} sm={6} md={4}>
+                <Grid item xs={12} sm={6} md={4} onClick={() => navigate('/care-warehouse/list-details-care-warehouse/')}>
                     <StatCard
                         title="Araçlar"
                         total={stats.car_count}
@@ -166,7 +166,7 @@ const DashboardStats = () => {
                     />
                 </Grid>
 
-                <Grid item xs={12} sm={6} md={4}>
+                <Grid item xs={12} sm={6} md={4} onClick={() => navigate('/hr/list-consignments/')}>
                     <StatCard
                         title="Demirbaş Sayısı"
                         total={stats.consignment_count}
@@ -175,7 +175,7 @@ const DashboardStats = () => {
                     />
                 </Grid>
 
-                <Grid item xs={12} sm={6} md={4}>
+                <Grid item xs={12} sm={6} md={4} onClick={() => navigate('/education/list-teachers/')}>
                     <StatCard
                         title="Eğitimler"
                         total={stats.course_count}
@@ -187,7 +187,7 @@ const DashboardStats = () => {
 
             <Grid container spacing={3}>
 
-                <Grid item xs={12} sm={6} md={4}>
+                <Grid item xs={12} sm={6} md={4} onClick={() => navigate('/warehouse/list-warehouse/')}>
                     <StatCard
                         title="Depo Ürünleri"
                         total={stats.warhouse_items_count}
@@ -196,7 +196,7 @@ const DashboardStats = () => {
                     />
                 </Grid>
 
-                <Grid item xs={12} sm={6} md={4}>
+                <Grid item xs={12} sm={6} md={4} onClick={() => navigate('/workhouse/list-workhouse/')}>
                     <StatCard
                         title="Şantiye Ürünleri"
                         total={stats.store_items_count}
@@ -205,7 +205,7 @@ const DashboardStats = () => {
                     />
                 </Grid>
 
-                <Grid item xs={12} sm={6} md={4}>
+                <Grid item xs={12} sm={6} md={4} onClick={() => navigate('/report/commitee-members-report/')}>
                     <StatCard
                         title="Kabullar"
                         total={stats.kabullar_count}

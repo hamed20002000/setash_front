@@ -150,10 +150,9 @@ const TopCards = () => {
 
 
   return (
-    // ✅ تغییر در اینجا: اضافه کردن justifyContent و تنظیم lg={4}
     <Grid container spacing={3} mt={3} justifyContent="center">
       {cardsData.map((card, i) => (
-        <Grid item xs={12} sm={4} lg={4} key={i}> {/* ✅ تغییر lg={2} به lg={4} */}
+        <Grid item xs={12} sm={4} lg={4} key={i}>
           <Box bgcolor={card.bgcolor + '.light'} textAlign="center">
             <CardContent>
               <img src={card.icon} alt={card.title} width="50" />

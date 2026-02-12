@@ -56,9 +56,6 @@ const AddToCart = () => {
                 <TableBody>
                   {Cartproduct.map((product) => (
                     <TableRow key={product.id}>
-                      {/* ------------------------------------------- */}
-                      {/* Product Image & Title */}
-                      {/* ------------------------------------------- */}
                       <TableCell>
                         <Stack direction="row" alignItems="center" gap={2}>
                           <Avatar

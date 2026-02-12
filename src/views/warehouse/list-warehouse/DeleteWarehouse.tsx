@@ -10,11 +10,10 @@ import server from '../../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// --- Props interface ---
 type Props = {
     openModal: boolean;
     WarehouseIdToDelete: number | null;
-    WarehouseNameToDelete: string; // برای نمایش نام کارگاه در پیام تایید
+    WarehouseNameToDelete: string;
     onClose: () => void;
     onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
@@ -25,7 +24,6 @@ const DeleteWarehouse = ({ openModal, WarehouseIdToDelete, WarehouseNameToDelete
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // State for Warehouse In Use modal
     const [openWarehouseInUseModal, setOpenWarehouseInUseModal] = useState<boolean>(false);
 
     const handleDeleteWarehouse = async () => {
@@ -38,14 +36,13 @@ const DeleteWarehouse = ({ openModal, WarehouseIdToDelete, WarehouseNameToDelete
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             showAlert('Lütfen giriş yapın.', 'warning');
-            // navigate("/"); // ممکن است بخواهید به صفحه ورود هدایت کنید
             return;
         }
 
         setLoading(true);
         try {
             const response = await axios.delete(
-                `${server.baseurl}${server.initialoperations}delete-Warehouse/${WarehouseIdToDelete}`, // ✅ آدرس API برای حذف کارگاه
+                `${server.baseurl}${server.initialoperations}delete-Warehouse/${WarehouseIdToDelete}`,
                 {
                     headers: {
                         "Accept": "application/json",
@@ -86,7 +83,6 @@ const DeleteWarehouse = ({ openModal, WarehouseIdToDelete, WarehouseNameToDelete
 
     return (
         <>
-            {/* Main Delete Confirmation Modal */}
             <Dialog
                 open={openModal}
                 onClose={onClose}
@@ -126,7 +122,6 @@ const DeleteWarehouse = ({ openModal, WarehouseIdToDelete, WarehouseNameToDelete
                 </DialogActions>
             </Dialog>
 
-            {/* Dialog for Warehouse In Use */}
             <Dialog
                 open={openWarehouseInUseModal}
                 onClose={handleCloseWarehouseInUseModal}

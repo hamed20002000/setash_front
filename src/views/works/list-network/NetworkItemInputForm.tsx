@@ -165,9 +165,7 @@ const NetworkItemInputForm: React.FC<WorkItemInputFormProps> = ({
             <Stack spacing={2} sx={{ p: 2 }}>
                 <CustomFormLabel>Öğe ve Miktar Ekle</CustomFormLabel>
 
-                {/* ✅ تغییرات برای نمایش واحد و طرح‌بندی مطابق با عکس */}
                 <Grid container spacing={2} alignItems="flex-end">
-                    {/* کمبو باکس (Öğe Seçin) */}
                     <Grid item xs={12} sm={8}>
                         <FormControl fullWidth error={itemError}>
                             <InputLabel id="select-item-label">Öğe Seçin</InputLabel>
@@ -260,7 +258,6 @@ const NetworkItemInputForm: React.FC<WorkItemInputFormProps> = ({
                         </FormControl>
                     </Grid>
 
-                    {/* فیلد مقدار، واحد و دکمه‌ها در یک ردیف */}
                     <Grid item xs={12} sm={4}>
                         <Stack direction="row" spacing={1} alignItems="flex-end" sx={{ flexGrow: 1 }}>
 
@@ -282,7 +279,7 @@ const NetworkItemInputForm: React.FC<WorkItemInputFormProps> = ({
                                 }}
                                 error={valueError}
                                 helperText={valueHelperText}
-                                sx={{ width: 100 }} // ✅ اندازه ثابت برای Miktar
+                                sx={{ width: 100 }}
                                 size="small"
                                 type='number'
                                 InputProps={{ inputProps: { min: 0 } }}

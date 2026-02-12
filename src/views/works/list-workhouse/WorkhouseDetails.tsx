@@ -133,9 +133,6 @@ interface WorkhouseSubmittedDetail {
 interface Attachment {
     fileUrl: string;
 }
-// ==============================================================================
-// Main Component: WorkhouseDetails
-// ==============================================================================
 const WorkhouseDetails = () => {
     const { workhouseId } = useParams<{ workhouseId: string }>();
     const navigate = useNavigate();
@@ -191,7 +188,6 @@ const WorkhouseDetails = () => {
 
     const [subscriptions, setSubscriptions] = useState<SubscriptionItem[]>([]);
 
-    // State های جدید برای صفحه بندی
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
 
@@ -630,7 +626,6 @@ const WorkhouseDetails = () => {
         showAlert(`"${fileUrl.split('/').pop()}" dosyası indiriliyor.`, 'info');
     };
 
-    // توابع مدیریت صفحه بندی جدید
     const handleChangePage = (_event: unknown, newPage: number) => {
         setPage(newPage);
     };
@@ -639,7 +634,6 @@ const WorkhouseDetails = () => {
         setPage(0);
     };
 
-    // برش لیست داده ها بر اساس صفحه بندی
     const paginatedDetailsList = useMemo(() => {
         return submittedDetailsList.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
     }, [submittedDetailsList, page, rowsPerPage]);
@@ -968,34 +962,10 @@ const WorkhouseDetails = () => {
                                                 {cleanAndFormatPrice(entry.price)}
                                             </Typography>
                                         </StyledTableCell>
-                                        {/* <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
-                                            <Box sx={{
-                                                maxHeight: '5em',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                display: '-webkit-box',
-                                                WebkitLineClamp: 3,
-                                                WebkitBoxOrient: 'vertical',
-                                            }}>
-                                                <Typography variant="body1">{entry.description}</Typography>
-                                            </Box>
-                                            {entry.description && entry.description.length > 50 && (
-                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                    <Button
-                                                        variant="text"
-                                                        size="small"
-                                                        sx={{ fontSize: "10px", padding: "2px 5px" }}
-                                                        onClick={() => handleOpenDescriptionModal(entry.description)}
-                                                    >
-                                                        Açıklamanı Oku
-                                                    </Button>
-                                                </CustomTooltip>
-                                            )}
-                                        </StyledTableCell> */}
+
 
                                         <StyledTableCell sx={{ maxWidth: 150 }}>
                                             {entry.description && entry.description.trim().length > 0 ? (
-                                                // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                     <Button
 
@@ -1007,7 +977,6 @@ const WorkhouseDetails = () => {
                                                     </Button>
                                                 </CustomTooltip>
                                             ) : (
-                                                // حالت دوم: اگر توضیحات نال یا خالی بود
                                                 <Typography variant="body2" align="center">
                                                     -
                                                 </Typography>
@@ -1091,7 +1060,6 @@ const WorkhouseDetails = () => {
                 )}
             </TableContainer>
 
-            {/* کامپوننت TablePagination */}
             <TablePagination
                 rowsPerPageOptions={[5, 10, 25]}
                 component="div"
@@ -1103,7 +1071,6 @@ const WorkhouseDetails = () => {
                 labelRowsPerPage="Satır başına düşen:"
                 labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
             />
-            {/* بقیه کامپوننت ها و مودال ها دست نخورده باقی می مانند */}
             <Dialog open={openDescriptionModal} onClose={handleCloseDescriptionModal} maxWidth="sm" fullWidth>
                 <DialogTitle>Açıklamanın Tamamı</DialogTitle>
                 <DialogContent dividers>

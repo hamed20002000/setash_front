@@ -42,16 +42,10 @@ const ChatMsgSent = () => {
 
   return (
     <Box p={2}>
-      {/* ------------------------------------------- */}
-      {/* sent chat */}
-      {/* ------------------------------------------- */}
       <form
         onSubmit={onChatMsgSubmit}
         style={{ display: 'flex', gap: '10px', alignItems: 'center' }}
       >
-        {/* ------------------------------------------- */}
-        {/* Emoji picker */}
-        {/* ------------------------------------------- */}
         <IconButton
           aria-label="more"
           id="long-button"

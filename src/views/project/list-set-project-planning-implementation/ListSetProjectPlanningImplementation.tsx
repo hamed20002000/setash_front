@@ -961,7 +961,7 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                                         <Grid item xs={12} md={4}>
                                             <AutocompleteCombo
                                                 label="Direkler"
-                                                options={channelOptions.filter(o => editingId === null || o.id === formData.channelRowId)} // فیلتر لیست هنگام ویرایش (اگر نیاز به تغییر نوع نباشد)
+                                                options={channelOptions.filter(o => editingId === null || o.id === formData.channelRowId)}
                                                 value={formData.channelRowId || null}
                                                 onChange={(id) => handleComboChange('channel', id)}
                                                 disabled={
@@ -973,7 +973,7 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                                         <Grid item xs={12} md={4}>
                                             <AutocompleteCombo
                                                 label="İletkenler"
-                                                options={transmissionOptions.filter(o => editingId === null || o.id === formData.transmissionRowId)} // فیلتر لیست هنگام ویرایش
+                                                options={transmissionOptions.filter(o => editingId === null || o.id === formData.transmissionRowId)}
                                                 value={formData.transmissionRowId || null}
                                                 onChange={(id) => handleComboChange('transmission', id)}
                                                 disabled={

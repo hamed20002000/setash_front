@@ -21,7 +21,6 @@ import Logo from 'src/assets/images/logos/logo.png';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 
-// --- Interfaces بر اساس دیتای واقعی شما ---
 interface TenderType {
     id: string;
     title: string;
@@ -52,7 +51,6 @@ interface Selections {
     project: ProjectType | null;
 }
 
-// --- Styled Components ---
 const DashboardCard = styled(Paper)(({ theme }) => ({
     padding: theme.spacing(3),
     borderRadius: '24px',
@@ -75,7 +73,6 @@ const IconWrapper = styled(Avatar)(({ theme, color }: any) => ({
 }));
 
 const ListFinancialState = () => {
-    // --- States ---
     const [selections, setSelections] = useState<Selections>({
         tender: null, work: null, workhouse: null, project: null
     });
@@ -93,14 +90,12 @@ const ListFinancialState = () => {
     const authToken = localStorage.getItem('authToken');
     const headers = { Authorization: `Bearer ${authToken}` };
 
-    // --- Helpers ---
     const formatDateDisplay = (dateString: string): string => {
         try {
             return format(new Date(dateString), 'dd/MM/yyyy HH:mm');
         } catch { return '-'; }
     };
 
-    // --- منطق فیلتر کلاینت (Client-side Filtering) ---
     const filteredWorks = useMemo(() => {
         if (!selections.tender) return [];
         return dataLists.works.filter(item => String(item.tender?.id) === String(selections.tender?.id));
@@ -116,7 +111,6 @@ const ListFinancialState = () => {
         return dataLists.projects.filter(item => String(item.workhouse?.id) === String(selections.workhouse?.id));
     }, [selections.workhouse, dataLists.projects]);
 
-    // --- API Calls ---
     const fetchStats = useCallback(async () => {
         setLoading(true);
         try {
@@ -214,7 +208,7 @@ const ListFinancialState = () => {
         const sheet = workbook.addWorksheet('Finansal Rapor');
         sheet.addRow(['Açıklama', 'Değer']);
         sheet.addRows([
-            ['Beton Miktاری', stats?.totalBetonQuantity],
+            ['Beton Miktarı', stats?.totalBetonQuantity],
             ['Beton Bedeli', stats?.totalBetonPrice],
             ['Malzeme Bedeli', stats?.totalUsedItemsPrice],
             ['Yakıt Bedeli', stats?.totalFuelPrice],
@@ -231,7 +225,7 @@ const ListFinancialState = () => {
                 <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>{title}</Typography>
                 <Typography variant="h4" sx={{ fontWeight: 800 }}>
                     {loading ? <Skeleton width="70%" /> :
-                        isCurrency ? `${Number(value || 0).toLocaleString('tr-TR')} ₺` : Number(value || 0).toLocaleString('tr-TR')}
+                        isCurrency ? `${Number(value || 0).toLocaleString('us-US')} ₺` : Number(value || 0).toLocaleString('tr-TR')}
                 </Typography>
             </DashboardCard>
         </Grid>
@@ -242,7 +236,7 @@ const ListFinancialState = () => {
             <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" mb={4} spacing={2}>
                 <Box>
                     <Typography variant="h3" fontWeight="900">Genel Finansal Durum</Typography>
-                    <Typography variant="body1" color="text.secondary">Filtrelere göre anlık maliyet analیزی</Typography>
+                    <Typography variant="body1" color="text.secondary">Filtrelere göre anlık maliyet analizi</Typography>
                 </Box>
                 <Stack direction="row" spacing={2}>
                     <Button variant="contained" startIcon={<IconFileDownload />} onClick={exportPDF}>PDF</Button>
@@ -252,7 +246,6 @@ const ListFinancialState = () => {
 
             <Paper sx={{ p: 3, mb: 4, borderRadius: '24px' }}>
                 <Grid container spacing={2}>
-                    {/* کمبوی ۱: Ihale */}
                     <Grid item xs={12} sm={6} md={3}>
                         <Autocomplete
                             options={dataLists.tenders}
@@ -262,7 +255,6 @@ const ListFinancialState = () => {
                             renderInput={(p) => <TextField {...p} label="İhale" size="small" />}
                         />
                     </Grid>
-                    {/* کمبوی ۲: Is (فیلتر شده بر اساس tender.id کلاینت) */}
                     <Grid item xs={12} sm={6} md={3}>
                         <Autocomplete
                             options={filteredWorks}
@@ -273,7 +265,6 @@ const ListFinancialState = () => {
                             renderInput={(p) => <TextField {...p} label="İş" size="small" />}
                         />
                     </Grid>
-                    {/* کمبوی ۳: Santiye (فیلتر شده بر اساس work.id کلاینت) */}
                     <Grid item xs={12} sm={6} md={3}>
                         <Autocomplete
                             options={filteredWorkhouses}
@@ -284,7 +275,6 @@ const ListFinancialState = () => {
                             renderInput={(p) => <TextField {...p} label="Şantiye" size="small" />}
                         />
                     </Grid>
-                    {/* کمبوی ۴: Proje (فیلتر شده بر اساس workhouse.id کلاینت) */}
                     <Grid item xs={12} sm={6} md={3}>
                         <Autocomplete
                             options={filteredProjects}

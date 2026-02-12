@@ -53,7 +53,7 @@ const DeleteVehicle: React.FC<DeleteVehicleProps> = ({
 
             if (response.data.httpStatusCode === 200) {
                 showAlert('Araç başarıyla silindi.', 'success');
-                onClose(true); // Notify parent component about success
+                onClose(true);
             } else {
                 showAlert(response.data.message || 'Araç silinirken bir hata oluştu.', 'error');
                 onClose(false);

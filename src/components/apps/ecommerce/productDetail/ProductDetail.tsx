@@ -64,17 +64,11 @@ const ProductDetail = () => {
       {product ? (
         <>
           <Box display="flex" alignItems="center">
-            {/* ------------------------------------------- */}
-            {/* Badge and category */}
-            {/* ------------------------------------------- */}
             <Chip label="In Stock" color="success" size="small" />
             <Typography color="textSecondary" variant="caption" ml={1} textTransform="capitalize">
               {product.category}
             </Typography>
           </Box>
-          {/* ------------------------------------------- */}
-          {/* Title and description */}
-          {/* ------------------------------------------- */}
           <Typography fontWeight="600" variant="h4" mt={1}>
             {product.title}
           </Typography>
@@ -82,9 +76,6 @@ const ProductDetail = () => {
             Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed ex arcu, tincidunt bibendum
             felis.
           </Typography>
-          {/* ------------------------------------------- */}
-          {/* Price */}
-          {/* ------------------------------------------- */}
           <Typography mt={2} variant="h4" fontWeight={600}>
             <Box
               component={'small'}
@@ -95,9 +86,6 @@ const ProductDetail = () => {
             </Box>{' '}
             ${product.price}
           </Typography>
-          {/* ------------------------------------------- */}
-          {/* Ratings */}
-          {/* ------------------------------------------- */}
           <Stack direction={'row'} alignItems="center" gap="10px" mt={2} pb={3}>
             <Rating name="simple-controlled" size="small" value={product.rating} readOnly />
             <Link to="/" color="inherit">
@@ -105,9 +93,6 @@ const ProductDetail = () => {
             </Link>
           </Stack>
           <Divider />
-          {/* ------------------------------------------- */}
-          {/* Colors */}
-          {/* ------------------------------------------- */}
           <Stack py={4} direction="row" alignItems="center">
             <Typography variant="h6" mr={1}>
               Colors:
@@ -134,9 +119,6 @@ const ProductDetail = () => {
               ))}
             </Box>
           </Stack>
-          {/* ------------------------------------------- */}
-          {/* Qty */}
-          {/* ------------------------------------------- */}
           <Stack direction="row" alignItems="center" pb={5}>
             <Typography variant="h6" mr={4}>
               QTY:
@@ -154,9 +136,6 @@ const ProductDetail = () => {
             </Box>
           </Stack>
           <Divider />
-          {/* ------------------------------------------- */}
-          {/* Buttons */}
-          {/* ------------------------------------------- */}
           <Grid container spacing={2} mt={3}>
             <Grid item xs={12} lg={4} md={6}>
               <Button
@@ -189,9 +168,6 @@ const ProductDetail = () => {
           <Link to="/" color="inherit">
             Why the longer time for delivery?
           </Link>
-          {/* ------------------------------------------- */}
-          {/* Alert When click on add to cart */}
-          {/* ------------------------------------------- */}
           <AlertCart handleClose={handleClose} openCartAlert={cartalert} />
         </>
       ) : (

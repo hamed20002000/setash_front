@@ -19,10 +19,10 @@ import {
 import { styled } from '@mui/material/styles';
 import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
 import {
-    IconInbox, // آیکون برای Gelen Talepler
-    IconChecks, // برای تایید (Onayla)
-    IconX, // برای رد (Reddet)
-    IconInfoCircle, // برای نمایش تاریخچه (History)
+    IconInbox,
+    IconChecks,
+    IconX,
+    IconInfoCircle,
     IconDots,
     IconLink,
     IconFileDownload,
@@ -52,7 +52,7 @@ interface RequestStatusHistory {
     status: 0 | 1 | 2;
     statusDescription: string;
     createAt: string;
-    user: User; // کاربری که وضعیت را تغییر داده
+    user: User;
 }
 
 interface Attachment {
@@ -63,11 +63,11 @@ interface RequestType {
     id: number | string;
     subject: string;
     description: string;
-    status: 0 | 1 | 2; // 0: Beklemede, 1: Onaylandı, 2: Reddedildi
+    status: 0 | 1 | 2;
     statusDescription: string | null;
     createAt: string;
     attachments: Attachment[];
-    user: User; // کاربر درخواست‌دهنده
+    user: User;
     requestStatusHistories: RequestStatusHistory[];
 }
 
@@ -105,7 +105,6 @@ const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
     try {
         const date = new Date(dateString);
-        // format fonksiyonu date-fns'den geliyor varsayılır
         return format(date, 'dd MMMM yyyy', { locale: tr });
     } catch (e) {
         return "Geçersiz Tarih";
@@ -113,7 +112,6 @@ const formatDateDisplay = (dateString: string | null): string => {
 };
 
 const stripHtml = (htmlString: string): string => {
-    // React'te DOMParser kullanmak gerekir
     if (!htmlString) return '';
     if (typeof window === 'undefined') return htmlString;
     const doc = new DOMParser().parseFromString(htmlString, 'text/html');
@@ -128,7 +126,7 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     const topMargin = 20;
     const logoX = pageWidth - logoWidth - margin;
 
-    doc.addImage(Logo, 'PNG', logoX, topMargin, logoWidth, logoHeight); // Logo görseli eklemek için
+    doc.addImage(Logo, 'PNG', logoX, topMargin, logoWidth, logoHeight);
 
     doc.setFont('Arial', 'normal');
     doc.setFontSize(14);
@@ -167,30 +165,25 @@ const ListRequestReceipt: React.FC = () => {
     const navigate = useNavigate();
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // States
     const [requestsList, setRequestsList] = useState<RequestType[]>([]);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
     const [loadingData, setLoadingData] = useState<boolean>(true);
     const [loadingButton, setLoadingButton] = useState<boolean>(false);
 
-    // Table States
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<RequestType | null>(null);
     const openMenu = Boolean(anchorEl);
 
-    // Modals for Status Update
     const [openStatusModal, setOpenStatusModal] = useState(false);
-    const [newStatus, setNewStatus] = useState<1 | 2 | null>(null); // 1: Tایید, 2: رد
+    const [newStatus, setNewStatus] = useState<1 | 2 | null>(null);
     const [statusDescription, setStatusDescription] = useState<string>('');
 
-    // Modals for Details/History
     const [openHistoryModal, setOpenHistoryModal] = useState(false);
     const [historyData, setHistoryData] = useState<RequestStatusHistory[]>([]);
 
-    // Modals for Attachments/Description (از کامپوننت قبلی)
     const [openAttachmentsModal, setOpenAttachmentsModal] = useState(false);
     const [currentAttachments, setCurrentAttachments] = useState<Attachment[]>([]);
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
@@ -199,7 +192,6 @@ const ListRequestReceipt: React.FC = () => {
 
 
     const { allowedOperations } = useAuth();
-    // در این کامپوننت، ما به مجوز ویرایش نیاز داریم تا بتوانیم وضعیت را تغییر دهیم.
     const hasStatusUpdatePermission = useMemo(() => {
         return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
     }, [allowedOperations]);
@@ -207,7 +199,6 @@ const ListRequestReceipt: React.FC = () => {
         return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
     }, [allowedOperations]);
 
-    // Utils & UX
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -233,7 +224,6 @@ const ListRequestReceipt: React.FC = () => {
         doc.addFont('Arial.ttf', 'Arial', 'normal');
         doc.setFont('Arial');
 
-        // Genel Talep Bilgileri (Table Auto başlığının altına konulacak)
         const tableData = [
             ['Başlık', requestData.subject],
             ['Durum', statusToLabel(requestData.status)],
@@ -242,21 +232,18 @@ const ListRequestReceipt: React.FC = () => {
         ];
 
         autoTable(doc, {
-            startY: 75, // Başlık ve Tarih bilgisi için yeterli alan bırakır
+            startY: 75,
             head: [['Özellik', 'Değer']],
             body: tableData,
             theme: 'grid',
             styles: { font: 'Arial', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
             headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
             didDrawPage: (_data: any) => {
-                // Şablon başlık/altbilgi yapısını kullanır
                 addPdfHeader(doc, `Talep Detay Raporu`);
                 addPdfFooter(doc);
 
-                // Talep ID'sini başlık alanına ekle
                 doc.setFontSize(10);
                 doc.setFont('Arial', 'normal');
-                // doc.text(`Talep ID: ${requestData.id}`, 15, 32);
 
             },
             showHead: 'firstPage',
@@ -317,7 +304,6 @@ const ListRequestReceipt: React.FC = () => {
                 { headers: { "Authorization": `Bearer ${authToken}` } }
             );
             if (response.data.httpStatusCode === 200 && response.data.data) {
-                // فقط درخواست‌هایی که نیاز به پردازش دارند را نمایش می‌دهیم
                 setRequestsList(response.data.data);
             } else {
                 showAlert(response.data.message || 'Talepler alınamadı.', 'error');
@@ -370,7 +356,7 @@ const ListRequestReceipt: React.FC = () => {
             };
 
             const response = await axios.put(
-                server.baseurl + server.hr + "update-request-status", // ⬅️ API تغییر وضعیت
+                server.baseurl + server.hr + "update-request-status",
                 payload,
                 { headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" } }
             );
@@ -409,12 +395,6 @@ const ListRequestReceipt: React.FC = () => {
         setCurrentAttachments(attachments);
         setOpenAttachmentsModal(true);
     };
-
-    // const handleCloseAttachmentsModal = () => {
-    //     setOpenAttachmentsModal(false);
-    //     setCurrentAttachments([]);
-    // };
-
     const decodeLatin1ToUtf8 = (encodedString: string): string => {
         try {
             const bytes = new Uint8Array(encodedString.length);
@@ -450,7 +430,6 @@ const ListRequestReceipt: React.FC = () => {
         setFullDescriptionContent('');
     };
 
-    // Table Logic
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: RequestType) => {
         setAnchorEl(event.currentTarget);
         setSelectedRowForMenu(row);
@@ -458,7 +437,6 @@ const ListRequestReceipt: React.FC = () => {
 
     const handleCloseMenu = () => {
         setAnchorEl(null);
-        // setSelectedRowForMenu(null);
     };
     const resetSelectedRow = () => {
         setSelectedRowForMenu(null);
@@ -489,7 +467,6 @@ const ListRequestReceipt: React.FC = () => {
                 </Stack>
             )}
 
-            {/* Table Section */}
             <TableContainer component={Paper} sx={{ mt: 3 }}>
                 {loadingData ? (
                     <Box display="flex" justifyContent="center" alignItems="center" height="200px">
@@ -515,7 +492,6 @@ const ListRequestReceipt: React.FC = () => {
                                         <StyledTableCell><Typography variant="body1">{row.subject}</Typography></StyledTableCell>
                                         <StyledTableCell sx={{ maxWidth: 150 }}>
                                             {row.description && row.description.trim().length > 0 ? (
-                                                // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                     <Button
 
@@ -527,7 +503,6 @@ const ListRequestReceipt: React.FC = () => {
                                                     </Button>
                                                 </CustomTooltip>
                                             ) : (
-                                                // حالت دوم: اگر توضیحات نال یا خالی بود
                                                 <Typography variant="body2" align="center">
                                                     -
                                                 </Typography>
@@ -535,7 +510,6 @@ const ListRequestReceipt: React.FC = () => {
                                         </StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{row.user?.username || 'Bilinmiyor'}</Typography></StyledTableCell>
 
-                                        {/* Status Cell with History Icon */}
                                         <StyledTableCell>
                                             <Stack direction="row" alignItems="center" spacing={1}>
                                                 <Chip label={statusToLabel(row.status)} color={statusToColor(row.status)} size="small" />
@@ -547,7 +521,6 @@ const ListRequestReceipt: React.FC = () => {
                                             </Stack>
                                         </StyledTableCell>
 
-                                        {/* Attachments Cell */}
                                         <StyledTableCell>
                                             {row.attachments && row.attachments.length > 0 ? (
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Ekleri görüntüle ve indir" : ""}>
@@ -562,14 +535,12 @@ const ListRequestReceipt: React.FC = () => {
                                             )}
                                         </StyledTableCell>
 
-                                        {/* Actions Cell (Menu) */}
                                         <StyledTableCell>
                                             <IconButton onClick={(event) => handleClickMenu(event, row)}>
                                                 <IconDots width={18} />
                                             </IconButton>
                                             <Menu anchorEl={anchorEl} open={openMenu && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
 
-                                                {/* Onayla / Reddet Actions */}
                                                 {hasStatusUpdatePermission && (row.status === 0 || row.status === 2) && (
                                                     <MuiMenuItem onClick={() => handleOpenStatusModal(1)}>
                                                         <ListItemIcon><IconChecks width={18} /></ListItemIcon> Onayla (Teyit Et)
@@ -585,7 +556,7 @@ const ListRequestReceipt: React.FC = () => {
                                                 {hasDownloadPermission && (
                                                     <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Talep Raporunu İndir" : ""}>
                                                         <MuiMenuItem onClick={() => {
-                                                            setSelectedRowForMenu(row); // مطمئن می‌شویم ردیف درست انتخاب شده است
+                                                            setSelectedRowForMenu(row);
                                                             setOpenDownloadSingleModal(true);
                                                         }}>
                                                             <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>  Bu satırı indir
@@ -629,7 +600,7 @@ const ListRequestReceipt: React.FC = () => {
                             color="primary"
                             onClick={() => {
                                 if (selectedRowForMenu) {
-                                    exportRequestPdf(selectedRowForMenu, statusToLabel); // ⬅️ فراخوانی PDF
+                                    exportRequestPdf(selectedRowForMenu, statusToLabel);
                                 }
                                 setOpenDownloadSingleModal(false);
                                 handleCloseMenu();
@@ -643,7 +614,7 @@ const ListRequestReceipt: React.FC = () => {
                             color="success"
                             onClick={() => {
                                 if (selectedRowForMenu) {
-                                    exportRequestExcel(selectedRowForMenu, statusToLabel); // ⬅️ فراخوانی Excel
+                                    exportRequestExcel(selectedRowForMenu, statusToLabel);
                                 }
                                 setOpenDownloadSingleModal(false);
                                 handleCloseMenu();
@@ -739,7 +710,6 @@ const ListRequestReceipt: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Attachments Download Modal */}
             <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Ekler</DialogTitle>
                 <DialogContent dividers>

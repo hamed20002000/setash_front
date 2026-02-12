@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
     useParams,
-    // useSearchParams,
     useNavigate,
     useSearchParams
 } from 'react-router-dom';
@@ -56,15 +55,14 @@ const pulseRedAnimation = keyframes`
 
 const FixedActionButton = styled(Button)<{ isBlinking: boolean }>(({ theme, isBlinking }) => ({
     position: 'fixed',
-    bottom: '20px', // فاصله از پایین
-    right: '100px',  // فاصله از راست
-    zIndex: 1300,   // بالاتر از سایر المان‌ها قرار بگیرد
+    bottom: '20px',
+    right: '100px',
+    zIndex: 1300,
     padding: '12px 24px',
     fontSize: '1rem',
     fontWeight: 'bold',
-    borderRadius: '50px', // گرد کردن گوشه‌ها
+    borderRadius: '50px',
     boxShadow: theme.shadows[6],
-    // اگر isBlinking درست باشد، انیمیشن اجرا می‌شود
     animation: isBlinking ? `${pulseRedAnimation} 2s infinite` : 'none',
     transition: 'all 0.3s ease-in-out',
     '&:hover': {
@@ -105,8 +103,6 @@ interface ApiNetworkResponse {
     id: string;
     networkTrAdis: ApiNetworkTrAdi[];
 }
-
-// --- Your existing interfaces (with minor updates if needed) ---
 export interface WorkItemDetail {
     id: string;
     tempId: string;
@@ -426,7 +422,6 @@ const NetworkDetails = () => {
                 const updatedDataWithTotals = updateToplamRow(convertedData);
                 setRegisteredWorkEntries(updatedDataWithTotals);
                 showAlert('Veriler başarıyla yüklendi!', 'success');
-                // ✅ تغییرات را در ابتدا به false برگردانید
                 setHasUnsavedChanges(false);
             } else {
                 showAlert(response.data.message || 'İş detayları alınırken bir hata oluştu.', 'error');
@@ -504,7 +499,6 @@ const NetworkDetails = () => {
     const handleStartNewTrAdiEntry = useCallback(() => {
         setTrAdi('');
         setSelectedTrafo(null);
-        // resetMainFormFields();
         setItemsToRegister([]);
         showAlert('Yeni TR ADI ve alt öğeleri girebilirsiniz.', 'info');
     }, [showAlert, resetMainFormFields]);
@@ -512,14 +506,6 @@ const NetworkDetails = () => {
     const updateToplamRow = useCallback((currentEntries: WorkDetailRow[]): WorkDetailRow[] => {
         return currentEntries.map(trAdiRow => {
             const actualSubEntries = trAdiRow.subEntries.filter(sub => !sub.isToplamRow);
-            // let totalYeni = 0;
-            // let totalDmm = 0;
-            // let totalMevcut = 0;
-            // actualSubEntries.forEach(sub => {
-            //     totalYeni += parseFloat(sub.yeni || '0');
-            //     totalDmm += parseFloat(sub.dmm || '0');
-            //     totalMevcut += parseFloat(sub.mevcut || '0');
-            // });
             const itemTotals: { [itemName: string]: number } = {};
             actualSubEntries.forEach(sub => {
                 sub.itemDetails.forEach(item => {
@@ -537,9 +523,9 @@ const NetworkDetails = () => {
                 id: `${trAdiRow.id}-sub-TOTAL`,
                 trAdiParentId: trAdiRow.id,
                 dn: 'TOPLAM',
-                yeni: '',   // ✅ تغییر: مقدار خالی شد
-                dmm: '',    // ✅ تغییر: مقدار خالی شد
-                mevcut: '', // ✅ تغییر: مقدار خالی شد
+                yeni: '',
+                dmm: '',
+                mevcut: '',
                 itemDetails: totalItemDetails,
                 isToplamRow: true,
             };
@@ -621,11 +607,9 @@ const NetworkDetails = () => {
         }
 
         setLoadingRegisterButton(true);
-        // const dnValueForDisplay = selectedProduct ? selectedProduct.name : 'Bilinmeyen';
         const newSubEntry: WorkDetailSubEntry = {
             id: String(Date.now()),
             trAdiParentId: selectedTrafo ? selectedTrafo.id : '',
-            // dn: dnValueForDisplay,
             dn: selectedProduct ? `${selectedProduct.name}###${selectedProduct.id}` : '',
             yeni: selectedRadioOption === 'yeni' ? selectedValue : '',
             dmm: selectedRadioOption === 'dmm' ? selectedValue : '',
@@ -658,7 +642,7 @@ const NetworkDetails = () => {
         showAlert('Yeni giriş başarıyla tabloya eklendi!', 'success');
         resetMainFormFields();
         setLoadingRegisterButton(false);
-        setHasUnsavedChanges(true); // ✅ ثبت تغییر
+        setHasUnsavedChanges(true);
     };
 
     const handleDownloadExcelTemplate = useCallback(() => {
@@ -745,7 +729,6 @@ const NetworkDetails = () => {
             }
             const range = XLSX.utils.decode_range(worksheet['!ref']);
             if (range.e.r < 3 || range.e.c < 6) {
-                // showAlert('Excel dosyası boş veya formatı geçersiz (minimum 4 R satır و 7 C ستون (A-G) انتظار می‌رود).', 'error');
                 setLoadingFileUpload(false);
                 return;
             }
@@ -869,14 +852,6 @@ const NetworkDetails = () => {
             }
             newRegisteredWorkEntries.forEach(trAdiRow => {
                 const subEntriesForThisTrAdi = tempTrAdiSubEntries[trAdiRow.id];
-                // let totalYeni = 0;
-                // let totalDmm = 0;
-                // let totalMevcut = 0;
-                // subEntriesForThisTrAdi.forEach(sub => {
-                //     totalYeni += parseFloat(sub.yeni || '0');
-                //     totalDmm += parseFloat(sub.dmm || '0');
-                //     totalMevcut += parseFloat(sub.mevcut || '0');
-                // });
                 const itemTotals: { [itemName: string]: number } = {};
                 subEntriesForThisTrAdi.forEach(sub => {
                     sub.itemDetails.forEach(item => {
@@ -893,9 +868,9 @@ const NetworkDetails = () => {
                     id: `${trAdiRow.id}-sub-TOTAL`,
                     trAdiParentId: trAdiRow.id,
                     dn: 'TOPLAM',
-                    yeni: '',   // ✅ تغییر: مقدار خالی شد
-                    dmm: '',    // ✅ تغییر: مقدار خالی شد
-                    mevcut: '', // ✅ تغییر: مقدار خالی شد
+                    yeni: '',
+                    dmm: '',
+                    mevcut: '',
                     itemDetails: totalItemDetails,
                     isToplamRow: true,
                 };
@@ -910,7 +885,7 @@ const NetworkDetails = () => {
             setTrAdi('');
             resetMainFormFields();
             setItemsToRegister([]);
-            setHasUnsavedChanges(true); // ✅ ثبت تغییر بعد از آپلود اکسل
+            setHasUnsavedChanges(true);
         } catch (error: any) {
             console.log("Excel işleme hatası:", error);
             showAlert('Excel dosyası işlenirken bir hata oluştu. Lütfen dosyanın formatını kontrol edin veya', 'error');
@@ -1042,7 +1017,7 @@ const NetworkDetails = () => {
             return updatedEntries;
         });
         showAlert('TR ADI ve tüm alt öğeleri başarıyla silindi!', 'success');
-        setHasUnsavedChanges(true); // ✅ ثبت تغییر
+        setHasUnsavedChanges(true);
     }, [showAlert, selectedTrafo, resetMainFormFields]);
 
     const handleLoadSubEntryForEdit = useCallback((subEntry: WorkDetailSubEntry) => {
@@ -1164,7 +1139,7 @@ const NetworkDetails = () => {
         showAlert('Alt öğe başarıyla güncellendi!', 'success');
         resetMainFormFields();
         setLoadingRegisterButton(false);
-        setHasUnsavedChanges(true); // ✅ ثبت تغییر
+        setHasUnsavedChanges(true);
     }, [
         editingSubEntry,
         selectedProduct,
@@ -1203,7 +1178,7 @@ const NetworkDetails = () => {
             return updatedEntries;
         });
         showAlert('Alt öğe başarıyla silindi!', 'success');
-        setHasUnsavedChanges(true); // ✅ ثبت تغییر
+        setHasUnsavedChanges(true);
     }, [showAlert, editingSubEntry, resetMainFormFields, updateToplamRow]);
 
     const handleTrAdiEditedInTable = useCallback((trAdiId: string, trAdiName: string) => {
@@ -1214,47 +1189,11 @@ const NetworkDetails = () => {
         }
     }, [setTrAdi, registeredWorkEntries]);
 
-    // const filteredProductTypes = useMemo(() => {
-    //     const requiredType = selectedTrafo ? 1 : 0;
-    //     const filteredByType = allProductTypesFromAPI.filter(
-    //         productType => productType.type === requiredType
-    //     );
-    //     const registeredDnNames = new Set<string>();
-    //     const currentTrafo = selectedTrafo || registeredWorkEntries.find(row => row.trAdi === trAdi);
-    //     if (currentTrafo) {
-    //         currentTrafo.subEntries.forEach(sub => {
-    //             if (!sub.isToplamRow) {
-    //                 registeredDnNames.add(sub.dn);
-    //             }
-    //         });
-    //     }
-    //     return filteredByType.filter(productType => {
-    //         const isRegistered = registeredDnNames.has(productType.name);
-    //         const isEditingThisOne = isEditingSubEntry && editingSubEntry?.dn === productType.name;
-    //         if (isEditingThisOne) {
-    //             return true;
-    //         }
-    //         return !isRegistered;
-    //     });
-    // }, [
-    //     allProductTypesFromAPI,
-    //     registeredWorkEntries,
-    //     isEditingSubEntry,
-    //     editingSubEntry,
-    //     selectedTrafo,
-    //     trAdi,
-    // ]);
-
-
     const filteredProductTypes = useMemo(() => {
-        // ۱. ابتدا مشخص می‌کنیم چه تایپ‌هایی مجاز هستند
-        // اگر می‌خواهید همیشه همه تایپ‌ها (۰، ۱، ۲) در دسترس باشند، فیلتر تایپ را حذف کنید
-        // اما اگر منطق بیزنس شما می‌گوید بعد از انتخاب ترافو، نباید ترافوهای دیگر را دید:
         const filteredByType = allProductTypesFromAPI.filter(productType => {
             if (!selectedTrafo) {
-                return productType.type === 0; // در ابتدا فقط لیست ترافوها
+                return productType.type === 0;
             }
-            // وقتی ترافو انتخاب شد، تایپ‌های ۱ و ۲ (بتن و آهن) را نشان بده
             return productType.type === 1 || productType.type === 2;
         });
 
@@ -1275,137 +1214,17 @@ const NetworkDetails = () => {
 
             if (isEditingThisOne) return true;
 
-            // اگر هم‌نام هستند ولی تایپ‌های متفاوتی دارند، اجازه نمایش بده
-            // (مثلاً بتن "X" و آهن "X" هر دو نمایش داده شوند)
             const hasSameNameDifferentType = allProductTypesFromAPI.some(
                 p => p.name === productType.name && p.type !== productType.type
             );
 
             if (hasSameNameDifferentType) {
                 return !isRegistered || (isRegistered && productType.type !== currentTrafo?.subEntries.find(s => s.dn === productType.name)?.itemDetails[0]?.id);
-                // نکته: منطق دقیق چک کردن تکراری بودن در اینجا بستگی دارد که آیا ID محصول را هم چک می‌کنید یا فقط نام
             }
 
             return !isRegistered;
         });
     }, [allProductTypesFromAPI, registeredWorkEntries, isEditingSubEntry, editingSubEntry, selectedTrafo, trAdi]);
-
-    // const transformToApiFormat = useCallback(() => {
-    //     const idToUse = networkId;
-    //     if (!idToUse) {
-    //         showAlert('Work/Network ID bulunamadı. Lütfen URL\'yi kontrol edin.', 'error');
-    //         return null;
-    //     }
-    //      
-    //     const apiPayload: {
-    //         id: number;
-    //         networkTrAdis: {
-    //             title: string;
-    //             channelRows: {
-    //                 productStatus: number;
-    //                 title: string;
-    //                 label: string;
-    //                 productTypeId: number;
-    //                 channelRowItems: {
-    //                     value: number;
-    //                     itemId: number;
-    //                 }[];
-    //                 childChannelRows?: {
-    //                     productStatus: number;
-    //                     title: string;
-    //                     label: string;
-    //                     productTypeId: number;
-    //                     channelRowItems: {
-    //                         value: number;
-    //                         itemId: number;
-    //                     }[];
-    //                     childChannelRows: []
-    //                 }[];
-    //             }[];
-    //         }[];
-    //     } = {
-    //         id: parseInt(idToUse, 10),
-    //         networkTrAdis: []
-    //     };
-
-    //     registeredWorkEntries.forEach(trAdiRow => {
-    //         const actualSubEntries = trAdiRow.subEntries.filter(sub => !sub.isToplamRow);
-    //         if (actualSubEntries.length === 0) {
-    //             return;
-    //         }
-    //         const networkTrAdiEntry: typeof apiPayload.networkTrAdis[0] = {
-    //             title: trAdiRow.trAdi,
-    //             channelRows: []
-    //         };
-    //         const firstSubEntry = actualSubEntries[0];
-    //         let mainProductStatus: number;
-    //         let mainLabel: string;
-    //         if (firstSubEntry.yeni) {
-    //             mainProductStatus = 0;
-    //             mainLabel = firstSubEntry.yeni;
-    //         } else if (firstSubEntry.dmm) {
-    //             mainProductStatus = 1;
-    //             mainLabel = firstSubEntry.dmm;
-    //         } else if (firstSubEntry.mevcut) {
-    //             mainProductStatus = 2;
-    //             mainLabel = firstSubEntry.mevcut;
-    //         } else {
-    //             mainProductStatus = 0;
-    //             mainLabel = '';
-    //         }
-    //         const mainProductType = allProductTypesFromAPI.find(p => p.name === firstSubEntry.dn);
-    //         const mainProductTypeId = mainProductType ? parseInt(mainProductType.id, 10) : 0;
-    //         const mainChannelRow: typeof networkTrAdiEntry.channelRows[0] = {
-    //             productStatus: mainProductStatus,
-    //             title: "",
-    //             label: mainLabel,
-    //             productTypeId: mainProductTypeId,
-    //             channelRowItems: firstSubEntry.itemDetails.map(item => ({
-    //                 value: parseFloat(item.value),
-    //                 itemId: parseInt(item.id, 10)
-    //             })),
-    //             childChannelRows: []
-    //         };
-    //         networkTrAdiEntry.channelRows.push(mainChannelRow);
-    //         for (let i = 1; i < actualSubEntries.length; i++) {
-    //             const childSubEntry = actualSubEntries[i];
-    //             let childProductStatus: number;
-    //             let childLabel: string;
-    //             if (childSubEntry.yeni) {
-    //                 childProductStatus = 0;
-    //                 childLabel = childSubEntry.yeni;
-    //             } else if (childSubEntry.dmm) {
-    //                 childProductStatus = 1;
-    //                 childLabel = childSubEntry.dmm;
-    //             } else if (childSubEntry.mevcut) {
-    //                 childProductStatus = 2;
-    //                 childLabel = childSubEntry.mevcut;
-    //             } else {
-    //                 childProductStatus = 0;
-    //                 childLabel = '';
-    //             }
-    //             const childProductType = allProductTypesFromAPI.find(p => p.name === childSubEntry.dn);
-    //             const childProductTypeId = childProductType ? parseInt(childProductType.id, 10) : 0;
-    //             const childChannelRow: NonNullable<typeof mainChannelRow.childChannelRows>[0] = {
-    //                 productStatus: childProductStatus,
-    //                 title: "",
-    //                 label: childLabel,
-    //                 productTypeId: childProductTypeId,
-    //                 channelRowItems: childSubEntry.itemDetails.map(item => ({
-    //                     value: parseFloat(item.value),
-    //                     itemId: parseInt(item.id, 10)
-    //                 })),
-    //                 childChannelRows: []
-    //             };
-    //             mainChannelRow.childChannelRows!.push(childChannelRow);
-    //         }
-
-    //         apiPayload.networkTrAdis.push(networkTrAdiEntry);
-    //     });
-    //     return apiPayload;
-    // }, [networkId, registeredWorkEntries, allProductTypesFromAPI, showAlert]);
-
-
     const transformToApiFormat = useCallback(() => {
         const idToUse = networkId;
         if (!idToUse) {
@@ -1426,19 +1245,15 @@ const NetworkDetails = () => {
                 title: trAdiRow.trAdi,
                 channelRows: []
             };
-
-            // تابع کمکی برای جدا کردن نام و آیدی از رشته dn
             const parseDnField = (dnValue: string) => {
                 if (dnValue.includes('###')) {
                     const [name, id] = dnValue.split('###');
                     return { name, id: parseInt(id, 10) };
                 }
-                // Fallback برای داده‌های قدیمی که فقط نام داشتند
                 const legacyProduct = allProductTypesFromAPI.find(p => p.name === dnValue);
                 return { name: dnValue, id: legacyProduct ? parseInt(legacyProduct.id, 10) : 0 };
             };
 
-            // پردازش سطر اول به عنوان سطر اصلی (Main Channel Row)
             const firstSubEntry = actualSubEntries[0];
             const parsedFirst = parseDnField(firstSubEntry.dn);
 
@@ -1452,7 +1267,7 @@ const NetworkDetails = () => {
                 productStatus: mainProductStatus,
                 title: "",
                 label: mainLabel,
-                productTypeId: parsedFirst.id, // استفاده از آیدی استخراج شده
+                productTypeId: parsedFirst.id,
                 channelRowItems: firstSubEntry.itemDetails.map(item => ({
                     value: parseFloat(item.value),
                     itemId: parseInt(item.id, 10)
@@ -1460,7 +1275,6 @@ const NetworkDetails = () => {
                 childChannelRows: []
             };
 
-            // پردازش بقیه سطرها به عنوان فرزند (از ایندکس 1 به بعد)
             for (let i = 1; i < actualSubEntries.length; i++) {
                 const childSubEntry = actualSubEntries[i];
                 const parsedChild = parseDnField(childSubEntry.dn);
@@ -1475,7 +1289,7 @@ const NetworkDetails = () => {
                     productStatus: childProductStatus,
                     title: "",
                     label: childLabel,
-                    productTypeId: parsedChild.id, // استفاده از آیدی استخراج شده
+                    productTypeId: parsedChild.id,
                     channelRowItems: childSubEntry.itemDetails.map(item => ({
                         value: parseFloat(item.value),
                         itemId: parseInt(item.id, 10)
@@ -1526,7 +1340,7 @@ const NetworkDetails = () => {
 
             if (response.data.httpStatusCode === 200) {
                 showAlert('Tüm kayıtlar başarıyla sunucuya gönderildi ve güncellendi!', 'success');
-                setHasUnsavedChanges(false); // ✅ بازنشانی وضعیت تغییرات بعد از ثبت موفق
+                setHasUnsavedChanges(false);
             } else {
                 showAlert(response.data.message || 'Kayıtlar sunucuya gönderilirken bir hata oluştu.', 'error');
             }
@@ -1559,7 +1373,7 @@ const NetworkDetails = () => {
         try {
             const workbook = new Excel.Workbook();
             const worksheet = workbook.addWorksheet('WorkDetails', {
-                views: [{ rightToLeft: false }] // این پراپرتی جهت نمایش را به LTR تغییر می‌دهد.
+                views: [{ rightToLeft: false }]
             });
             const allUniqueItems = new Set<string>();
             registeredWorkEntries.forEach(trAdiRow => {
@@ -1580,10 +1394,8 @@ const NetworkDetails = () => {
                 ...uniqueItemNames
             ];
 
-            // Add the header row to the worksheet
             const headerRow = worksheet.addRow(header);
 
-            // Define column widths and styles
             const columnWidths = [
                 { width: 20 },
                 { width: 20 },
@@ -1594,10 +1406,9 @@ const NetworkDetails = () => {
             ];
             worksheet.columns = columnWidths;
 
-            // Apply header styles
             const headerColors = ['FFCC99', 'C6EFCE', 'F2F2F2', 'B8CCE4', 'E6B8B8', 'ADD8E6'];
             headerRow.eachCell((cell, colNumber) => {
-                if (colNumber > 5) { // شروع از ستون ششم
+                if (colNumber > 5) {
                     cell.fill = {
                         type: 'pattern',
                         pattern: 'solid',
@@ -1608,7 +1419,6 @@ const NetworkDetails = () => {
                 cell.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' };
             });
 
-            // Add data rows and apply styles
             const dataColors = ['F3f3f3'];
             registeredWorkEntries.forEach(trAdiRow => {
                 const trAdiTitle = trAdiRow.trAdi;
@@ -1619,12 +1429,11 @@ const NetworkDetails = () => {
                     const rowData = [
                         isFirstRowForTrAdi ? trAdiTitle : '',
                         subEntry.dn,
-                        isToplam ? '' : subEntry.yeni,   // شرط برای YENİ
-                        isToplam ? '' : subEntry.dmm,    // شرط برای DMM
-                        isToplam ? '' : subEntry.mevcut, // شرط برای MEVCUT
+                        isToplam ? '' : subEntry.yeni,
+                        isToplam ? '' : subEntry.dmm,
+                        isToplam ? '' : subEntry.mevcut,
                         ...uniqueItemNames.map(itemName => {
                             const item = subEntry.itemDetails.find(d => d.name === itemName);
-                            // برای آیتم‌های داینامیک، مقدار را همیشه نشان بده (چون جمع اقلام مهم است)
                             return item ? parseFloat(item.value) : '';
                         })
                     ];
@@ -1632,17 +1441,14 @@ const NetworkDetails = () => {
                     const row = worksheet.addRow(rowData);
 
                     row.eachCell((cell, colNumber) => {
-                        // 1. تنظیم رنگ پس‌زمینه (همان منطق قبلی شما)
                         cell.fill = {
                             type: 'pattern',
                             pattern: 'solid',
                             fgColor: { argb: dataColors[(colNumber - 1) % dataColors.length] }
                         };
 
-                        // 2. تنظیم چیدمان متن
                         cell.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' };
 
-                        // 3. ✅ اضافه کردن خطوط (Border) دور سلول
                         cell.border = {
                             top: { style: 'thin' },
                             left: { style: 'thin' },
@@ -1655,7 +1461,6 @@ const NetworkDetails = () => {
                 });
             });
 
-            // Make the text wrap for the unique item columns (after MEVCUT)
             for (let i = 5; i < header.length; i++) {
                 const col = worksheet.getColumn(i + 1);
                 col.eachCell({ includeEmpty: false }, (cell) => {
@@ -1665,7 +1470,6 @@ const NetworkDetails = () => {
                 });
             }
 
-            // Write the workbook to a buffer and save it
             const buffer = await workbook.xlsx.writeBuffer();
             const fileName = `Exported_WorkDetails_${new Date().toISOString().slice(0, 10)}.xlsx`;
             saveAs(new Blob([buffer]), fileName);
@@ -1681,7 +1485,6 @@ const NetworkDetails = () => {
     const handleSelectTrafo = useCallback((trafo: WorkDetailRow) => {
         setSelectedTrafo(trafo);
         setTrAdi(trafo.trAdi);
-        // resetMainFormFields();
         setOpenTrafoSelectionModal(false);
         showAlert(`'${trafo.trAdi}' adlı trafo başarıyla seçildi. Artık bu trafo için alt öğe ekleyebilirsiniz.`, 'success');
     }, [showAlert, resetMainFormFields]);
@@ -1763,7 +1566,7 @@ const NetworkDetails = () => {
                                     color="primary"
                                     onClick={() => setIsFormVisible(true)}
                                     isBlinking={isBlinking}
-                                    fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                                    fullWidth={false}
                                 >
                                     Yeni İş Detayları Kaydet
                                 </BlinkingButton>
@@ -1775,7 +1578,6 @@ const NetworkDetails = () => {
                                     variant="contained"
                                     color="error"
                                     onClick={resetMainFormFields}
-                                    // disabled={loadingButton}
                                     fullWidth={false}
                                     startIcon={<IconX size={20} />}
                                 >
@@ -2147,11 +1949,11 @@ const NetworkDetails = () => {
                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm değişiklikleri sunucuya kaydet" : ""}>
                         <FixedActionButton
                             variant="contained"
-                            color={hasUnsavedChanges ? "error" : "success"} // اگر تغییرات ذخیره نشده باشد قرمز، وگرنه سبز
+                            color={hasUnsavedChanges ? "error" : "success"}
                             size="large"
                             onClick={handleSendAllRegisteredData}
                             disabled={loadingRegisterButton}
-                            isBlinking={hasUnsavedChanges} // شرط چشمک زدن
+                            isBlinking={hasUnsavedChanges}
                             startIcon={<IconUpload />}
                         >
                             {loadingRegisterButton ? (

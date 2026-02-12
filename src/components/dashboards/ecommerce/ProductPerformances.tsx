@@ -27,21 +27,18 @@ import img3 from 'src/assets/images/products/s7.jpg';
 import img4 from 'src/assets/images/products/s4.jpg';
 
 const ProductPerformances = () => {
-  // for select
   const [month, setMonth] = React.useState('1');
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setMonth(event.target.value);
   };
 
-  // chart color
   const theme = useTheme();
   const primary = theme.palette.primary.main;
   const grey = theme.palette.grey[300];
   const primarylight = theme.palette.primary.light;
   const greylight = theme.palette.grey[100];
 
-  //   // chart 1
   const optionsrow1chart: Props = {
     chart: {
       type: 'area',

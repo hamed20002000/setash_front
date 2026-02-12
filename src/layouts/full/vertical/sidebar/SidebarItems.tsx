@@ -19,7 +19,6 @@ const SidebarItems = () => {
   const hideMenu: any = lgUp ? customizer.isCollapse && !customizer.isSidebarHover : '';
   const dispatch = useDispatch();
 
-  // ✅ دریافت منوها و وضعیت بارگذاری به صورت مستقیم از Context
   const { menuItems, isAuthDataLoading } = useAuth();
 
   const [openCollapseId, setOpenCollapseId] = React.useState<string | null>(null);
@@ -42,7 +41,7 @@ const SidebarItems = () => {
       }
     });
     setOpenCollapseId(newOpenCollapseId);
-  }, [pathname, menuItems]); // ✅ وابستگی به menuItems به جای dynamicMenuItems
+  }, [pathname, menuItems]);
 
   if (isAuthDataLoading) {
     return (
@@ -53,7 +52,6 @@ const SidebarItems = () => {
     );
   }
 
-  // ✅ حذف if (loadingMenus || errorMenus) چون این وضعیت حالا در AuthProvider مدیریت می‌شود
 
   return (
     <Box sx={{ px: 3 }}>

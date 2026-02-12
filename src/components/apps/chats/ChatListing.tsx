@@ -71,9 +71,6 @@ const ChatListing = () => {
 
   return (
     <div>
-      {/* ------------------------------------------- */}
-      {/* Profile */}
-      {/* ------------------------------------------- */}
       <Box display={'flex'} alignItems="center" gap="10px" p={3}>
         <Badge
           variant="dot"
@@ -93,9 +90,6 @@ const ChatListing = () => {
           <Typography variant="body2">Marketing Manager</Typography>
         </Box>
       </Box>
-      {/* ------------------------------------------- */}
-      {/* Search */}
-      {/* ------------------------------------------- */}
       <Box px={3} py={1}>
         <TextField
           id="outlined-search"
@@ -114,9 +108,6 @@ const ChatListing = () => {
           onChange={(e) => dispatch(SearchChat(e.target.value))}
         />
       </Box>
-      {/* ------------------------------------------- */}
-      {/* Contact List */}
-      {/* ------------------------------------------- */}
       <List sx={{ px: 0 }}>
         <Box px={2.5} pb={1}>
           <Button
@@ -163,10 +154,10 @@ const ChatListing = () => {
                       chat.status === 'online'
                         ? 'success'
                         : chat.status === 'busy'
-                        ? 'error'
-                        : chat.status === 'away'
-                        ? 'warning'
-                        : 'secondary'
+                          ? 'error'
+                          : chat.status === 'away'
+                            ? 'warning'
+                            : 'secondary'
                     }
                     variant="dot"
                     anchorOrigin={{

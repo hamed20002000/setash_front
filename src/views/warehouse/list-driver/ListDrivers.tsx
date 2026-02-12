@@ -53,11 +53,10 @@ const formatDateDisplay = (dateString: string | null): string => {
 
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    fontFamily: 'NotoSans',
+    fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: {
-        fontSize: '1rem', // Masaüstünde daha büyük
+        fontSize: '1rem',
     },
 }));
 
@@ -205,32 +204,11 @@ const ListDrivers = () => {
     const [openDriverDetailsDownloadModal, setOpenDriverDetailsDownloadModal] = useState(false);
 
 
-    // const { allowedOperations } = useAuth();
-
-    // const hasCreatePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-    // }, [allowedOperations]);
-
-    // const hasEditPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-    // }, [allowedOperations]);
-
-    // const hasDeletePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-    // }, [allowedOperations]);
-
-    // const hasDownloadPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
-    // }, [allowedOperations]);
-
-
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -238,25 +216,19 @@ const ListDrivers = () => {
         }
         return null;
     };
-
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
 
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -268,9 +240,6 @@ const ListDrivers = () => {
     const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
-
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
-
 
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -368,57 +337,6 @@ const ListDrivers = () => {
         if (!isValid) { showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning'); }
         return isValid;
     };
-
-
-    // const insertDriver = async () => {
-    //     if (!validateForm()) return;
-    //     setLoadingButton(true);
-
-    //     const authToken = localStorage.getItem('authToken');
-    //     if (!authToken) {
-    //         navigate("/");
-    //         return;
-    //     }
-    //     const payload = {
-    //         name: firstName,
-    //         family: lastName,
-    //         birthdate: birthdate ? birthdate.toISOString() : null,
-    //         fatherName,
-    //         identityNo,
-    //         internal: internal == "0" ? false : true
-    //     };
-    //     try {
-    //         const response = await axios.post(
-    //             server.baseurl + server.warehouse + "create-driver",
-    //             payload,
-    //             {
-    //                 headers: {
-    //                     "Accept": "application/json",
-    //                     'Content-Type': 'application/json',
-    //                     "Authorization": `Bearer ${authToken}`
-    //                 }
-    //             }
-    //         );
-    //         if (response.data.httpStatusCode === 201) {
-    //             showAlert(`Sürücü başarıyla eklendi!`, 'success');
-    //             resetFormAndState();
-    //             fetchDrivers();
-    //         } else {
-    //             showAlert(response.data.message || 'İşlem sırasında bir hata oluştu.', 'error');
-    //         }
-    //     } catch (e: any) {
-    //         if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
-    //         else if (e.response?.status === 401) {
-    //             localStorage.removeItem('authToken');
-    //             showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
-    //         }
-    //         else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
-    //     } finally {
-    //         setLoadingButton(false);
-    //     }
-    // };
-
-
     const insertDriver = async () => {
         if (!validateForm()) return;
         setLoadingButton(true);
@@ -429,18 +347,16 @@ const ListDrivers = () => {
             return;
         }
 
-        // داده‌های فرم
         const payload = {
             name: firstName,
             family: lastName,
             birthdate: birthdate ? birthdate.toISOString() : null,
             fatherName,
-            identityNo, // از این برای پیدا کردن راننده استفاده می‌کنیم اگر سرور ID نداد
+            identityNo,
             internal: internal == "0" ? false : true
         };
 
         try {
-            // 1. درخواست ثبت راننده
             const response = await axios.post(
                 server.baseurl + server.warehouse + "create-driver",
                 payload,
@@ -456,23 +372,19 @@ const ListDrivers = () => {
             if (response.data.httpStatusCode === 201) {
                 showAlert(`Sürücü başarıyla eklendi! Şimdi araç ekleyebilirsiniz.`, 'success');
 
-                // 👇👇👇 منطق جدید و هوشمند برای باز کردن مودال 👇👇👇
 
                 let newDriverData = response.data.data;
                 let newDriverId = newDriverData?.id;
 
-                // 🚨 اگر سرور ID را نفرستاد، خودمان پیدایش می‌کنیم:
                 if (!newDriverId) {
                     console.warn("Server ID göndermedi, manuel aranıyor...");
                     try {
-                        // گرفتن لیست راننده‌ها
                         const listResponse = await axios.get(
                             server.baseurl + server.warehouse + "get-drivers",
                             { headers: { "Authorization": `Bearer ${authToken}` } }
                         );
 
                         if (listResponse.data.data && Array.isArray(listResponse.data.data)) {
-                            // پیدا کردن راننده‌ای که همین الان با این کد ملی ثبت کردیم
                             const foundDriver = listResponse.data.data.find(
                                 (d: any) => d.identityNo === identityNo
                             );
@@ -486,7 +398,6 @@ const ListDrivers = () => {
                     }
                 }
 
-                // اگر بلاخره ID پیدا شد، مودال را باز کن
                 if (newDriverId) {
                     const driverObj: DriverData = {
                         id: newDriverId,
@@ -501,17 +412,15 @@ const ListDrivers = () => {
                         status: 'Aktif'
                     };
 
-                    // ست کردن راننده و باز کردن مودال
                     setSelectedDriver(driverObj);
                     setOpenCarDetailsModal(true);
                 } else {
                     showAlert("Sürücü eklendi ancak ID alınamadığı için araç ekranı açılamadı.", "warning");
                 }
 
-                // 👆👆👆 پایان تغییرات 👆👆👆
 
-                resetFormAndState(); // بستن فرم ثبت راننده
-                fetchDrivers(); // آپدیت لیست اصلی
+                resetFormAndState();
+                fetchDrivers();
             } else {
                 showAlert(response.data.message || 'İşlem sırasında bir hata oluştu.', 'error');
             }
@@ -709,7 +618,6 @@ const ListDrivers = () => {
 
     const paginatedDrivers = sortedAndFilteredDrivers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-    // 👇 Refined PDF download functions
     const generatePDF = (data: DriverData[], isFiltered: boolean) => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -761,9 +669,9 @@ const ListDrivers = () => {
             pdfDoc.setTextColor(100);
 
             const companyInfo = [
-                'SETAŞ SİSTEM BİLİŞİM İنŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-                'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
-                'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
+                'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
             ];
 
             let footerY = pageHeight - 20;
@@ -1032,12 +940,6 @@ const ListDrivers = () => {
                 const title = isFiltered ? 'Filtrelenmiş Araçlı Şoförler Raporu' : 'Araçlı Şoförler Raporu';
                 doc.text(title, pageWidth / 2, 15, { align: 'center' });
 
-                // doc.setFontSize(10);
-                // doc.setFont('Times', 'normal');
-                // doc.text(`Rapor Tarih:`, 15, 25);
-                // doc.setFont('Times', 'normal');
-                // doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 25);
-
                 doc.setFontSize(10);
                 doc.setFont('NotoSans', 'bold');
                 doc.text(`Rapor Tarihi:`, 15, 40);
@@ -1071,9 +973,9 @@ const ListDrivers = () => {
                 pdfDoc.setTextColor(100);
 
                 const companyInfo = [
-                    'SETAŞ SİSTEM BİLİŞİM İنŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
-                    'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
+                    'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                    'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
                 ];
 
                 let footerY = pageHeight - 20;
@@ -1278,7 +1180,7 @@ const ListDrivers = () => {
                     ]).eachCell(cell => { cell.style = bodyStyle; });
                 });
 
-                worksheet.addRow([]); // Blank row for separation
+                worksheet.addRow([]);
             });
 
             addCompanyInfo(worksheet, 4);
@@ -2016,7 +1918,6 @@ const ListDrivers = () => {
                 driverName={selectedDriver?.name ? `${selectedDriver.name} ${selectedDriver.family}` : ''}
             />
 
-            {/* Download Modal for a single driver's details */}
             <Dialog
                 open={openDriverDetailsDownloadModal}
                 onClose={() => setOpenDriverDetailsDownloadModal(false)}
@@ -2049,7 +1950,6 @@ const ListDrivers = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Download Modal for ALL data */}
             <Dialog
                 open={openAllDownloadModal}
                 onClose={() => setOpenAllDownloadModal(false)}
@@ -2098,7 +1998,6 @@ const ListDrivers = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Download Modal for FILTERED data */}
             <Dialog
                 open={openFilteredDownloadModal}
                 onClose={() => setOpenFilteredDownloadModal(false)}

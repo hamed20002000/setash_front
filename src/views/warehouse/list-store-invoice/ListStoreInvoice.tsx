@@ -45,7 +45,6 @@ import { ArialFont } from 'src/assets/fonts/Arial';
 import ListDrivers from '../list-driver/ListDrivers';
 import { TransitionProps } from '@mui/material/transitions';
 
-// ---------- styles ----------
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans',
     fontSize: '0.8rem',
@@ -79,7 +78,6 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
     },
 }));
 
-// ---------- types ----------
 interface ProviderType {
     id: number;
     name: string;
@@ -111,9 +109,8 @@ interface InvoiceItem {
     firm?: boolean;
 }
 interface User {
-    id: string; // یا number، بر اساس API
-    username: string; // ⬅️ این فیلد برای نمایش نام لازم است
-    // اگر فیلد دیگری از کاربر را می‌خواهید، اینجا اضافه کنید
+    id: string;
+    username: string;
 }
 interface InvoiceHeaderStatusHistory {
     id: string; status: number; createAt: string; recordStatus: number;
@@ -165,7 +162,6 @@ interface WorkhouseType {
     status?: string;
 }
 
-// ---------- utils ----------
 const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
     const n = Number(String(priceInput ?? '').replace(/[^\d.-]/g, ''));
     if (isNaN(n)) return '₺0,00';
@@ -212,7 +208,6 @@ const Transition = React.forwardRef(function Transition(
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
-// ---------- component ----------
 const ListStoreInvoice = () => {
     const navigate = useNavigate();
 
@@ -231,7 +226,6 @@ const ListStoreInvoice = () => {
         .filter(id => Number.isFinite(id));
     const hasIdsFilter = notifIds.length > 0;
     const idsSet = new Set<number>(notifIds);
-    // core lists
     const [providers, setProviders] = useState<ProviderType[]>([]);
     const [drivers, setDrivers] = useState<DriverType[]>([]);
     const [itemsList, setItemsList] = useState<ItemType[]>([]);
@@ -241,7 +235,6 @@ const ListStoreInvoice = () => {
 
     const [generalDescription, setGeneralDescription] = useState('');
 
-    // form states
     const [driver, setDriver] = useState('');
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
@@ -251,7 +244,6 @@ const ListStoreInvoice = () => {
     const [selectedVehicleName, setSelectedVehicleName] = useState<string | null>(null);
     const [tempSelectedVehicle, setTempSelectedVehicle] = useState<number | null>(null);
 
-    // ui states
     const [loadingData, setLoadingData] = useState<boolean>(true);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
@@ -259,7 +251,6 @@ const ListStoreInvoice = () => {
     const [isBlinking, setIsBlinking] = useState(true);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // table states
     const [invoicesList, setInvoicesList] = useState<InvoiceType[]>([]);
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -270,7 +261,6 @@ const ListStoreInvoice = () => {
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedInvoiceForMenu, setSelectedInvoiceForMenu] = useState<InvoiceType | null>(null);
 
-    // dialogs
     const [openModal, setOpenModal] = useState(false);
     const [modalDetails, setModalDetails] = useState<InvoiceDetailType[]>([]);
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -284,7 +274,6 @@ const ListStoreInvoice = () => {
     const [idRow, setIdRow] = useState(0);
     const [isFilterActive, setIsFilterActive] = useState(false);
 
-    // NEW: order-end flow (kept exactly)
     const [openIsEndModal, setOpenIsEndModal] = useState(false);
     const [selectedOrderIdFromChild, setSelectedOrderIdFromChild] = useState<number | null>(null);
     const [selectedOrderNoFromChild, setSelectedOrderNoFromChild] = useState<string | null>(null);
@@ -310,22 +299,10 @@ const ListStoreInvoice = () => {
 
     const [viewedInvoice, setViewedInvoice] = useState<InvoiceType | null>(null);
 
-    // permissions
-    // const { allowedOperations } = useAuth();
-    // const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
-    // const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
-    // const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
-    // const hasStatusPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Onaylamak'), [allowedOperations]);
-
-
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
-
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -333,25 +310,18 @@ const ListStoreInvoice = () => {
         }
         return null;
     };
-
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
 
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
-
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -367,7 +337,6 @@ const ListStoreInvoice = () => {
     const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
 
 
-    // alerts
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => { setAlertMessage(message); setAlertSeverity(severity); };
     const clearAlert = () => setAlertMessage(null);
     useEffect(() => { if (!alertMessage) return; const t = setTimeout(clearAlert, 5000); return () => clearTimeout(t); }, [alertMessage]);
@@ -382,13 +351,12 @@ const ListStoreInvoice = () => {
 
     const handleCloseDriverModal = () => {
         setOpenDriverModal(false);
-        fetchDrivers(); // 🔄 لیست راننده‌ها را رفرش می‌کند تا راننده جدید در کمبو دیده شود
+        fetchDrivers();
     };
 
 
     const handleOpenVehicleModal = () => setOpenVehicleModal(true);
 
-    // fetchers
     const fetchVehicles = useCallback(async (driverId: string) => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -585,14 +553,12 @@ const ListStoreInvoice = () => {
         fetchDrivers();
         fetchWorkhouses();
         getItems();
-    }, []); // eslint-disable-line
+    }, []);
 
-    // items handlers
     const handleAddInvoiceItem = (newItem: InvoiceItem) => { setInvoiceItems(prev => [...prev, newItem]); setHasUnsavedChanges(true); };
     const handleUpdateInvoiceItem = (updatedItem: InvoiceItem) => { setInvoiceItems(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i)); };
     const handleRemoveInvoiceItem = (id: number) => { setInvoiceItems(prev => prev.filter(i => i.id !== id)); };
 
-    // validate / reset
     const validateForm = (): boolean => {
         if (!driver || !docDate || !workhouse || !selectedVehicle) {
             showAlert('Lütfen tüm zorunlu alanları (Sürücü، Kargah، Tarih و Araç) doldurun.', 'warning'); return false;
@@ -618,7 +584,6 @@ const ListStoreInvoice = () => {
         clearAlert();
     };
 
-    // *** NEW: End order after save (same as original flow) ***
     const handleFinalSaveReceipt = async (shouldEnd: boolean) => {
         if (!shouldEnd) { setOpenIsEndModal(false); return; }
         try {
@@ -641,7 +606,6 @@ const ListStoreInvoice = () => {
         } finally { setOpenIsEndModal(false); }
     };
 
-    // save/update (workhouse apis)
     const handleSaveInvoice = async () => {
         if (!validateForm()) return;
         const invoiceData = {
@@ -650,7 +614,7 @@ const ListStoreInvoice = () => {
             status: 0,
             statusDescription: '',
             driverId: Number(driver),
-            workhouseId: Number(workhouse), // <<<<<< IMPORTANT
+            workhouseId: Number(workhouse),
             driverVehicleId: Number(selectedVehicle),
             invoiceDetails: invoiceItems.map(item => ({
                 itemId: Number(item.item),
@@ -695,7 +659,7 @@ const ListStoreInvoice = () => {
             docDate: docDate?.toISOString(),
             description: generalDescription,
             driverId: Number(driver),
-            workhouseId: Number(workhouse), // <<<<<< IMPORTANT
+            workhouseId: Number(workhouse),
             driverVehicleId: Number(selectedVehicle),
             invoiceDetails: invoiceItems.map(item => ({
                 itemId: Number(item.item),
@@ -730,7 +694,6 @@ const ListStoreInvoice = () => {
         }
     };
 
-    // edit fill
     const handleEditClick = async (row: InvoiceType) => {
         setEditingId(row.id);
         handleCloseMenu();
@@ -779,13 +742,11 @@ const ListStoreInvoice = () => {
             showAlert('Faturada geçerli bir sürücü bilgisi bulunamadı.', 'warning');
         }
 
-        // workhouse fill
         const selectedWorkhouse = workhousesList.find(w => Number(w.id) === Number(row.workhouse?.id));
         setWorkhouse(selectedWorkhouse ? selectedWorkhouse.id : null);
         setDocDate(new Date(row.docDate));
 
         setGeneralDescription(row.description || '');
-        // items fill
         const itemsToEdit = row.invoiceDetails.map(detail => {
             const fullItem = itemsList.find(item => item.id === detail.item.id);
             const detailProvider = providers.find(p => Number(p.id) === Number(detail.provider?.id));
@@ -810,7 +771,6 @@ const ListStoreInvoice = () => {
         setInvoiceItems(itemsToEdit);
     };
 
-    // === YOUR 5 HANDLERS (دقیقاً همون‌طور که گفتی) ===
     const handleStatusFilterChange = (
         _event: React.MouseEvent<HTMLElement>,
         newFilter: 'all' | 'pending' | 'approved' | 'rejected' | null
@@ -828,14 +788,9 @@ const ListStoreInvoice = () => {
         const isAsc = orderBy === property && order === 'asc';
         setOrder(isAsc ? 'desc' : 'asc'); setOrderBy(property); setPage(0);
     };
-    // const handleOpenModal = (details: InvoiceDetailType[], provider: { id: string; name: string; firm: boolean } | null) => {
-    //     const detailsWithProvider = details.map(detail => ({ ...detail, provider: detail.provider || provider }));
-    //     setModalDetails(detailsWithProvider);
-    //     setOpenModal(true);
-    // };
     const handleOpenModal = (invoice: InvoiceType) => {
-        setViewedInvoice(invoice); // ذخیره کل آبجکت فاکتور برای دانلود
-        setModalDetails(invoice.invoiceDetails); // ذخیره جزئیات برای نمایش در جدول
+        setViewedInvoice(invoice);
+        setModalDetails(invoice.invoiceDetails);
         setOpenModal(true);
     };
     const handleCloseModal = () => setOpenModal(false);
@@ -865,7 +820,7 @@ const ListStoreInvoice = () => {
     };
 
     const handleUpdateStatus = async () => {
-        // if (!description.trim()) { setStatusError(true); showAlert('Lütfen bir açıklama giriniz.', 'warning'); return; }
+
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate('/'); return; }
         try {
@@ -898,13 +853,12 @@ const ListStoreInvoice = () => {
     const handleOpenRowDownloadModal = (invoice: InvoiceType) => { setSelectedInvoiceForDownload(invoice); setOpenRowDownloadModal(true); handleCloseMenu(); };
     const handleCloseRowDownloadModal = () => { setOpenRowDownloadModal(false); setSelectedInvoiceForDownload(null); };
 
-    // ---------- Export helpers (Şantiye labels & totals = price * qty) ----------
     const addPdfHeader = (doc: jsPDF, title: string) => {
         const pageWidth = doc.internal.pageSize.getWidth();
-        const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+        const logoWidth = 35;
         const logoHeight = 18;
         const margin = 15;
-        const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+        const logoX = pageWidth - logoWidth - margin;
 
         try {
             doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -914,7 +868,7 @@ const ListStoreInvoice = () => {
 
         doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
-        doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+        doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
         doc.setFontSize(10);
         doc.setFont('NotoSans', 'bold');
@@ -922,8 +876,6 @@ const ListStoreInvoice = () => {
         doc.setFont('NotoSans', 'normal');
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
 
-        // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-        // doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
         doc.line(15, 40, pageWidth - 15, 40);
     };
@@ -960,7 +912,6 @@ const ListStoreInvoice = () => {
 
 
     const exportToPdf = (invoice: InvoiceType) => {
-        // const doc = new jsPDF();
         const doc = new jsPDF('l', 'mm', 'a4');
         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
@@ -969,18 +920,6 @@ const ListStoreInvoice = () => {
         doc.addFileToVFS('Arial.ttf', ArialFont);
         doc.addFont('Arial.ttf', 'Arial', 'normal');
         doc.setFont('Arial');
-
-        // const rows = invoice.invoiceDetails.map(detail => [
-        //     detail.provider?.name || invoice.provider?.name || '-',
-        //     detail.firm ? 'Şirket İçi' : 'Şirket Dışı',
-        //     detail.item?.name || '-',
-        //     Number(detail.quantity).toFixed(2) || '-',
-        //     detail.item?.unit?.title || '-',
-        //     cleanAndFormatPrice(detail.price),
-        //     Number(detail.discountPercent).toFixed(2) || '-',
-        //     cleanAndFormatPrice(detail.discountAmount),
-        //     detail.description || '-',
-        // ]);
 
         const rows = invoice.invoiceDetails.map(detail => {
             const qty = cleanAndConvertNumber(detail.quantity);
@@ -997,18 +936,17 @@ const ListStoreInvoice = () => {
                 qty.toFixed(2),
                 detail.item?.unit?.title || '-',
                 cleanAndFormatPrice(price),
-                cleanAndFormatPrice(indirimsizFiyat), // ستون جدید
+                cleanAndFormatPrice(indirimsizFiyat),
                 Number(detail.discountPercent).toFixed(2) || '-',
                 cleanAndFormatPrice(discAmount),
-                cleanAndFormatPrice(toplamIndirim), // ستون جدید
-                cleanAndFormatPrice(lineTotal),    // ستون جدید (Toplam Fiyat)
+                cleanAndFormatPrice(toplamIndirim),
+                cleanAndFormatPrice(lineTotal),
                 detail.description || '-',
             ];
         });
 
         autoTable(doc, {
             startY: 90,
-            // head: [['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama']],
             head: [['Tedarikçi', 'Ürün', 'Miktar', 'Birim', 'Fiyat', 'Indirimsiz', 'İnd. Miktarı', 'Top. İndirim', 'Top. Fiyat', 'Açıklama']],
             body: rows,
             theme: 'grid',
@@ -1040,7 +978,6 @@ const ListStoreInvoice = () => {
 
         const finalY = (doc as any).lastAutoTable.finalY;
 
-        // --- بخش اصلاح شده محاسبات خلاصه ---
         const summaryData = new Map<string, number>();
         let grandTotalPdf = 0;
 
@@ -1050,7 +987,6 @@ const ListStoreInvoice = () => {
             const price = cleanAndConvertNumber(detail.price);
             const discAmount = cleanAndConvertNumber(detail.discountAmount);
 
-            // فرمول مشابه مودال: (تعداد * قیمت) - (تعداد * مبلغ تخفیف واحد)
             const lineTotal = (qty * price) - (qty * discAmount);
 
             const currentTotal = summaryData.get(unitTitle) || 0;
@@ -1058,7 +994,6 @@ const ListStoreInvoice = () => {
             grandTotalPdf += lineTotal;
         });
 
-        // رسم جدول خلاصه نهایی در PDF
         if (summaryData.size > 0) {
             const summaryRows = Array.from(summaryData.entries()).map(([unit, total]) => [
                 unit,
@@ -1073,7 +1008,7 @@ const ListStoreInvoice = () => {
                 theme: 'grid',
                 styles: { font: 'Arial', fontSize: 10 },
                 headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0] },
-                margin: { left: 180 }, // تراز کردن جدول خلاصه در سمت راست صفحه Landscape
+                margin: { left: 180 },
                 columnStyles: { 0: { cellWidth: 40 }, 1: { cellWidth: 50, halign: 'right' } }
             });
         }
@@ -1104,7 +1039,6 @@ const ListStoreInvoice = () => {
         const worksheet = workbook.addWorksheet(`Fatura_${invoice.id}`);
         worksheet.views = [{ rightToLeft: false }];
 
-        // --- Header ---
         worksheet.addRow(['Fatura Detayları']).font = { name: 'Arial', size: 12, bold: true };
         worksheet.mergeCells('A1:I1');
         worksheet.getCell('A1').alignment = { horizontal: 'center' };
@@ -1113,16 +1047,12 @@ const ListStoreInvoice = () => {
         worksheet.getCell('A2').alignment = { horizontal: 'left' };
         worksheet.addRow([]);
 
-        // --- Invoice Info ---
         worksheet.addRow(['Fatura No', invoice.invoiceNo || '-']);
         worksheet.addRow(['Sürücü', `${invoice.driver?.name || ''} ${invoice.driver?.family || ''}`]);
         worksheet.addRow(['Depo', invoice.warehouse?.name || '-']);
         worksheet.addRow(['Tarih', formatDateDisplay(invoice.docDate)]);
         worksheet.addRow(['Genel Açıklama', invoice.description || '-']);
         worksheet.addRow([]);
-
-        // --- Table Headers ---
-        // const tableHeaders = ['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama'];
 
         const tableHeaders = ['Tedarikçi', 'Ürün Adı', 'Miktar', 'Birim', 'Birim Fiyat', 'Indirimsiz Fiyat', 'İndirim %', 'İndirim Miktarı', 'Toplam İndirim', 'Toplam Fiyat', 'Açıklama'];
         const headerRow = worksheet.addRow(tableHeaders);
@@ -1131,23 +1061,6 @@ const ListStoreInvoice = () => {
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
             cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
         });
-
-        // --- Table Data ---
-        // invoice.invoiceDetails.forEach(detail => {
-        //     worksheet.addRow([
-        //         detail.provider?.name || invoice.provider?.name || '-',
-        //         detail.firm ? 'Şirket İçi' : 'Şirket Dışı',
-        //         detail.item?.name || '-',
-        //         Number(detail.quantity),
-        //         detail.item?.unit?.title || '-',
-        //         cleanAndFormatPrice(detail.price),
-        //         Number(detail.discountPercent),
-        //         cleanAndFormatPrice(detail.discountAmount),
-        //         detail.description || '-'
-        //     ]).eachCell(cell => {
-        //         cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-        //     });
-        // });
 
         invoice.invoiceDetails.forEach(detail => {
             const qty = cleanAndConvertNumber(detail.quantity);
@@ -1165,13 +1078,11 @@ const ListStoreInvoice = () => {
                 qty * price,
                 Number(detail.discountPercent),
                 discAmount,
-                qty * discAmount, // مجموع تخفیف سطر
-                lineTotal,        // مبلغ نهایی سطر
+                qty * discAmount,
+                lineTotal,
                 detail.description || '-'
             ]);
         });
-
-        // --- بخش اصلاح شده محاسبات خلاصه در اکسل ---
         const summaryMap = new Map<string, number>();
         let grandTotalExcel = 0;
 
@@ -1181,7 +1092,6 @@ const ListStoreInvoice = () => {
             const price = cleanAndConvertNumber(detail.price);
             const discAmount = cleanAndConvertNumber(detail.discountAmount);
 
-            // فرمول مشابه مودال
             const lineTotal = (qty * price) - (qty * discAmount);
 
             const currentTotal = summaryMap.get(unitTitle) || 0;
@@ -1203,11 +1113,9 @@ const ListStoreInvoice = () => {
             grandTotalRow.getCell(2).alignment = { horizontal: 'right' };
         }
 
-        // --- Footer ---
         const startRow = worksheet.lastRow ? worksheet.lastRow.number + 2 : 1;
         addExcelCompanyInfo(worksheet, startRow);
 
-        // --- Save ---
         workbook.xlsx.writeBuffer().then((buffer: any) => {
             saveAs(new Blob([buffer]), `Fatura_${invoice.id}.xlsx`);
             showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
@@ -1281,19 +1189,14 @@ const ListStoreInvoice = () => {
 
                 const finalY = (doc as any).lastAutoTable.finalY;
 
-                // محاسبه مقادیر برای PDF
                 const summaryData = new Map<string, number>();
                 let grandTotalPdf = 0;
-
-                // توجه: در تابع exportAllDetailedPdf به جای invoice از حلقه استفاده کنید
                 invoice.invoiceDetails.forEach(detail => {
                     const unitTitle = detail.item?.unit?.title || "Diğer";
 
                     const qty = cleanAndConvertNumber(detail.quantity);
                     const price = cleanAndConvertNumber(detail.price);
                     const discount = cleanAndConvertNumber(detail.discountAmount);
-
-                    // فرمول: (تعداد * قیمت) - تخفیف
                     const lineTotal = (qty * price) - discount;
 
                     const currentTotal = summaryData.get(unitTitle) || 0;
@@ -1302,7 +1205,6 @@ const ListStoreInvoice = () => {
                     grandTotalPdf += lineTotal;
                 });
 
-                // رسم جدول خلاصه در PDF
                 if (summaryData.size > 0) {
                     const summaryRows: any[] = [];
 
@@ -1310,7 +1212,6 @@ const ListStoreInvoice = () => {
                         summaryRows.push([unit, cleanAndFormatPrice(total)]);
                     });
 
-                    // اضافه کردن جمع کل
                     summaryRows.push(['GENEL TOPLAM', cleanAndFormatPrice(grandTotalPdf)]);
 
                     autoTable(doc, {
@@ -1324,11 +1225,10 @@ const ListStoreInvoice = () => {
                             0: { cellWidth: 100 },
                             1: { cellWidth: 'auto', halign: 'right' }
                         },
-                        // پررنگ کردن سطر آخر (Genel Toplam)
                         didParseCell: (data) => {
                             if (data.row.index === summaryRows.length - 1) {
                                 data.cell.styles.fontStyle = 'normal';
-                                data.cell.styles.textColor = [0, 0, 0]; // Black
+                                data.cell.styles.textColor = [0, 0, 0];
                             }
                         }
                     });
@@ -1352,11 +1252,9 @@ const ListStoreInvoice = () => {
         const workbook = new Excel.Workbook();
 
         dataToExport.forEach((invoice) => {
-            // ایجاد یک شیت برای هر فاکتور
             const worksheet = workbook.addWorksheet(`Fatura_${invoice.id}`);
             worksheet.views = [{ rightToLeft: false }];
 
-            // --- Header ---
             worksheet.addRow(['Fatura Detayları']).font = { name: 'Arial', size: 12, bold: true };
             worksheet.mergeCells('A1:I1');
             worksheet.getCell('A1').alignment = { horizontal: 'center' };
@@ -1365,7 +1263,6 @@ const ListStoreInvoice = () => {
             worksheet.getCell('A2').alignment = { horizontal: 'left' };
             worksheet.addRow([]);
 
-            // --- Invoice Info ---
             worksheet.addRow(['Fatura No', invoice.invoiceNo || '-']);
             worksheet.addRow(['Sürücü', `${invoice.driver?.name || ''} ${invoice.driver?.family || ''}`]);
             worksheet.addRow(['Depo', invoice.warehouse?.name || '-']);
@@ -1373,7 +1270,6 @@ const ListStoreInvoice = () => {
             worksheet.addRow(['Genel Açıklama', invoice.description || '-']);
             worksheet.addRow([]);
 
-            // --- Table Headers ---
             const tableHeaders = ['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama'];
             const headerRow = worksheet.addRow(tableHeaders);
             headerRow.font = { name: 'Arial', bold: true };
@@ -1382,7 +1278,6 @@ const ListStoreInvoice = () => {
                 cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
             });
 
-            // --- Table Data ---
             invoice.invoiceDetails.forEach(detail => {
                 worksheet.addRow([
                     detail.provider?.name || invoice.provider?.name || '-',
@@ -1398,8 +1293,6 @@ const ListStoreInvoice = () => {
                     cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
                 });
             });
-
-            // --- Column Auto Width ---
             worksheet.columns.forEach((column: any) => {
                 let maxLength = 0;
                 if (column && typeof column.eachCell === 'function') {
@@ -1412,9 +1305,6 @@ const ListStoreInvoice = () => {
                 }
                 column.width = Math.min(Math.max(maxLength + 2, 15), 50);
             });
-
-            // --- Calculations (Grouping by Unit) ---
-            // فرمول جدید: (تعداد * قیمت) - تخفیف
             const summaryMap = new Map<string, number>();
             let grandTotalExcel = 0;
 
@@ -1433,7 +1323,6 @@ const ListStoreInvoice = () => {
                 grandTotalExcel += lineTotal;
             });
 
-            // --- Summary Table ---
             if (summaryMap.size > 0) {
                 worksheet.addRow([]);
                 worksheet.addRow(['Birim Bazlı Toplamlar ((Miktar x Fiyat) - İndirim)']).font = { name: 'Arial', size: 12, bold: true };
@@ -1454,12 +1343,10 @@ const ListStoreInvoice = () => {
                 grandTotalRow.getCell(2).alignment = { horizontal: 'right' };
             }
 
-            // --- Footer ---
             const startRow = worksheet.lastRow ? worksheet.lastRow.number + 2 : 1;
             addExcelCompanyInfo(worksheet, startRow);
         });
 
-        // --- Save ---
         workbook.xlsx.writeBuffer().then((buffer: any) => {
             const fileName = isFiltered ? `Filtrelenmis_Faturalar.xlsx` : `Tum_Faturalar.xlsx`;
             saveAs(new Blob([buffer]), fileName);
@@ -1475,7 +1362,6 @@ const ListStoreInvoice = () => {
         handleCloseRowDownloadModal();
     };
 
-    // filters
     const filteredInvoices = useMemo(() => invoicesList.filter(invoice => {
         const providerName = invoice.provider?.name || '';
         const driverName = invoice.driver?.name || '';
@@ -1544,11 +1430,8 @@ const ListStoreInvoice = () => {
     };
 
 
-
-
-    // محاسبه جمع کل بر اساس واحد برای مودال (فرمول: تعداد * قیمت - تخفیف)
     const modalSummary = useMemo(() => {
-        const summary: Record<string, number> = {}; // مثلا: { "Kg": 5000, "Adet": 200 }
+        const summary: Record<string, number> = {};
         let grandTotal = 0;
 
         modalDetails.forEach((detail) => {
@@ -1558,10 +1441,8 @@ const ListStoreInvoice = () => {
             const price = cleanAndConvertNumber(detail.price);
             const discount = cleanAndConvertNumber(detail.discountAmount);
 
-            // فرمول اصلی: (تعداد * قیمت) - مبلغ تخفیف
             const lineTotal = (qty * price) - discount;
 
-            // اضافه کردن به جمع واحد مربوطه
             summary[unitTitle] = (summary[unitTitle] || 0) + lineTotal;
             grandTotal += lineTotal;
         });
@@ -1570,7 +1451,6 @@ const ListStoreInvoice = () => {
     }, [modalDetails]);
 
 
-    // ---------- render ----------
     return (
         <Box mt={2}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
@@ -1617,7 +1497,6 @@ const ListStoreInvoice = () => {
                                         sx={{ flexGrow: 1 }}
                                     />
 
-                                    {/* 👇 دکمه جدید پلاس برای باز کردن مودال 👇 */}
                                     <CustomTooltip title="Sürücü Listesi / Ekle">
                                         <IconButton
                                             color="primary"
@@ -1628,7 +1507,6 @@ const ListStoreInvoice = () => {
                                         </IconButton>
                                     </CustomTooltip>
 
-                                    {/* دکمه ویرایش خودرو که قبلاً وجود داشت */}
                                     {selectedVehicleName && (vehiclesList.length > 1) && (
                                         <IconButton onClick={handleOpenVehicleModal} size="small"><IconPencil size={20} /></IconButton>
                                     )}
@@ -1672,13 +1550,12 @@ const ListStoreInvoice = () => {
                                     multiline
                                     rows={3}
                                     variant="outlined"
-                                    value={generalDescription} // ⬅️ استفاده از نام جدید
-                                    onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                    value={generalDescription}
+                                    onChange={(e) => setGeneralDescription(e.target.value)}
                                 />
                             </Grid>
                         </Grid>
 
-                        {/* Invoice items table — with onOrderSelect fully WIRED */}
                         <StoreInvoiceItemsTable
                             items={invoiceItems}
                             itemsList={itemsList}
@@ -1839,7 +1716,6 @@ const ListStoreInvoice = () => {
                                 </StyledTableCell>
 
                                 <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
-                                {/* <StyledTableCell><Typography variant="h6">Kayıt Tipi</Typography></StyledTableCell> */}
                                 <StyledTableCell>
                                     <TableSortLabel active={orderBy === 'status'} direction={orderBy === 'status' ? order : 'asc'} onClick={() => handleRequestSort('status')}>
                                         <Typography variant="h6">Durum</Typography>
@@ -1864,7 +1740,6 @@ const ListStoreInvoice = () => {
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 {row.description && row.description.trim().length > 0 ? (
-                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button
 
@@ -1876,19 +1751,11 @@ const ListStoreInvoice = () => {
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (
-                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
                                                     <Typography variant="body2" align="center">
                                                         -
                                                     </Typography>
                                                 )}
                                             </StyledTableCell>
-                                            {/* <StyledTableCell>
-                                                <Chip
-                                                    label={row.invoiceDetails.some(detail => detail.orderDetail) ? 'Siparişli' : 'Siparişsiz'}
-                                                    color={row.invoiceDetails.some(detail => detail.orderDetail) ? 'success' : 'default'}
-                                                    size="small"
-                                                />
-                                            </StyledTableCell> */}
                                             <StyledTableCell>
 
                                                 <Stack direction="row" spacing={1} alignItems="center">
@@ -1908,7 +1775,6 @@ const ListStoreInvoice = () => {
 
                                             </StyledTableCell>
                                             <StyledTableCell>
-                                                {/* <Button variant="outlined" startIcon={<IconEye />} onClick={() => handleOpenModal(row.invoiceDetails, row.provider)}>Görünüm</Button> */}
                                                 <Button variant="outlined" startIcon={<IconEye />}
                                                     onClick={() => handleOpenModal(row)}>Görünüm</Button>
                                             </StyledTableCell>
@@ -1993,48 +1859,12 @@ const ListStoreInvoice = () => {
                 />
             </BlankCard>
 
-            {/* Details Modal */}
             <Dialog open={openModal} onClose={handleCloseModal} maxWidth="xl" fullWidth>
                 <DialogTitle>Fatura Detayları</DialogTitle>
                 <DialogContent dividers>
                     <TableContainer component={Paper}>
                         <Table size="small">
-                            {/* <TableHead sx={{ background: 'rgb(149 147 125 / 65%)' }}>
-                                <TableRow>
-                                    <StyledTableCell><Typography variant="h6">Tedarikçi</Typography></StyledTableCell>
-                                    <StyledTableCell><Typography variant="h6">Firma</Typography></StyledTableCell>
-                                    <StyledTableCell><Typography variant="h6">Ürün Adı</Typography></StyledTableCell>
-                                    <StyledTableCell><Typography variant="h6">Miktar</Typography></StyledTableCell>
-                                    <StyledTableCell><Typography variant="h6">Birim</Typography></StyledTableCell>
-                                    <StyledTableCell><Typography variant="h6">Fiyat</Typography></StyledTableCell>
-                                    <StyledTableCell><Typography variant="h6">İndirim %</Typography></StyledTableCell>
-                                    <StyledTableCell><Typography variant="h6">İndirim Miktarı</Typography></StyledTableCell>
-                                    <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {modalDetails.length > 0 ? (
-                                    modalDetails.map((detail, index) => (
-                                        <TableRow key={detail.id || index}>
-                                            <StyledTableCell><Typography variant="body1">{detail.provider?.name || '-'}</Typography></StyledTableCell>
-                                            <StyledTableCell>
-                                                {detail.provider?.firm !== undefined ? (
-                                                    <Chip label={detail.provider.firm ? 'Şirket İçi' : 'Şirket Dışı'} color={detail.provider.firm ? 'primary' : 'secondary'} size="small" />
-                                                ) : (<Typography variant="body1">-</Typography>)}
-                                            </StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{detail.item?.name || '-'}</Typography></StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{detail.quantity || '-'}</Typography></StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{detail.item?.unit?.title || '-'}</Typography></StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{cleanAndFormatPrice(detail.price) || '-'}</Typography></StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{detail.discountPercent || '-'}</Typography></StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{cleanAndFormatPrice(detail.discountAmount) || '-'}</Typography></StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{detail.description || '-'}</Typography></StyledTableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow><StyledTableCell colSpan={9} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç detay bulunamadı.</Typography></StyledTableCell></TableRow>
-                                )}
-                            </TableBody> */}
+
                             <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                                 <TableRow>
                                     <StyledTableCell><Typography variant="h6">Tedarikçi</Typography></StyledTableCell>
@@ -2043,12 +1873,12 @@ const ListStoreInvoice = () => {
                                     <StyledTableCell><Typography variant="h6">Miktar</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Birim</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Birim Fiyat</Typography></StyledTableCell>
-                                    <StyledTableCell><Typography variant="h6">Indirimsiz Fiyat</Typography></StyledTableCell> {/* جدید */}
+                                    <StyledTableCell><Typography variant="h6">Indirimsiz Fiyat</Typography></StyledTableCell>
 
                                     <StyledTableCell><Typography variant="h6">İndirim %</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">İndirim Miktarı</Typography></StyledTableCell>
-                                    <StyledTableCell><Typography variant="h6">Toplam İndirim</Typography></StyledTableCell> {/* جدید */}
-                                    <StyledTableCell><Typography variant="h6">Toplam Fiyat</Typography></StyledTableCell> {/* جدید */}
+                                    <StyledTableCell><Typography variant="h6">Toplam İndirim</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Toplam Fiyat</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                 </TableRow>
                             </TableHead>
@@ -2086,16 +1916,10 @@ const ListStoreInvoice = () => {
                     </TableContainer>
                     <>
                         {modalDetails.length > 0 && (
-                            // <Box sx={{ mt: 3, p: 2, bgcolor: '#f8f9fa', borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                            //     <Typography variant="h6" gutterBottom color="primary" sx={{ fontSize: '1rem', fontWeight: 'bold' }}>
-                            //         Birim Bazlı Toplam Tutarlar ((Miktar x Fiyat) - İndirim)
-                            //     </Typography>
 
                             <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
                                 <TableContainer component={Paper} variant="outlined" sx={{ width: 'auto', minWidth: '300px' }}>
 
-                                    {/* </TableContainer>
-                                <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent' }}> */}
                                     <Table size="small">
                                         <TableHead>
                                             <TableRow>
@@ -2112,13 +1936,11 @@ const ListStoreInvoice = () => {
                                                     </StyledTableCell>
                                                 </TableRow>
                                             ))}
-                                            {/* خط جداکننده */}
                                             <TableRow>
                                                 <StyledTableCell colSpan={2} sx={{ p: 0, border: 'none' }}>
                                                     <Box sx={{ borderBottom: '2px dashed #ccc', my: 1 }} />
                                                 </StyledTableCell>
                                             </TableRow>
-                                            {/* جمع کل نهایی */}
                                             <TableRow sx={{ '& td': { borderBottom: 'none' } }}>
                                                 <StyledTableCell sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'primary.main' }}>
                                                     GENEL TOPLAM
@@ -2135,16 +1957,15 @@ const ListStoreInvoice = () => {
                     </>
                 </DialogContent>
                 <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
-                    {/* سمت چپ: دکمه‌های دانلود */}
                     <Stack
-                        direction={{ xs: 'column', sm: 'row' }} // در موبایل ستونی، در دسکتاپ ردیفی
-                        spacing={2} // فاصله یکسان بین تمام دکمه‌ها
-                        sx={{ width: '100%' }} // اشغال تمام عرض کادر
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={2}
+                        sx={{ width: '100%' }}
                     >
                         <Button
                             variant="contained"
-                            color="error" // رنگ قرمز برای PDF
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            color="error"
+                            fullWidth
                             sx={{ flex: 1 }}
                             startIcon={<IconFile />}
                             onClick={() => viewedInvoice && exportToPdf(viewedInvoice)}
@@ -2154,8 +1975,8 @@ const ListStoreInvoice = () => {
                         </Button>
                         <Button
                             variant="contained"
-                            color="success" // رنگ سبز برای Excel
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            color="success"
+                            fullWidth
                             sx={{ flex: 1 }}
                             startIcon={<IconFileSpreadsheet />}
                             onClick={() => viewedInvoice && exportToExcel(viewedInvoice)}
@@ -2163,8 +1984,7 @@ const ListStoreInvoice = () => {
                         >
                             Excel İndir
                         </Button>
-                        {/* سمت راست: دکمه بستن */}
-                        <Button onClick={handleCloseModal} color="secondary" variant="outlined" fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                        <Button onClick={handleCloseModal} color="secondary" variant="outlined" fullWidth
                             sx={{ flex: 1 }} >
                             Kapat
                         </Button>
@@ -2173,7 +1993,6 @@ const ListStoreInvoice = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Vehicle selection */}
             <Dialog open={openVehicleModal} onClose={() => setOpenVehicleModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Araç Seçimi</DialogTitle>
                 <DialogContent>
@@ -2195,7 +2014,6 @@ const ListStoreInvoice = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Status change */}
             <Dialog open={openStatusModal} onClose={handleCloseStatusModal} maxWidth="sm" fullWidth>
                 <DialogTitle>{statusToUpdate === 1 ? 'Onaylama Açıklaması' : 'Reddetme Açıklaması'}</DialogTitle>
                 <DialogContent>
@@ -2213,7 +2031,6 @@ const ListStoreInvoice = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Status history */}
             <Dialog open={openStatusHistoryModal} onClose={() => { setOpenStatusHistoryModal(false); setStatusHistoryData([]); }} maxWidth="md" fullWidth>
                 <DialogTitle><Typography variant="h5">Durum Geçmişi</Typography></DialogTitle>
                 <DialogContent dividers>
@@ -2260,7 +2077,6 @@ const ListStoreInvoice = () => {
                 <DialogActions><Button onClick={() => { setOpenStatusHistoryModal(false); setStatusHistoryData([]); }}>Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* Delete workhouse Invoice */}
             <DeleteStoreInvoiceModal
                 openModal={openDeleteModal}
                 onClose={handleClickCloseDeleteModal}
@@ -2270,7 +2086,6 @@ const ListStoreInvoice = () => {
                 showAlert={showAlert}
             />
 
-            {/* Download all */}
             <Dialog open={openDownloadAllModal} onClose={handleCloseDownloadAllModal} maxWidth="xs">
                 <DialogTitle>Tüm Faturaları İndir</DialogTitle>
                 <DialogContent>
@@ -2282,7 +2097,6 @@ const ListStoreInvoice = () => {
                 <DialogActions><Button onClick={handleCloseDownloadAllModal} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* Download filtered */}
             <Dialog open={openDownloadFilteredModal} onClose={handleCloseDownloadFilteredModal} maxWidth="xs">
                 <DialogTitle>Filtrelenmiş Faturaları İndir</DialogTitle>
                 <DialogContent>
@@ -2294,7 +2108,6 @@ const ListStoreInvoice = () => {
                 <DialogActions><Button onClick={handleCloseDownloadFilteredModal} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* Download row */}
             <Dialog open={openRowDownloadModal} onClose={handleCloseRowDownloadModal} maxWidth="xs">
                 <DialogTitle>Dosya Formatını Seçin</DialogTitle>
                 <DialogContent>
@@ -2306,7 +2119,6 @@ const ListStoreInvoice = () => {
                 <DialogActions><Button onClick={handleCloseRowDownloadModal} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* NEW: Sipariş Durumu Onayı Modal (preserved) */}
             <Dialog open={openIsEndModal} onClose={() => setOpenIsEndModal(false)}>
                 <DialogTitle>Sipariş Durumu Onayı</DialogTitle>
                 <DialogContent>
@@ -2344,8 +2156,6 @@ const ListStoreInvoice = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
-
-            {/* مودال تمام صفحه لیست رانندگان */}
             <Dialog
                 fullScreen
                 open={openDriverModal}
@@ -2371,7 +2181,6 @@ const ListStoreInvoice = () => {
                     </Toolbar>
                 </AppBar>
                 <DialogContent>
-                    {/* نمایش کامپوننت لیست راننده‌ها */}
                     <ListDrivers />
                 </DialogContent>
             </Dialog>

@@ -4,25 +4,22 @@ import { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import {
     Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
-    CircularProgress, // برای نمایش لودینگ
+    CircularProgress,
 } from '@mui/material';
 import axios from 'axios';
 import server from 'src/assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// ⬅️ تعریف نوع داده مورد نیاز (WorkhouseRentRequest ساده شده)
-// فرض می‌کنیم این اینترفیس یا حداقل فیلدهای id و title در ListRequests موجود یا از آنجا import شده باشد.
 interface WorkhouseRentRequestItem {
     id: number | string;
     title: string;
 }
 
-// --- Props interface ---
 type Props = {
     openModal: boolean;
-    itemToDelete: WorkhouseRentRequestItem | null; // آبجکت کامل ردیف کپی شده از جدول
+    itemToDelete: WorkhouseRentRequestItem | null;
     onClose: () => void;
-    onDeleteSuccess: () => void; // تابعی که پس از حذف موفق جدول را رفرش می‌کند
+    onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
@@ -31,7 +28,6 @@ const DeleteWorkhouseRent: React.FC<Props> = ({ openModal, itemToDelete, onClose
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // ⬅️ نام مورد نظر برای نمایش در مودال
     const rentalRequestTitleToDelete = itemToDelete?.title || 'Seçili Kiralama Talebi';
     const rentalRequestIdToDelete = itemToDelete?.id || null;
 
@@ -45,13 +41,11 @@ const DeleteWorkhouseRent: React.FC<Props> = ({ openModal, itemToDelete, onClose
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             showAlert('Lütfen giriş yapın.', 'warning');
-            // navigate("/"); // اگر لازم است کاربر به صفحه ورود هدایت شود
             return;
         }
 
         setLoading(true);
         try {
-            // ⬅️ API حذف درخواست اجاره (delete-workhouse-rent) در مسیر initialoperations
             const response = await axios.delete(
                 `${server.baseurl}${server.initialoperations}delete-workhouse-rent/${rentalRequestIdToDelete}`,
                 {
@@ -64,14 +58,13 @@ const DeleteWorkhouseRent: React.FC<Props> = ({ openModal, itemToDelete, onClose
 
             if (response.data.httpStatusCode === 200) {
                 showAlert('Kiralama talebi başarıyla silindi!', 'success');
-                onDeleteSuccess(); // رفرش کردن لیست در کامپوننت والد
+                onDeleteSuccess();
                 onClose();
             } else {
                 showAlert(response.data.message || 'Kiralama talebi silinirken bir hata oluştu.', 'error');
                 onClose();
             }
         } catch (e: any) {
-            // مدیریت خطاهای احتمالی
             if (e.response && e.response.status === 500) {
                 showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez.', 'error');
             } else if (e.response && e.response.status === 401) {

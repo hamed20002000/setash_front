@@ -11,13 +11,11 @@ import icon1Img from 'src/assets/images/svgs/icon-master-card-2.svg';
 import { Props } from 'react-apexcharts';
 
 const MonthlyEarnings = () => {
-  // chart color
   const theme = useTheme();
   const primary = theme.palette.primary.main;
   const primarylight = theme.palette.primary.light;
   const successlight = theme.palette.success.light;
 
-  // chart
   const optionscolumnchart: Props = {
     chart: {
       type: 'area',

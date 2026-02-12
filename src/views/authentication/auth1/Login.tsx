@@ -66,12 +66,11 @@ const Login = () => (
         justifyContent="center"
         alignItems="center"
       >
-        <Box  p={1} style={{width:"80%"}}>
+        <Box p={1} style={{ width: "80%" }}>
           <AuthLogin
             title="Setaş Portalına Hoş Geldiniz"
             subtext={
               <Typography variant="subtitle1" color="textSecondary" mb={1}>
-                {/* Your Admin Dashboard */}
               </Typography>
             }
             subtitle={

@@ -7,16 +7,14 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
-import server from 'src/assets/address.json'; // مسیر فایل address.json را تنظیم کنید
+import server from 'src/assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// --- Props interface ---
-// ⬅️ استفاده از نوع RequestType که در ListRequests تعریف شده بود (با فرض import شدن)
 type RequestItem = { id: number | string; subject: string; };
 
 type Props = {
     openModal: boolean;
-    itemToDelete: RequestItem | null; // آبجکت کامل ردیف
+    itemToDelete: RequestItem | null;
     onClose: () => void;
     onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
@@ -27,7 +25,6 @@ const DeleteRequest: React.FC<Props> = ({ openModal, itemToDelete, onClose, onDe
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // ⬅️ نام مورد نظر برای نمایش در مودال
     const requestNameToDelete = itemToDelete?.subject || 'Seçili Talep';
     const requestIdToDelete = itemToDelete?.id || null;
 
@@ -42,14 +39,11 @@ const DeleteRequest: React.FC<Props> = ({ openModal, itemToDelete, onClose, onDe
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             showAlert('Lütfen giriş yapın.', 'warning');
-            // navigate("/"); 
             return;
         }
 
         setLoading(true);
         try {
-            // ⬅️ API حذف درخواست (delete-request) در مسیر HR
-            // فرض می‌کنیم API از متد DELETE با شناسه در URL استفاده می‌کند.
             const response = await axios.delete(
                 `${server.baseurl}${server.hr}delete-request/${requestIdToDelete}`,
                 {

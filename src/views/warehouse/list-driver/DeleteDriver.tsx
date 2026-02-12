@@ -10,7 +10,6 @@ import server from '../../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// --- Props interface ---
 type Props = {
     openModal: boolean;
     driverIdToDelete: number | null;
@@ -25,7 +24,6 @@ const DeleteDriver = ({ openModal, driverIdToDelete, driverNameToDelete, onClose
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // State for Driver In Use modal
     const [openDriverInUseModal, setOpenDriverInUseModal] = useState<boolean>(false);
 
     const handleDeleteDriver = async () => {
@@ -85,7 +83,6 @@ const DeleteDriver = ({ openModal, driverIdToDelete, driverNameToDelete, onClose
 
     return (
         <>
-            {/* Main Delete Confirmation Modal */}
             <Dialog
                 open={openModal}
                 onClose={onClose}
@@ -126,7 +123,6 @@ const DeleteDriver = ({ openModal, driverIdToDelete, driverNameToDelete, onClose
                 </DialogActions>
             </Dialog>
 
-            {/* Dialog for Driver In Use */}
             <Dialog
                 open={openDriverInUseModal}
                 onClose={handleCloseDriverInUseModal}

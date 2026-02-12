@@ -131,7 +131,7 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
   },
 }));
 
-type SortableCategoryKeys = keyof Pick<CategoryType, 'name' | 'createAt' | 'status' | 'depth'>; // 🔴 'code' حذف شد
+type SortableCategoryKeys = keyof Pick<CategoryType, 'name' | 'createAt' | 'status' | 'depth'>;
 
 const descendingComparator = <T, Key extends keyof T>(
   a: T,
@@ -1215,7 +1215,7 @@ const ListCategory = () => {
                   <Button
                     variant="contained"
                     color="primary"
-                    onClick={() => setOpenDownloadModal(true)} // تغییر اکشن دکمه
+                    onClick={() => setOpenDownloadModal(true)}
                     startIcon={<IconFileDownload />}
                   >
                     Tümünü İndir

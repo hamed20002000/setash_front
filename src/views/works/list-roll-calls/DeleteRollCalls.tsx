@@ -3,22 +3,19 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, CircularProgress } from '@mui/material';
-import { IconTrash } from '@tabler/icons-react'; // استفاده از آیکون‌های Tabler
+import { IconTrash } from '@tabler/icons-react';
 import axios from 'axios';
-import server from 'src/assets/address.json'; // ⬅️ مسیر دهی مناسب
+import server from 'src/assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// ⬅️ واسط (Interface) برای داده‌های مورد نیاز
 interface RollCallRecord {
     id: number | string;
     personnelName: string;
     placeName: string;
-    // ... سایر فیلدهای رکورد
 }
 
 type DeleteProps = {
     openModal: boolean;
-    // ⬅️ به جای idToDelete و nameToDelete جداگانه، کل آبجکت رکورد را می‌پذیریم
     itemToDelete: RollCallRecord | null;
     onClose: () => void;
     onDeleteSuccess: () => void;
@@ -31,7 +28,6 @@ const DeleteRollCalls: React.FC<DeleteProps> = ({ openModal, itemToDelete, onClo
     const { isTooltipGloballyEnabled } = useTooltip();
 
     const handleDelete = async () => {
-        // ⬅️ بررسی idToDelete
         if (itemToDelete === null || itemToDelete.id === undefined || itemToDelete.id === null) {
             showAlert('Silinecek kayıt seçilmedi.', 'warning');
             onClose();
@@ -48,7 +44,6 @@ const DeleteRollCalls: React.FC<DeleteProps> = ({ openModal, itemToDelete, onClo
         setLoading(true);
 
         try {
-            // ⬅️ استفاده از API صحیح: delete-roll-call/{id}
             const response = await axios.delete(`${server.baseurl}${server.hr}delete-roll-call/${idToDelete}`, {
                 headers: { Accept: 'application/json', Authorization: `Bearer ${authToken}` }
             });
@@ -77,7 +72,6 @@ const DeleteRollCalls: React.FC<DeleteProps> = ({ openModal, itemToDelete, onClo
         }
     };
 
-    // ترکیب نام پرسنل و محل کار برای نمایش در Modal
     const nameToDisplay = itemToDelete
         ? `${itemToDelete.personnelName} `
         : 'Seçili Kayıt';

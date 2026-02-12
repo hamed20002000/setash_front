@@ -78,7 +78,6 @@ const AttachFileModal: React.FC<AttachFileModalProps> = ({ open, onClose, tender
         const uploadApiEndpoint = server.baseurl + server.baseinfo + "upload-files";
 
         try {
-            // Step 1: Upload files to the server
             const uploadResponse = await axios.post(uploadApiEndpoint, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
@@ -89,13 +88,11 @@ const AttachFileModal: React.FC<AttachFileModalProps> = ({ open, onClose, tender
             if (uploadResponse.data.httpStatusCode === 201) {
                 const fileUrls = uploadResponse.data.data.files;
 
-                // Step 2: Prepare payload for the second API call
                 const updatePayload = {
                     id: Number(tenderId),
                     attachments: fileUrls.map((url: string) => ({ fileUrl: url }))
                 };
 
-                // Step 3: Send file URLs to the second API to update the database
                 const updateTenderApiEndpoint = server.baseurl + server.initialoperations + "update-tender-header";
                 const updateResponse = await axios.put(updateTenderApiEndpoint, updatePayload, {
                     headers: {

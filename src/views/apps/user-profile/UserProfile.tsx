@@ -18,7 +18,6 @@ const UserProfile = () => {
           <ProfileBanner />
         </Grid>
 
-        {/* intro and Photos Card */}
         <Grid item sm={12} lg={4} xs={12}>
           <Grid container spacing={3}>
             <Grid item sm={12}>
@@ -29,7 +28,6 @@ const UserProfile = () => {
             </Grid>
           </Grid>
         </Grid>
-        {/* Posts Card */}
         <Grid item sm={12} lg={8} xs={12}>
           <Post />
         </Grid>

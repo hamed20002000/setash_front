@@ -1646,7 +1646,8 @@ const ListItemComponent = () => {
                     <MuiMenuItem disabled>Hiç birim bulunamadı.</MuiMenuItem>
                   )}
                 </Select>
-                {unitIdHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{unitIdHelperText}</Typography>} {/* **Display helper text** */}
+                {unitIdHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{unitIdHelperText}</Typography>}
+
               </FormControl>
             </Grid>
             <Grid item xs={12} md={4}>
@@ -1712,7 +1713,8 @@ const ListItemComponent = () => {
                     <MuiMenuItem disabled>Hiç kategori bulunamadı.</MuiMenuItem>
                   )}
                 </Select>
-                {categoryIdHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{categoryIdHelperText}</Typography>} {/* **Display helper text** */}
+                {categoryIdHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>
+                  {categoryIdHelperText}</Typography>}
               </FormControl>
             </Grid>
             <Grid item xs={12} md={4}>
@@ -1785,9 +1787,9 @@ const ListItemComponent = () => {
                   'header', 'bold', 'italic', 'underline', 'strike', 'blockquote',
                   'list', 'bullet', 'link', 'image'
                 ]}
-                style={{ height: '150px', marginBottom: '40px', border: descriptionError ? '1px solid red' : undefined }} // **Apply red border for description error**
+                style={{ height: '150px', marginBottom: '40px', border: descriptionError ? '1px solid red' : undefined }}
               />
-              {descriptionError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{descriptionHelperText}</Typography>} {/* **Display helper text** */}
+              {descriptionError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{descriptionHelperText}</Typography>}
 
             </Grid>
 
@@ -1999,7 +2001,7 @@ const ListItemComponent = () => {
             <TableBody>
               {loadingItems ? (
                 <TableRow>
-                  <StyledTableCell colSpan={10} align="center"> {/* Updated colspan */}
+                  <StyledTableCell colSpan={10} align="center">
                     <CircularProgress />
                     <Typography variant="subtitle1" color="textSecondary">
                       Ürünler yükleniyor...
@@ -2128,7 +2130,7 @@ const ListItemComponent = () => {
                 ))
               ) : (
                 <TableRow>
-                  <StyledTableCell colSpan={10} align="center"> {/* Updated colspan */}
+                  <StyledTableCell colSpan={10} align="center">
                     <Typography variant="subtitle1" color="textSecondary">
                       Hiç ürün bulunamadı.
                     </Typography>

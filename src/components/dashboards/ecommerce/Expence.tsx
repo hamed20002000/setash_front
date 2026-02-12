@@ -9,13 +9,11 @@ import { Props } from 'react-apexcharts';
 import DashboardCard from '../../shared/DashboardCard';
 
 const Expence = () => {
-  // chart color
   const theme = useTheme();
   const primary = theme.palette.primary.main;
   const secondary = theme.palette.secondary.main;
   const error = theme.palette.error.main;
 
-  // chart
   const optionsexpencechart: Props = {
     chart: {
       type: 'donut',
@@ -30,7 +28,7 @@ const Expence = () => {
     colors: [primary, error, secondary],
     plotOptions: {
       pie: {
-        
+
         donut: {
           size: '70%',
           background: 'transparent'

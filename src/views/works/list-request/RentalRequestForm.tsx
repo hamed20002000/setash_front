@@ -11,11 +11,8 @@ import axios from 'axios';
 import server from 'src/assets/address.json';
 import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from 'src/components/forms/theme-elements/CustomTextField';
-import { WorkhouseRentRequest, Workhouse } from './RequestTabs'; // ⬅️ Import از والد
+import { WorkhouseRentRequest, Workhouse } from './RequestTabs';
 
-// ==============================================================================
-// 1. INTERFACES
-// ==============================================================================
 interface Attachment { fileUrl: string; }
 
 interface RentalRequestFormProps {
@@ -201,7 +198,6 @@ const RentalRequestForm: React.FC<RentalRequestFormProps> = ({ isEditing, itemTo
         } finally { setLoadingButton(false); }
     };
 
-    // Attachment Handlers
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (files) {

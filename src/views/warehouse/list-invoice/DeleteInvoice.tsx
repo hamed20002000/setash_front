@@ -14,7 +14,6 @@ import server from '../../../assets/address.json';
 import { useNavigate } from 'react-router-dom';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// --- Props interface ---
 interface DeleteInvoiceModalProps {
     openModal: boolean;
     onClose: () => void;
@@ -97,7 +96,6 @@ const DeleteInvoiceModal: React.FC<DeleteInvoiceModalProps> = ({
 
     return (
         <>
-            {/* Main Delete Confirmation Modal */}
             <Dialog
                 open={openModal}
                 onClose={onClose}
@@ -137,8 +135,6 @@ const DeleteInvoiceModal: React.FC<DeleteInvoiceModalProps> = ({
                     </CustomTooltip>
                 </DialogActions>
             </Dialog>
-
-            {/* Dialog for Deletion Error (e.g., status 500) */}
             <Dialog
                 open={openDeletionErrorModal}
                 onClose={handleCloseDeletionErrorModal}

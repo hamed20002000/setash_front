@@ -162,7 +162,7 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');

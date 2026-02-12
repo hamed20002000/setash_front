@@ -12,11 +12,9 @@ import { IconArrowUpRight } from '@tabler/icons-react';
 import icon1 from 'src/assets/images/svgs/icon-bars.svg';
 
 const Growth = () => {
-  // chart color
   const theme = useTheme();
   const secondary = theme.palette.secondary.main;
 
-  // chart
   const optionscolumnchart: Props = {
     chart: {
       type: 'area',

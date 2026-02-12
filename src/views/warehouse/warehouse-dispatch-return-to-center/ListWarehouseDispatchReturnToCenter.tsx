@@ -44,21 +44,18 @@ import DeleteWarehouseDispatchReturnToCenter from "./DeleteWarehouseDispatchRetu
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
-// ✨ NEW imports for Excel
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    fontFamily: 'NotoSans',
+    fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: {
-        fontSize: '1rem', // Masaüstünde daha büyük
+        fontSize: '1rem',
     },
 }));
 
-// === Type Definitions ===
 interface DispatchDetailType {
     id: string;
     itemId: number;
@@ -112,7 +109,6 @@ interface NewDispatchData {
     description: string,
     warehouseId: number;
     driverId: number;
-    // workhouseId: number;
     driverVehicleId: number;
     dispatchDetails: {
         itemId: number;
@@ -189,7 +185,6 @@ const formatDateDisplay = (dateString: string | null): string => {
     }
 };
 
-// === Styled Components ===
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
     '&.Mui-selected': {
         color: 'white',
@@ -222,19 +217,16 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans', 'normal');
 
-    // ۱. افزودن لوگو (سمت راست)
     try {
         doc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
     } catch (e) {
         console.error("Logo yüklenemedi", e);
     }
 
-    // ۲. عنوان اصلی (وسط)
     doc.setFontSize(14);
-    doc.setTextColor(40); // خاکستری تیره
+    doc.setTextColor(40);
     doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
-    // ۳. تاریخ گزارش (سمت چپ - کلمه Rapor Tarihi بولد شده)
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
     doc.text(`Rapor Tarihi:`, 15, 40);
@@ -242,7 +234,6 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     doc.setFont('NotoSans', 'normal');
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
 
-    // ۴. زیرعنوان (در صورت وجود - مثلاً بازه تاریخی فیلتر شده)
     if (subtitle) {
         doc.setFontSize(9);
         doc.setFont('NotoSans', 'normal');
@@ -250,7 +241,6 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
         doc.text(subtitle, 15, 45);
     }
 
-    // ۵. خط جداکننده هدر (مشابه طرح قبلی)
     doc.setDrawColor(66, 66, 66);
     doc.setLineWidth(0.5);
     doc.line(15, 48, pageWidth - 15, 48);
@@ -260,30 +250,26 @@ const addPdfFooter = (doc: jsPDF) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
 
-    // ۱. اطلاعات شرکت (مرکز پایین)
     doc.setFontSize(8);
     doc.setFont('NotoSans', 'normal');
     doc.setTextColor(100);
     const companyInfo = [
-        'SETAŞ SİSTEM BİLİŞİM İNŞاAT TAAHHÜT TİCARET LTD. ŞTİ.',
-        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
-        'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
+        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
     ];
-
     let footerY = pageHeight - 20;
     companyInfo.forEach(line => {
         doc.text(line, pageWidth / 2, footerY, { align: 'center' });
         footerY += 4;
     });
 
-    // ۲. بخش امضا (سمت راست)
     doc.setFontSize(10);
     doc.setTextColor(40);
     doc.setFont('NotoSans', 'normal');
     doc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
     doc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
 
-    // ۳. شماره صفحه (سمت چپ)
     const docAny = doc as any;
     const pageNumber = docAny.internal.getCurrentPageInfo().pageNumber;
     const pageCount = docAny.internal.getNumberOfPages();
@@ -322,7 +308,6 @@ const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, colum
 };
 
 
-// === Main Component ===
 const ListWarehouseDispatchReturnToCenter = () => {
     const { warehouseId } = useParams<{ warehouseId: string }>();
     const navigate = useNavigate();
@@ -344,7 +329,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
     const hasIdsFilter = notifIds.length > 0;
     const idsSet = new Set<number>(notifIds);
 
-    // === State Variables ===
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
     const [selectedWorkhouseId, setSelectedWorkhouseId] = useState<number | null>(null);
@@ -368,7 +352,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<DispatchType | null>(null);
-    // const openMenu = Boolean(anchorEl);
 
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingCode, setEditingCode] = useState<string | null>(null);
@@ -399,11 +382,9 @@ const ListWarehouseDispatchReturnToCenter = () => {
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
 
-    // === New State for Status Update Modal ===
     const [openStatusUpdateModal, setOpenStatusUpdateModal] = useState(false);
     const [updateModalData, setUpdateModalData] = useState<{ id: string | null; status: number; description: string }>({ id: null, status: 0, description: '' });
 
-    // === New State for Status Description Modal (Read-only) ===
     const [openStatusDescriptionModal, setOpenStatusDescriptionModal] = useState(false);
     const [readOnlyDescription, setReadOnlyDescription] = useState<string>('');
 
@@ -416,7 +397,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
-    // ✨ NEW: State for download modals
     const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
     const [openDownloadFilteredModal, setOpenDownloadFilteredModal] = useState(false);
     const [openRowDownloadModal, setOpenRowDownloadModal] = useState(false);
@@ -431,56 +411,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
     const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
     const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
 
-
-    // const { menuItems, allowedOperations } = useAuth();
-    // const findMenuByHref = (items: any[], path: string): any => {
-    //     for (const item of items) {
-    //         // اگر خود آیتم تطبیق داشت
-    //         if (item.href === path) return item;
-
-    //         // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
-    //         if (item.children && item.children.length > 0) {
-    //             const found = findMenuByHref(item.children, path);
-    //             if (found) return found;
-    //         }
-    //     }
-    //     return null;
-    // };
-
-    // // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
-    // const currentMenu = useMemo(() => {
-    //      
-    //     return findMenuByHref(menuItems, location.pathname);
-    // }, [menuItems, location.pathname]);
-
-    // // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
-    // const currentMenuOpIds = useMemo(() => {
-    //     // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
-    //     if (!currentMenu || !currentMenu.menuOperations) return [];
-
-    //     return currentMenu.menuOperations.map((op: any) => {
-    //         // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
-    //         return String(op.id);
-    //     });
-    // }, [currentMenu]);
-
-    // // ۴. تابع نهایی بررسی دسترسی
-    // const hasPermission = (opName: string) => {
-    //     return allowedOperations.some((op: any) =>
-    //         op.systemOperationName === opName &&
-    //         currentMenuOpIds.includes(String(op.menuOperationId))
-    //     );
-    // };
-
-    // const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
-    // const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
-    // const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
-    // const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
-
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
-
-
-    // === Form Handlers ===
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -540,7 +470,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
         }
     }, [showAlert]);
 
-    // === API Calls ===
     const fetchInitialData = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -649,12 +578,10 @@ const ListWarehouseDispatchReturnToCenter = () => {
 
     useEffect(() => {
         const isValid = !!selectedDriverId &&
-            // !!selectedWorkhouseId &&
             !!docDate && dispatchDetails.length > 0 &&
             dispatchDetails.every(d => !!d.itemId && Number(d.quantity) > 0);
         setIsFormValid(isValid);
     }, [selectedDriverId,
-        // selectedWorkhouseId, 
         docDate, dispatchDetails]);
 
     useEffect(() => {
@@ -692,7 +619,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
     const validateForm = (): boolean => {
         let isValid = true;
         if (!selectedDriverId) { setDriverIdError(true); isValid = false; } else { setDriverIdError(false); }
-        // if (!selectedWorkhouseId) { setWorkhouseIdError(true); isValid = false; } else { setWorkhouseIdError(false); }
         if (!docDate) { setDocDateError(true); isValid = false; } else { setDocDateError(false); }
         if (dispatchDetails.length === 0 || dispatchDetails.some(d => !d.itemId || !d.quantity)) {
             setDispatchDetailsError(true); isValid = false;
@@ -706,19 +632,15 @@ const ListWarehouseDispatchReturnToCenter = () => {
     const resetFormAndState = () => {
         setDocDate(new Date());
         setSelectedDriverId(null);
-        // setSelectedWorkhouseId(null);
         setDispatchDetails([]);
         setEditingId(null);
         setDocDateError(false);
         setDriverIdError(false);
-        // setWorkhouseIdError(false);
         setDispatchDetailsError(false);
         setSelectedVehicleId(null);
         setSelectedVehicleName(null);
         setIsFormVisible(false);
     };
-
-    // === API Actions ===
     const insertDispatch = async () => {
         if (!validateForm()) return;
         setLoadingButton(true);
@@ -732,7 +654,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
                 warehouseId: Number(warehouseId),
                 driverId: Number(selectedDriverId),
                 driverVehicleId: Number(selectedVehicleId),
-                // workhouseId: Number(selectedWorkhouseId),
                 dispatchDetails: dispatchDetails.map(d => ({ itemId: Number(d.itemId), quantity: Number(d.quantity), description: d.description }))
             };
             const response = await axios.post(server.baseurl + server.warehouse + "create-warehouse-dispatch-destruction",
@@ -770,7 +691,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
             warehouseId: Number(warehouseId),
             driverId: Number(selectedDriverId),
             driverVehicleId: Number(selectedVehicleId),
-            // workhouseId: Number(selectedWorkhouseId),
             dispatchDetails: dispatchDetails.map(d => ({
                 itemId: Number(d.itemId),
                 quantity: Number(d.quantity),
@@ -860,7 +780,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
         setSelectedRowForMenu(null);
     };
 
-    // === UI Handlers ===
     const handleEditClick = () => {
         if (selectedRowForMenu) {
             setEditingId(selectedRowForMenu.id);
@@ -868,7 +787,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
             setGeneralDescription(selectedRowForMenu.description || '');
             setEditingCode(selectedRowForMenu.code);
             setSelectedDriverId(Number(selectedRowForMenu.driver?.id));
-            // setSelectedWorkhouseId(Number(selectedRowForMenu.workhouse?.id));
             if (selectedRowForMenu.driverVehicle) {
                 setSelectedVehicleId(Number(selectedRowForMenu.driverVehicle.id));
                 setSelectedVehicleName(`${selectedRowForMenu.driverVehicle.name} (${selectedRowForMenu.driverVehicle.plaque})`);
@@ -958,157 +876,9 @@ const ListWarehouseDispatchReturnToCenter = () => {
         setStartDate(null);
         setEndDate(null);
     };
-
-    // // ✨ NEW: Consolidated PDF export function
-    // const exportDispatchesToPdf = (data: DispatchType[], title: string, subtitle?: string) => {
-    //     if (!data || data.length === 0) {
-    //         showAlert('PDF oluşturulacak sevk belgesi bulunamadı.', 'warning');
-    //         return;
-    //     }
-    //     showAlert('PDF oluşturuluyor...', 'info');
-    //     const doc = new jsPDF();
-    //     const docAny = doc as any;
-    //     let yPos = 60; // Initial Y position for content
-
-    //     docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-    //     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-    //     doc.setFont('NotoSans');
-
-
-    //     data.forEach((dispatch, index) => {
-    //         if (index > 0) {
-    //             doc.addPage();
-    //             yPos = 60;
-    //         }
-
-    //         const pageTitle = `${title}`;
-    //         addPdfHeader(doc, pageTitle);
-
-    //         if (subtitle) {
-    //             doc.setFontSize(10);
-    //             doc.text(subtitle, 15, 50, { align: 'left' });
-    //         }
-
-    //         // Add main dispatch information
-    //         doc.setFontSize(12);
-    //         doc.text(`Sevk Kodu: ${dispatch.code}`, 15, yPos);
-    //         doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)}`, doc.internal.pageSize.getWidth() - 15, yPos, { align: 'right' });
-
-    //         yPos += 7;
-    //         doc.text(`Depo: ${dispatch.warehouse?.name || '-'}`, 15, yPos);
-    //         doc.text(`Şantiye: ${dispatch.workhouse?.name || '-'}`, doc.internal.pageSize.getWidth() - 15, yPos, { align: 'right' });
-
-    //         yPos += 7;
-    //         doc.text(`Şoför: ${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`, 15, yPos);
-    //         doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || '-'})`, doc.internal.pageSize.getWidth() - 15, yPos, { align: 'right' });
-
-    //         yPos += 7;
-    //         doc.text(`Durum: ${dispatch.statusText}`, 15, yPos);
-    //         // if (dispatch.statusDescription) {
-    //         doc.text(`Açıklama: ${dispatch.description}`, doc.internal.pageSize.getWidth() - 15, yPos, { align: 'right' });
-    //         // }
-
-    //         yPos += 15; // Space before the details table
-
-    //         const detailsRows = (dispatch.warehouseDispatchDetails || []).map(d => [
-    //             d.item?.name || '-',
-    //             d.quantity,
-    //             d.item?.unit?.title || '-',
-    //             d.description || '-'
-    //         ]);
-
-    //         const columns = ['Malzeme', 'Miktar', 'Birim', 'Açıklama'];
-    //         const totalQuantity = (dispatch.warehouseDispatchDetails || []).reduce((sum, detail) => sum + Number(detail.quantity), 0);
-
-    //         autoTable(docAny, {
-    //             startY: yPos,
-    //             head: [columns],
-    //             body: detailsRows,
-    //             theme: 'grid',
-    //             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
-    //             headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-    //             didDrawPage: () => {
-    //                 addPdfFooter(doc);
-    //             }
-    //         });
-
-    //         const finalY = docAny.lastAutoTable.finalY || yPos;
-    //         doc.setFontSize(10);
-    //         doc.text(`Toplam Miktar: ${totalQuantity}`, 15, finalY + 5);
-
-    //         yPos = finalY + 10;
-    //     });
-
-    //     doc.save(`${title.replace(/ /g, '_')}.pdf`);
-    //     showAlert('PDF başarıyla oluşturuldu.', 'success');
-    // };
-
-    // // ✨ NEW: Consolidated Excel export function
-    // const exportDispatchesToExcel = (data: DispatchType[], title: string) => {
-    //     if (!data || data.length === 0) {
-    //         showAlert('Excel oluşturulacak sevk belgesi bulunamadı.', 'warning');
-    //         return;
-    //     }
-    //     showAlert('Excel oluşturuluyor...', 'info');
-    //     const workbook = new Excel.Workbook();
-
-    //     data.forEach(dispatch => {
-    //         const worksheetTitle = `Sevk_${dispatch.code}`.replace(/[\\/*?:[\]]/g, '_');
-    //         const worksheet = workbook.addWorksheet(worksheetTitle);
-
-    //         const detailsColumns = ['Malzeme', 'Miktar', 'Birim', 'Açıklama'];
-    //         const totalColumns = detailsColumns.length;
-
-    //         addExcelHeader(worksheet, title, totalColumns);
-
-    //         // Add dispatch information
-    //         worksheet.addRow([`Sevk Kodu:`, dispatch.code]);
-    //         worksheet.addRow([`Belge Tarihi:`, formatDateDisplay(dispatch.docDate)]);
-    //         worksheet.addRow([`Depo:`, dispatch.warehouse?.name || '-']);
-    //         worksheet.addRow([`Şantiye:`, dispatch.workhouse?.name || '-']);
-    //         worksheet.addRow([`Şoför:`, `${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`]);
-    //         worksheet.addRow([`Araç:`, `${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || ''})`]);
-    //         worksheet.addRow([`Durum:`, dispatch.statusText || '-']);
-    //         worksheet.addRow([`Açıklama:`, dispatch.description || '-']);
-    //         worksheet.addRow([]);
-
-    //         // Add details table
-    //         const headerRow = worksheet.addRow(detailsColumns);
-    //         headerRow.font = { name: 'NotoSans', bold: true };
-    //         headerRow.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; });
-
-    //         (dispatch.warehouseDispatchDetails || []).forEach(d => {
-    //             worksheet.addRow([
-    //                 d.item?.name || '-',
-    //                 d.quantity,
-    //                 d.item?.unit?.title || '-',
-    //                 d.description || '-'
-    //             ]);
-    //         });
-
-    //         // Calculate and display total quantity
-    //         const totalQuantity = (dispatch.warehouseDispatchDetails || []).reduce((sum, detail) => sum + Number(detail.quantity), 0);
-    //         const totalRow = worksheet.addRow([`Toplam Miktar`, totalQuantity, '', '']);
-    //         totalRow.font = { name: 'NotoSans', bold: true };
-    //         totalRow.getCell(2).numFmt = '0';
-
-    //         worksheet.addRow([]); // Add a blank line for spacing
-    //         addExcelCompanyInfo(worksheet, worksheet.lastRow!.number + 2, totalColumns);
-    //     });
-
-    //     const fileName = `${title.replace(/ /g, '_')}.xlsx`;
-    //     workbook.xlsx.writeBuffer().then(buffer => {
-    //         saveAs(new Blob([buffer]), fileName);
-    //         showAlert('Excel başarıyla oluşturuldu.', 'success');
-    //     });
-    // };
-
-
-    // 1. تابع کمکی جدید (اضافه شود)
     const getTotalsByUnit = (details: any[]) => {
         const totals: Record<string, number> = {};
         details.forEach(d => {
-            // بسته به ساختار دیتا ممکن است item یا d.item باشد
             const unit = d.item?.unit?.title || 'Bilinmiyor';
             const qty = Number(d.quantity) || 0;
             totals[unit] = (totals[unit] || 0) + qty;
@@ -1116,10 +886,8 @@ const ListWarehouseDispatchReturnToCenter = () => {
         return totals;
     };
 
-    // 2. آپدیت تابع PDF
     const exportDispatchesToPdf = (data: DispatchType[], title: string, subtitle?: string) => {
         if (!data || data.length === 0) {
-            // showAlert در اینجا در دسترس نیست، اما ارور پرتاب می‌کنیم تا در کامپوننت هندل شود
             throw new Error('PDF oluşturulacak veri bulunamadı.');
         }
 
@@ -1140,7 +908,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
                 doc.text(subtitle, 15, 50, { align: 'left' });
             }
 
-            // اطلاعات اصلی
             doc.setFontSize(12);
             doc.text(`Sevk Kodu: ${dispatch.code}`, 15, yPos);
             doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)}`, doc.internal.pageSize.getWidth() - 15, yPos, { align: 'right' });
@@ -1167,7 +934,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
                 d.description || '-'
             ]);
 
-            // محاسبه و نمایش فوتر
             const totals = getTotalsByUnit(dispatch.warehouseDispatchDetails || []);
             const footRows = Object.entries(totals).map(([unit, qty]) => [
                 'Toplam:',
@@ -1180,7 +946,7 @@ const ListWarehouseDispatchReturnToCenter = () => {
                 startY: yPos,
                 head: [head],
                 body: body,
-                foot: footRows, // ✅ فوتر اضافه شد
+                foot: footRows,
                 theme: 'grid',
                 styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
                 headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0] },
@@ -1192,7 +958,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
         doc.save(`${title.replace(/ /g, '_')}.pdf`);
     };
 
-    // 3. آپدیت تابع Excel
     const exportDispatchesToExcel = async (data: DispatchType[], title: string) => {
         if (!data || data.length === 0) throw new Error('Excel oluşturulacak veri bulunamadı.');
 
@@ -1205,7 +970,7 @@ const ListWarehouseDispatchReturnToCenter = () => {
 
             ws.addRow([`Sevk Kodu:`, dispatch.code]);
             ws.addRow([`Depo:`, dispatch.warehouse?.name || '-']);
-            ws.addRow([`Şantiye:`, dispatch.workhouse?.name || '-']); // اینجا destinationWarehouse استفاده شده طبق اینترفیس
+            ws.addRow([`Şantiye:`, dispatch.workhouse?.name || '-']);
             ws.addRow([`Şoför:`, `${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`]);
             ws.addRow([`Araç:`, `${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || ''})`]);
             ws.addRow([`Belge Tarihi:`, formatDateDisplay(dispatch.docDate)]);
@@ -1226,7 +991,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
                 ]);
             });
 
-            // ✅ اضافه کردن جمع کل به تفکیک واحد
             ws.addRow([]);
             const summaryTitle = ws.addRow(["Birim Bazlı Toplamlar"]);
             summaryTitle.font = { name: 'NotoSans', bold: true, underline: true };
@@ -1254,7 +1018,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
         saveAs(new Blob([buffer]), `${title.replace(/ /g, '_')}.xlsx`);
     };
 
-    // ✨ NEW: Unified download handler for all/filtered data
     const handleDownload = (format: 'pdf' | 'excel', isFiltered: boolean) => {
         const dataToDownload = isFiltered ? displayedDispatches : dispatchList;
         const title = isFiltered ? 'Filtrelenmiş Sevk Belgeleri Raporu' : 'Tüm Sevk Belgeleri Raporu';
@@ -1277,7 +1040,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
         setSelectedDispatchForDownload(null);
         setOpenRowDownloadModal(false);
     };
-    // ✨ NEW: Unified download handler for a single row
     const handleDownloadSingleDispatch = (format: 'pdf' | 'excel') => {
         if (!selectedDispatchForDownload) return;
         const data = [selectedDispatchForDownload];
@@ -1324,7 +1086,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
         setFullDescriptionContent('');
     };
 
-    // === UI ===
     return (
         <Box mt={2}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
@@ -1480,12 +1241,11 @@ const ListWarehouseDispatchReturnToCenter = () => {
                                 multiline
                                 rows={3}
                                 variant="outlined"
-                                value={generalDescription} // ⬅️ استفاده از نام جدید
-                                onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                value={generalDescription}
+                                onChange={(e) => setGeneralDescription(e.target.value)}
                             />
                         </Grid>
                     </Grid>
-                    {/* Sevk Detayları */}
                     <Box mt={4}>
                         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                             <Typography variant="h6">Sevk Detayları</Typography>
@@ -1571,7 +1331,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
                     <Alert severity={alertSeverity} onClose={() => setAlertMessage(null)}>{alertMessage}</Alert>
                 </Stack>
             )}
-            {/* Tablo */}
             <BlankCard>
                 <Grid item xs={12} mt={2} mr={2}>
                     <Stack direction="row" spacing={2} justifyContent="flex-end">
@@ -1691,7 +1450,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
                                     <StyledTableCell><Typography variant="h6">Depo</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Şoför</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Araç</Typography></StyledTableCell>
-                                    {/* <StyledTableCell><Typography variant="h6">Şantiye</Typography></StyledTableCell> */}
                                     <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
 
                                     <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
@@ -1708,11 +1466,9 @@ const ListWarehouseDispatchReturnToCenter = () => {
                                             <StyledTableCell><Typography variant="body1">{row.warehouse?.name || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{`${row.driver?.name || ''} ${row.driver?.family || ''}`}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{`${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell>
-                                            {/* <StyledTableCell><Typography variant="body1">{row.workhouse?.name || '-'}</Typography></StyledTableCell> */}
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 {row.description && row.description.trim().length > 0 ? (
-                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button
 
@@ -1724,7 +1480,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (
-                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
                                                     <Typography variant="body2" align="center">
                                                         -
                                                     </Typography>
@@ -1750,7 +1505,7 @@ const ListWarehouseDispatchReturnToCenter = () => {
                                                             startIcon={<IconEye />}
                                                             onClick={() => {
                                                                 setDetailsToShow(row.warehouseDispatchDetails || []);
-                                                                setViewedDispatch(row); // ✅ اضافه شده
+                                                                setViewedDispatch(row);
                                                                 setOpenDetailsModal(true);
                                                             }}
                                                         >
@@ -1866,7 +1621,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Details Modal - به همراه جدول جمع کل و دکمه‌های دانلود */}
             <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>
                     Sevk Detayları
@@ -1902,7 +1656,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
                                 </Table>
                             </TableContainer>
 
-                            {/* ✅ جدول خلاصه جمع‌ها */}
                             <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
                                 <TableContainer component={Paper} variant="outlined" sx={{ width: 'auto', minWidth: '300px' }}>
                                     <Table size="small">
@@ -1914,7 +1667,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
-                                            {/* استفاده از تابع getTotalsByUnit */}
                                             {Object.entries(getTotalsByUnit(detailsToShow)).map(([unit, total]) => (
                                                 <TableRow key={unit}>
                                                     <StyledTableCell sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
@@ -1936,25 +1688,22 @@ const ListWarehouseDispatchReturnToCenter = () => {
                         </Typography>
                     )}
                 </DialogContent>
-
-                {/* ✅ دکمه‌های دانلود */}
                 <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
                     <Stack
-                        direction={{ xs: 'column', sm: 'row' }} // در موبایل ستونی، در دسکتاپ ردیفی
-                        spacing={2} // فاصله یکسان بین تمام دکمه‌ها
-                        sx={{ width: '100%' }} // اشغال تمام عرض کادر
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={2}
+                        sx={{ width: '100%' }}
                     >
                         <Button
                             variant="contained"
                             color="error"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }}
                             startIcon={<IconFileText />}
                             disabled={!viewedDispatch}
                             onClick={() => {
                                 if (viewedDispatch) {
                                     showAlert('PDF oluşturuluyor...', 'info');
-                                    // استفاده از تابع helper تعریف شده در بیرون
                                     exportDispatchesToPdf([viewedDispatch], `Sevk Belgesi Detayları: ${viewedDispatch.code}`);
                                     showAlert('PDF indiriliyor.', 'success');
                                 }
@@ -1965,14 +1714,13 @@ const ListWarehouseDispatchReturnToCenter = () => {
                         <Button
                             variant="contained"
                             color="success"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }}
                             startIcon={<IconFileSpreadsheet />}
                             disabled={!viewedDispatch}
                             onClick={async () => {
                                 if (viewedDispatch) {
                                     showAlert('Excel oluşturuluyor...', 'info');
-                                    // استفاده از تابع helper تعریف شده در بیرون
                                     await exportDispatchesToExcel([viewedDispatch], `Sevk Belgesi Detayları: ${viewedDispatch.code}`);
                                     showAlert('Excel indiriliyor.', 'success');
                                 }
@@ -1981,7 +1729,7 @@ const ListWarehouseDispatchReturnToCenter = () => {
                             Excel İndir
                         </Button>
                         <Button onClick={() => setOpenDetailsModal(false)} color="secondary" variant="outlined"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }} >Kapat</Button>
 
                     </Stack>
@@ -2032,7 +1780,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
                 showAlert={showAlert}
             />
 
-            {/* ✨ NEW: Modal for all downloads */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
                 <DialogTitle>Tüm İmha Edilecek Ürünleri Sevk İndir</DialogTitle>
                 <DialogContent>
@@ -2056,7 +1803,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* ✨ NEW: Modal for filtered downloads */}
             <Dialog open={openDownloadFilteredModal} onClose={() => setOpenDownloadFilteredModal(false)} maxWidth="xs">
                 <DialogTitle>Filtrelenmiş İmha Edilecek Ürünleri Sevk İndir</DialogTitle>
                 <DialogContent>
@@ -2080,7 +1826,6 @@ const ListWarehouseDispatchReturnToCenter = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* ✨ NEW: Modal for single row download */}
             <Dialog open={openRowDownloadModal} onClose={() => setOpenRowDownloadModal(false)} maxWidth="xs">
                 <DialogTitle>Dosya Formatını Seçin</DialogTitle>
                 <DialogContent>

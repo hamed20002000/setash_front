@@ -473,7 +473,7 @@ const ListItemReport = () => {
             addPdfHeader(doc, `Ürün Raporu Detayı: ${report.itemname}`);
 
             const tableRows = [
-                ["Fatura No", report.invoice_no || '-'], // اضافه شد
+                ["Fatura No", report.invoice_no || '-'],
                 ["Malzeme Adı", report.itemname],
                 ["Malzeme Kodu", report.itemcode || '-'],
                 ["Proje Adı", report.proje_adi],

@@ -41,10 +41,8 @@ import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
-import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular'; // مطمئن شوید مسیر فایل فونت صحیح است
+import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
-// import html2canvas from 'html2canvas';
-
 
 import { useAuth } from 'src/context/AuthContext';
 
@@ -62,11 +60,10 @@ const formatDateDisplay = (dateString: string | null): string => {
 
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-  fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-  // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-  fontSize: '0.8rem', // Varsayılan olarak küçük font
+  fontFamily: 'NotoSans',
+  fontSize: '0.8rem',
   [theme.breakpoints.up('md')]: {
-    fontSize: '1rem', // Masaüstünde daha büyük
+    fontSize: '1rem',
   },
 }));
 
@@ -247,10 +244,8 @@ const ListTender = () => {
   const { menuItems, allowedOperations } = useAuth();
   const findMenuByHref = (items: any[], path: string): any => {
     for (const item of items) {
-      // اگر خود آیتم تطبیق داشت
       if (item.href === path) return item;
 
-      // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
       if (item.children && item.children.length > 0) {
         const found = findMenuByHref(item.children, path);
         if (found) return found;
@@ -259,24 +254,19 @@ const ListTender = () => {
     return null;
   };
 
-  // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
   const currentMenu = useMemo(() => {
 
     return findMenuByHref(menuItems, location.pathname);
   }, [menuItems, location.pathname]);
 
-  // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
   const currentMenuOpIds = useMemo(() => {
-    // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
     if (!currentMenu || !currentMenu.menuOperations) return [];
 
     return currentMenu.menuOperations.map((op: any) => {
-      // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
       return String(op.id);
     });
   }, [currentMenu]);
 
-  // ۴. تابع نهایی بررسی دسترسی
   const hasPermission = (opName: string) => {
     return allowedOperations.some((op: any) =>
       op.systemOperationName === opName &&
@@ -341,31 +331,25 @@ const ListTender = () => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const docAny = doc as any;
 
-    // تنظیمات فونت (فرض بر تعریف قبلی)
     doc.setFont('NotoSans', 'normal');
 
     const logoWidth = 40;
     const logoHeight = 25;
     const margin = 10;
 
-    // 👇🏻 [تغییر اصلی] لوگو در سمت راست قرار می‌گیرد
     const logoX = pageWidth - logoWidth - margin;
     const logoY = 10;
 
-    // اضافه کردن لوگو در بالا راست
     docAny.addImage(Logo, 'PNG', logoX, logoY, logoWidth, logoHeight);
 
-    // اضافه کردن عنوان اصلی گزارش در وسط
     doc.setFontSize(14);
     doc.text(title, pageWidth / 2, 20, { align: 'center' });
 
-    // 👇🏻 [تغییر اصلی] تاریخ گزارش در سمت چپ قرار می‌گیرد
     doc.setFontSize(10);
     doc.text(`Rapor Tarihi:`, 15, 35);
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 45, 35);
 
-    // خط جداکننده زیر هدر
-    doc.setDrawColor(150); // رنگ خاکستری
+    doc.setDrawColor(150);
     doc.line(10, 40, pageWidth - 10, 40);
   };
 
@@ -398,7 +382,6 @@ const ListTender = () => {
     doc.text('İmza', pageWidth - 15, signatureY, { align: 'right' });
     doc.line(pageWidth - 65, signatureY - 5, pageWidth - 15, signatureY - 5);
 
-    // اضافه کردن شماره صفحه
     const pageCount = docAny.internal.getNumberOfPages();
     doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, signatureY);
   };
@@ -460,7 +443,6 @@ const ListTender = () => {
           }
         }
       );
-      // حذف  
       if (response.data.httpStatusCode === 200 && response.data.data) {
         const tenderData = response.data.data;
         const tenderCategories = tenderData.tenderCategories || [];
@@ -476,10 +458,10 @@ const ListTender = () => {
                 'Ürün': detail.item?.name || '-',
                 'Ölçü': detail.item?.unit?.title || '-',
                 'Miktar': quantity,
-                'Açıklama': '', // توضیحات خالی
-                'Fiyat': ''    // قیمت خالی
+                'Açıklama': '',
+                'Fiyat': ''
               });
-              totalQuantity += quantity; // جمع کردن مقادیر
+              totalQuantity += quantity;
             }
           });
         });
@@ -489,38 +471,30 @@ const ListTender = () => {
           return;
         }
 
-        const workbook = new Excel.Workbook(); // استفاده از exceljs برای ساختاردهی بهتر
+        const workbook = new Excel.Workbook();
         const worksheet = workbook.addWorksheet('Satın Alma Listesi');
         const tableColumns = ['Ürün', 'Ölçü', 'Miktar', 'Açıklama', 'Fiyat'];
         const totalColumns = tableColumns.length;
-        // let currentRow = 1;
 
         addExcelHeader(worksheet, `Satın Alma İhtiyaç Raporu - ${tenderData.title}`, totalColumns);
 
-        // currentRow = worksheet.lastRow!.number + 1;
 
         worksheet.addRow([`İhale ID:`, tender.id]).font = { bold: true, name: 'NotoSans' };
         worksheet.addRow([`Tarih:`, formatDateDisplay(tenderData.createAt)]).font = { bold: true, name: 'NotoSans' };
         worksheet.addRow([`Onay Durumu:`, tender.approvedTenderText]).font = { bold: true, name: 'NotoSans' };
         worksheet.addRow([]);
-        // currentRow = worksheet.lastRow!.number + 1;
-
-
-        // 2. اضافه کردن هدر جدول
         const headerRow = worksheet.addRow(tableColumns);
         headerRow.font = { name: 'NotoSans', bold: true };
         headerRow.eachCell(cell => {
-          // فرض بر وجود پالت رنگی
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
           cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
         });
 
-        // 3. اضافه کردن ردیف‌های داده
         excelData.forEach(row => {
           const dataRow = worksheet.addRow([
             row['Ürün'],
             row['Ölçü'],
-            row['Miktar'], // این فیلد باید عدد باشد
+            row['Miktar'],
             row['Açıklama'],
             row['Fiyat']
           ]);
@@ -529,23 +503,19 @@ const ListTender = () => {
           });
         });
 
-        // 4. اضافه کردن ردیف جمع کل به فوتر جدول
         worksheet.addRow([]);
         const totalRow = worksheet.addRow(['', 'Toplam Miktar:', totalQuantity.toLocaleString('tr-TR', { minimumFractionDigits: 2 }), '', '']);
         totalRow.font = { name: 'NotoSans', bold: true };
         totalRow.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } }; });
 
-        // 5. تنظیم عرض ستون‌ها
         worksheet.columns.forEach(column => { column.width = 20; });
-        worksheet.getColumn(1).width = 30; // Ürün Adı
-        worksheet.getColumn(4).width = 40; // Açıklama
+        worksheet.getColumn(1).width = 30;
+        worksheet.getColumn(4).width = 40;
 
-        // 6. اضافه کردن اطلاعات شرکت
         worksheet.addRow([]);
         addExcelCompanyInfo(worksheet, worksheet.lastRow!.number + 1, totalColumns);
 
 
-        // دانلود فایل
         workbook.xlsx.writeBuffer().then(buffer => {
           saveAs(new Blob([buffer]), `${tenderTitle}-SatınAlma.xlsx`);
           showAlert('İhale verileri başarıyla indirildi!', 'success');
@@ -594,18 +564,13 @@ const ListTender = () => {
 
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
-        // const pageHeight = doc.internal.pageSize.getHeight(); // Not strictly needed here
-
-        // Add fonts (assuming necessary utility function is available)
         const docAny = doc as any;
         docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
 
-        // --- اطلاعات اصلی مناقصه (درست زیر هدر) ---
         const printTenderInfo = () => {
           doc.setFontSize(14);
-          // لوگو و عنوان اصلی توسط addPdfHeader هندل می‌شود
           doc.setFontSize(12);
           doc.text(`İhale Adı: ${tenderData.title || '-'}`, 15, 60);
           doc.text(`İhale ID: ${tender.id}`, pageWidth - 15, 60, { align: 'right' });
@@ -614,7 +579,7 @@ const ListTender = () => {
         };
 
         const tableData: TableRowData[] = [];
-        let totalQuantity = 0; // محاسبه جمع کل مقدار
+        let totalQuantity = 0;
 
         tenderCategories.forEach((category: any) => {
           const tenderDetails = category.tenderDetails || [];
@@ -628,7 +593,7 @@ const ListTender = () => {
                 description: stripHtml(detail.description),
                 price: '',
               });
-              totalQuantity += quantity; // جمع کردن مقادیر
+              totalQuantity += quantity;
             }
           });
         });
@@ -641,14 +606,14 @@ const ListTender = () => {
 
         const rows = tableData.map(row => [
           row.itemName,
-          row.quantity.toLocaleString('tr-TR', { minimumFractionDigits: 2 }), // Format quantity
+          row.quantity.toLocaleString('tr-TR', { minimumFractionDigits: 2 }),
           row.unit,
           row.description,
           row.price
         ]);
 
         autoTable(doc, {
-          startY: 75, // شروع جدول بعد از اطلاعات مناقصه
+          startY: 75,
           head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
           body: rows,
           theme: 'grid',
@@ -662,12 +627,11 @@ const ListTender = () => {
           headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
           columnStyles: {
             0: { cellWidth: 50 },
-            1: { cellWidth: 20, halign: 'center' }, // Miktar ortada
+            1: { cellWidth: 20, halign: 'center' },
             2: { cellWidth: 20, halign: 'center' },
             3: { cellWidth: 50 },
             4: { cellWidth: 'auto', halign: 'right' },
           },
-          // 🎉 اضافه کردن ردیف جمع کل به فوتر جدول
           foot: [
             ['', 'Toplam Miktar:', totalQuantity.toLocaleString('tr-TR', { minimumFractionDigits: 2 }), '', '']
           ],
@@ -679,18 +643,14 @@ const ListTender = () => {
             fontStyle: 'bold'
           },
           didDrawPage: (dataHook) => {
-            // فراخوانی هدر و فوتر استاندارد در هر صفحه
-            addPdfHeader(doc, 'Satın Alma İhtiyaç Raporu'); // عنوان گزارش
-            addPdfFooter(doc); // شامل شماره صفحه، امضا و اطلاعات شرکت
-
-            // چاپ اطلاعات مناقصه در شروع هر صفحه (Start Y باید درست تنظیم شود)
+            addPdfHeader(doc, 'Satın Alma İhtiyaç Raporu');
+            addPdfFooter(doc);
             if (dataHook.pageNumber === 1) {
-              // اطلاعات اصلی فقط در صفحه اول چاپ شود
               printTenderInfo();
             }
           },
           showHead: 'everyPage',
-          margin: { top: 55, bottom: 45 } // مارجین بالا برای هدر
+          margin: { top: 55, bottom: 45 }
         });
 
         doc.save(`${tenderData.title}-SatınAlma.pdf`);
@@ -701,7 +661,6 @@ const ListTender = () => {
       }
     } catch (e: any) {
       console.error("PDF oluşturma başarısız oldu:", e);
-      // ... (Error handling remains the same)
       if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
         navigate("/");
@@ -1015,7 +974,7 @@ const ListTender = () => {
   const handleDownloadAttachments = useCallback(() => {
     if (selectedRowForMenu?.attachments && selectedRowForMenu.attachments.length > 0) {
       setFilesForDownload(selectedRowForMenu.attachments);
-      setOpenDownloadModal(true); // ✅ Open the download modal
+      setOpenDownloadModal(true);
     } else {
       showAlert('Bu ihale için indirilecek dosya bulunamadı.', 'warning');
     }
@@ -1170,7 +1129,7 @@ const ListTender = () => {
       setTenderIdForAttachment(selectedRowForMenu.id);
       setOpenAttachModal(true);
     }
-    handleCloseMenu(); // Close the menu after clicking
+    handleCloseMenu();
   };
 
   const handleClickCloseAttachModal = () => {
@@ -1229,7 +1188,7 @@ const ListTender = () => {
                   color="primary"
                   onClick={() => setIsFormVisible(true)}
                   isBlinking={isBlinking}
-                  fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                  fullWidth={false}
                 >
                   Yeni İhale Kaydet
                 </BlinkingButton>
@@ -1241,7 +1200,6 @@ const ListTender = () => {
                   variant="contained"
                   color="error"
                   onClick={resetFormAndState}
-                  // disabled={loadingButton}
                   fullWidth={false}
                   startIcon={<IconX size={20} />}
                 >
@@ -1419,7 +1377,6 @@ const ListTender = () => {
             <Table aria-label="ihale tablosu">
               <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                 <TableRow>
-                  {/* Sütun Başlıkları */}
                   <StyledTableCell sx={{ color: "#171c23" }}>
                     <TableSortLabel
                       active={orderBy === 'title'}
@@ -1480,7 +1437,6 @@ const ListTender = () => {
                 {paginatedTenders.length > 0 ? (
                   paginatedTenders.map((row) => (
                     <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                      {/* سلول‌های اطلاعاتی */}
                       <StyledTableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: "pointer" }}>
                           {row.attachments && row.attachments.length > 0 && (

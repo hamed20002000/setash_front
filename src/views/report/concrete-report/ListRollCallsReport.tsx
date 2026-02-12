@@ -414,7 +414,7 @@ const ListRollCallsReport = () => {
                 startY: 50,
                 theme: 'grid',
                 styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 9 },
-                headStyles: { fillColor: [60, 141, 188], textColor: 255 }, // رنگ هدر
+                headStyles: { fillColor: [60, 141, 188], textColor: 255 },
                 didParseCell: (data) => {
                     if (data.section === 'body' && data.column.index === 6) {
                         data.cell.styles.textColor = data.cell.raw === 'YOK' ? [255, 0, 0] : [0, 128, 0];

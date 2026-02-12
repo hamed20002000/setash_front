@@ -257,7 +257,6 @@ const ListProjectPlanning = () => {
         return getFilteredPlanningFields(projectData.type);
     }, [projectData?.type, getFilteredPlanningFields]);
 
-    // ====== Alerts
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => { setAlertMessage(message); setAlertSeverity(severity); };
     const clearAlert = () => setAlertMessage(null);
 
@@ -701,7 +700,7 @@ const ListProjectPlanning = () => {
                 const rowData = [
                     item.project.title,
                     projectStart ? format(projectStart, 'dd MMM yyyy', { locale: tr }) : '-',
-                    projectData?.predictEndDate ? format(new Date(projectData.predictEndDate), 'dd MMM yyyy', { locale: tr }) : '-', // ⬅️ اصلاح شد
+                    projectData?.predictEndDate ? format(new Date(projectData.predictEndDate), 'dd MMM yyyy', { locale: tr }) : '-',
                     `${format(new Date(item.startDate), 'dd MMM yyyy', { locale: tr })} 08:00 - 17:00`,
                     item.status,
                     ...ALL_PLANNING_FIELDS.map(f => {

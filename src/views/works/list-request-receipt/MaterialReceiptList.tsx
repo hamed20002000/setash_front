@@ -14,7 +14,6 @@ import server from 'src/assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
 
-// ⬅️ Import توابع و واسط‌ها از فایل والد
 import {
     MaterialRequestType, RequestStatusHistory, Attachment, CommonRequestType,
     StyledTableCell, statusToLabel, statusToColor, exportRequestPdf, exportRequestExcel,
@@ -22,9 +21,6 @@ import {
 import { useNavigate } from "react-router";
 
 
-// ==============================================================================
-// 1. INTERFACES & PROPS
-// ==============================================================================
 interface MaterialReceiptListProps {
     requestsList: MaterialRequestType[];
     loadingData: boolean;
@@ -32,15 +28,10 @@ interface MaterialReceiptListProps {
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
     hasStatusUpdatePermission: boolean;
     hasDownloadPermission: boolean;
-    // ⬅️ Handlers از والد (برای Modalهای مشترک)
     handleOpenHistoryModal: (history: RequestStatusHistory[]) => void;
     handleOpenAttachmentsModal: (attachments: Attachment[]) => void;
     handleOpenDescriptionModal: (description: string) => void;
 }
-
-// ==============================================================================
-// 2. MAIN COMPONENT
-// ==============================================================================
 
 const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
 
@@ -48,20 +39,17 @@ const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
     const { requestsList, loadingData, fetchRequests, showAlert, hasStatusUpdatePermission, hasDownloadPermission } = props;
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // --- Table States (محلی) ---
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<CommonRequestType | null>(null);
     const openMenu = Boolean(anchorEl);
 
-    // --- Status Update States (محلی) ---
     const [loadingButton, setLoadingButton] = useState<boolean>(false);
     const [openStatusModal, setOpenStatusModal] = useState(false);
     const [newStatus, setNewStatus] = useState<1 | 2 | null>(null);
     const [statusDescription, setStatusDescription] = useState<string>('');
 
-    // --- Download Modal State (محلی) ---
     const [openDownloadSingleModal, setOpenDownloadSingleModal] = useState(false);
 
     const [openDetailsModal, setOpenDetailsModal] = useState(false);
@@ -72,7 +60,6 @@ const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
         setOpenDetailsModal(true);
     };
 
-    // --- Handlers ---
     const handleCloseMenu = () => { setAnchorEl(null); };
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: MaterialRequestType) => {
         setAnchorEl(event.currentTarget);
@@ -94,7 +81,6 @@ const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
         setSelectedRowForMenu(null);
     };
 
-    // --- API Call: Update Status ---
     const submitStatusUpdate = async () => {
         if (!selectedRowForMenu || newStatus === null) return;
         if (newStatus === 2 && !statusDescription.trim()) { showAlert("Reddetme nedeni zorunludur.", "warning"); return; }
@@ -135,10 +121,6 @@ const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
         return requestsList.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
     }, [requestsList, page, rowsPerPage]);
 
-
-    // ==============================================================================
-    // 3. RENDER
-    // ==============================================================================
     return (
         <Box>
             <TableContainer component={Paper} sx={{ mt: 3 }}>
@@ -153,7 +135,7 @@ const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
                                 <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Talep Eden</Typography></StyledTableCell>
                                 <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Durum</Typography></StyledTableCell>
                                 <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Ekler</Typography></StyledTableCell>
-                                <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Detay</Typography></StyledTableCell> {/* ⬅️ اضافه شد */}
+                                <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Detay</Typography></StyledTableCell>
                                 <StyledTableCell></StyledTableCell>
                             </TableRow>
                         </TableHead>
@@ -165,7 +147,6 @@ const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
 
                                         <StyledTableCell sx={{ maxWidth: 150 }}>
                                             {row.description && row.description.trim().length > 0 ? (
-                                                // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                     <Button
 
@@ -177,7 +158,6 @@ const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
                                                     </Button>
                                                 </CustomTooltip>
                                             ) : (
-                                                // حالت دوم: اگر توضیحات نال یا خالی بود
                                                 <Typography variant="body2" align="center">
                                                     -
                                                 </Typography>
@@ -243,7 +223,6 @@ const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
                 labelRowsPerPage="Satır başına düşen:" labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
             />
 
-            {/* --- Status Update Modal (محلی) --- */}
             <Dialog open={openStatusModal} onClose={handleCloseStatusModal} maxWidth="sm" fullWidth>
                 <DialogTitle>{newStatus === 1 ? 'Talebi Onayla' : 'Talebi Reddet'}</DialogTitle>
                 <DialogContent dividers>
@@ -264,7 +243,6 @@ const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
                 </DialogActions>
             </Dialog>
 
-            {/* --- Download Modal (محلی) --- */}
             <Dialog open={openDownloadSingleModal} onClose={() => setOpenDownloadSingleModal(false)} maxWidth="xs">
                 <DialogTitle>Talep Raporunu İndir</DialogTitle>
                 <DialogContent>
@@ -277,7 +255,6 @@ const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
             </Dialog>
 
 
-            {/* --- Material Details Modal --- */}
             <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle sx={{ bgcolor: 'info.main', color: 'white' }}>
                     Malzeme Talep Detayları
@@ -302,13 +279,11 @@ const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
 
                             <Typography fontWeight="bold">Açıklama:</Typography>
                             <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f9f9f9', minHeight: '100px' }}>
-                                {/* استفاده از dangerouslySetInnerHTML در صورتی که متن حاوی تگ‌های HTML است */}
                                 <div dangerouslySetInnerHTML={{ __html: viewingRow.description || 'Açıklama belirtilmemiş.' }} />
                             </Paper>
 
                             <Divider sx={{ my: 1 }} />
 
-                            {/* دکمه‌های دانلود مستقیم داخل مودال */}
                             <Stack direction="row" spacing={2} justifyContent="center" sx={{ pt: 1 }}>
                                 <Button
                                     variant="outlined"

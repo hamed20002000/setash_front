@@ -350,8 +350,8 @@ const ListCourseDateTimes: React.FC<ListCourseDateTimesProps> = ({ open, courseI
                                 {paginatedRows.length > 0 ? (
                                     paginatedRows.map((row) => (
                                         <TableRow key={row.id}>
-                                            <TableCell>{formatDateDisplayWithTime(row.startDateTime)}</TableCell> {/* 💡 نمایش ساعت */}
-                                            <TableCell>{formatDateDisplayWithTime(row.endDateTime)}</TableCell>   {/* 💡 نمایش ساعت */}
+                                            <TableCell>{formatDateDisplayWithTime(row.startDateTime)}</TableCell>
+                                            <TableCell>{formatDateDisplayWithTime(row.endDateTime)}</TableCell>
                                             <TableCell align="right">
                                                 <IconButton onClick={(e) => handleClickMenu(e, row)} size="small"><IconDots width={18} /></IconButton>
                                                 <Menu anchorEl={anchorEl} open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>

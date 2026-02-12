@@ -89,29 +89,28 @@ const Table5 = () => {
                   </Stack>
                 </TableCell>
                 <TableCell>
-                  {/* <Chip chipcolor={basic.status == 'Active' ? 'success' : basic.status == 'Pending' ? 'warning' : basic.status == 'Completed' ? 'primary' : basic.status == 'Cancel' ? 'error' : 'secondary'} */}
                   <Chip
                     sx={{
                       bgcolor:
                         basic.status === 'Active'
                           ? (theme) => theme.palette.success.light
                           : basic.status === 'Pending'
-                          ? (theme) => theme.palette.warning.light
-                          : basic.status === 'Completed'
-                          ? (theme) => theme.palette.primary.light
-                          : basic.status === 'Cancel'
-                          ? (theme) => theme.palette.error.light
-                          : (theme) => theme.palette.secondary.light,
+                            ? (theme) => theme.palette.warning.light
+                            : basic.status === 'Completed'
+                              ? (theme) => theme.palette.primary.light
+                              : basic.status === 'Cancel'
+                                ? (theme) => theme.palette.error.light
+                                : (theme) => theme.palette.secondary.light,
                       color:
                         basic.status === 'Active'
                           ? (theme) => theme.palette.success.main
                           : basic.status === 'Pending'
-                          ? (theme) => theme.palette.warning.main
-                          : basic.status === 'Completed'
-                          ? (theme) => theme.palette.primary.main
-                          : basic.status === 'Cancel'
-                          ? (theme) => theme.palette.error.main
-                          : (theme) => theme.palette.secondary.main,
+                            ? (theme) => theme.palette.warning.main
+                            : basic.status === 'Completed'
+                              ? (theme) => theme.palette.primary.main
+                              : basic.status === 'Cancel'
+                                ? (theme) => theme.palette.error.main
+                                : (theme) => theme.palette.secondary.main,
                       borderRadius: '8px',
                     }}
                     size="small"

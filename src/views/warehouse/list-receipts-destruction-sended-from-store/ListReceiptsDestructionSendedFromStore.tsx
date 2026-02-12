@@ -36,7 +36,6 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 
-// --- Styled ---
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans',
     fontSize: '0.8rem',
@@ -53,7 +52,6 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: 'transform 0.3s ease-in-out',
 }));
 
-// --- Types ---
 interface UnitType { id: string; title: string; }
 interface ItemType { id: string; name: string; abbreviation?: string; unit: UnitType; }
 interface WarehouseType { id: string | number; name: string; code: string; recordStatus?: number; status?: 'Aktif' | 'Pasif'; }
@@ -121,8 +119,8 @@ interface SendedReceiptType {
 
     description: string,
     createAt: string;
-    recordStatus: number;  // Durum ستون
-    isEnd: boolean | null; // (دیگه برای رسید استفاده نمی‌کنیم)
+    recordStatus: number;
+    isEnd: boolean | null;
     receiptDetails: ReceiptDetailType[];
     warehouse: WarehouseType;
     statusText?: 'Aktif' | 'Pasif';
@@ -155,7 +153,6 @@ interface ApiResponse<T> {
     data: T;
 }
 
-// --- Utils ---
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
     try { return format(new Date(dateString), 'dd MMMM yyyy', { locale: tr }); }
@@ -165,46 +162,6 @@ const getStatus = (recordStatus: number): { text: 'Aktif' | 'Pasif', color: 'suc
     (recordStatus === 0 ? { text: 'Aktif', color: 'success' } : { text: 'Pasif', color: 'error' });
 
 
-
-// const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
-//     const pageWidth = doc.internal.pageSize.getWidth();
-//     const docAny = doc as any;
-//     docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-//     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-//     doc.setFont('NotoSans');
-
-//     docAny.addImage(Logo, 'PNG', pageWidth - 50, 30, 40, 25);
-//     doc.setFontSize(14);
-//     doc.text(title, pageWidth / 2, 35, { align: 'center' });
-
-//     doc.setFontSize(10);
-//     doc.text(`Rapor Tarihi:`, 15, 45);
-//     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 45, 45);
-
-//     if (subtitle) doc.text(subtitle, 70, 52);
-// };
-// const addPdfFooter = (doc: jsPDF) => {
-//     const pageWidth = doc.internal.pageSize.getWidth();
-//     const pageHeight = doc.internal.pageSize.getHeight();
-//     doc.setFontSize(8);
-//     doc.setFont('NotoSans', 'normal');
-//     const companyInfo = [
-//         'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-//         'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-//         'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
-//     ];
-//     let y = pageHeight - 30;
-//     companyInfo.forEach(line => { doc.text(line, pageWidth / 2, y, { align: 'center' }); y += 4; });
-//     doc.setFontSize(10);
-//     doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-//     doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-//     const docAny = doc as any;
-//     const pageCount = docAny.internal.getNumberOfPages();
-//     doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-// };
-
-
-
 const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
 
     const docAny = doc as any;
@@ -212,10 +169,10 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -225,7 +182,7 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
@@ -234,8 +191,6 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
     if (subtitle) doc.text(subtitle, 70, 52);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -284,7 +239,6 @@ const getTotalsByUnit = (details: any[]) => {
     return totals;
 };
 
-// 2. آپدیت تابع PDF
 const exportReceiptsToPdf = (data: SendedReceiptType[], title: string, subtitle?: string) => {
     if (!data?.length) throw new Error('PDF oluşturulacak veri bulunamadı.');
     const doc = new jsPDF();
@@ -311,7 +265,6 @@ const exportReceiptsToPdf = (data: SendedReceiptType[], title: string, subtitle?
             d.storeDispatchDetail?.storeDispatchHeaders?.code || '-',
         ]);
 
-        // محاسبه و نمایش فوتر
         const totals = getTotalsByUnit(receipt.receiptDetails || []);
         const footRows = Object.entries(totals).map(([unit, qty]) => [
             'Toplam:',
@@ -325,7 +278,7 @@ const exportReceiptsToPdf = (data: SendedReceiptType[], title: string, subtitle?
             startY: yPos,
             head: [head],
             body,
-            foot: footRows, // فوتر اضافه شد
+            foot: footRows,
             theme: 'grid',
             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
             headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0] },
@@ -337,7 +290,6 @@ const exportReceiptsToPdf = (data: SendedReceiptType[], title: string, subtitle?
     doc.save(`${title.replace(/ /g, '_')}.pdf`);
 };
 
-// 3. آپدیت تابع Excel
 const exportReceiptsToExcel = async (data: SendedReceiptType[], title: string) => {
     if (!data?.length) throw new Error('Excel oluşturulacak veri bulunamadı.');
 
@@ -367,7 +319,6 @@ const exportReceiptsToExcel = async (data: SendedReceiptType[], title: string) =
             ]);
         });
 
-        // اضافه کردن جمع کل به تفکیک واحد
         ws.addRow([]);
         const summaryTitle = ws.addRow(["Birim Bazlı Toplamlar"]);
         summaryTitle.font = { name: 'NotoSans', bold: true, underline: true };
@@ -395,48 +346,6 @@ const exportReceiptsToExcel = async (data: SendedReceiptType[], title: string) =
     const buffer = await wb.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `${title.replace(/ /g, '_')}.xlsx`);
 };
-// const exportReceiptsToPdf = (data: SendedReceiptType[], title: string, subtitle?: string) => {
-//     if (!data?.length) throw new Error('PDF oluşturulacak veri bulunamadı.');
-//     const doc = new jsPDF();
-//     const docAny = doc as any;
-
-//     data.forEach((receipt, index) => {
-//         let yPos = 55;
-//         if (index > 0) doc.addPage();
-//         addPdfHeader(doc, title, subtitle);
-
-//         doc.setFontSize(10);
-//         doc.text(`Giriş Depo: ${receipt.warehouse?.name || '-'}`, 15, yPos);
-//         doc.text(`Belge Kodu: ${receipt.code || '-'}`, 15, yPos + 5);
-//         doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, yPos + 10);
-//         doc.text(`Genel Açıklama: ${receipt.description || '-'}`, 15, yPos + 15);
-//         yPos += 20;
-
-//         const head = ['Malzeme', 'Miktar', 'Birim', 'Açıklama', 'Sevk Kodu'];
-//         const body = (receipt.receiptDetails || []).map(d => [
-//             d.item?.name || '-',
-//             d.quantity,
-//             d.item?.unit?.title || '-',
-//             d.description || '-',
-//             d.storeDispatchDetail?.storeDispatchHeaders?.code || '-',
-//         ]);
-//         const totalQuantity = (receipt.receiptDetails || []).reduce((s, d) => s + Number(d.quantity), 0);
-
-//         autoTable(docAny, {
-//             startY: yPos, head: [head], body, theme: 'grid',
-//             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
-//             headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-//             didDrawPage: () => { addPdfFooter(doc); },
-//         });
-
-//         const finalY = docAny.lastAutoTable.finalY || yPos;
-//         doc.setFontSize(10);
-//         doc.text(`Toplam Miktar: ${totalQuantity}`, 15, finalY + 5);
-//     });
-
-//     doc.save(`${title.replace(/ /g, '_')}.pdf`);
-// };
-
 const addExcelHeader = (ws: Excel.Worksheet, title: string, colLen: number) => {
     ws.views = [{ rightToLeft: true }];
     const t = ws.addRow([title]); t.font = { name: 'NotoSans', size: 14, bold: true };
@@ -462,56 +371,13 @@ const addExcelCompanyInfo = (ws: Excel.Worksheet, startRow: number, colLen: numb
     });
 };
 
-// const exportReceiptsToExcel = async (data: SendedReceiptType[], title: string) => {
-//     if (!data?.length) throw new Error('Excel oluşturulacak veri bulunamadı.');
-
-//     const wb = new Excel.Workbook();
-//     data.forEach(receipt => {
-//         const ws = wb.addWorksheet(`Giriş_${receipt.code}`.replace(/[\\/*?:[\]]/g, '_'));
-//         const head = ['Malzeme', 'Miktar', 'Birim', 'Açıklama', 'Sevk Kodu'];
-//         addExcelHeader(ws, title, head.length);
-
-//         ws.addRow([`Belge Kodu:`, receipt.code]);
-//         ws.addRow([`Giriş Depo:`, receipt.warehouse?.name || '-']);
-//         ws.addRow([`Belge Tarihi:`, formatDateDisplay(receipt.docDate)]);
-//         ws.addRow(['Genel Açıklama', receipt.description || '-']);
-//         ws.addRow([]);
-
-//         const hr = ws.addRow(head);
-//         hr.font = { name: 'NotoSans', bold: true };
-//         hr.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; });
-
-//         (receipt.receiptDetails || []).forEach(d => {
-//             ws.addRow([
-//                 d.item?.name || '-', d.quantity, d.item?.unit?.title || '-', d.description || '-',
-//                 d.storeDispatchDetail?.storeDispatchHeaders?.code || '-',
-//             ]);
-//         });
-
-//         const total = (receipt.receiptDetails || []).reduce((s, d) => s + Number(d.quantity), 0);
-//         const tr = ws.addRow(['Toplam Miktar', total, '', '', '']);
-//         tr.font = { name: 'NotoSans', bold: true }; tr.getCell(2).numFmt = '0';
-
-//         ws.addRow([]);
-//         addExcelCompanyInfo(ws, ws.lastRow!.number + 2, head.length);
-//     });
-
-//     const buffer = await wb.xlsx.writeBuffer();
-//     saveAs(new Blob([buffer]), `${title.replace(/ /g, '_')}.xlsx`);
-// };
-
-// --- Component ---
-
-
 const ListReceiptsDestructionSendedFromStore = () => {
     const navigate = useNavigate();
     const authToken = localStorage.getItem('authToken');
 
-    // State (form)
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | null>(null);
 
-    // NEW combos like original component:
     const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
     const [storesList, setStoresList] = useState<StoreType[]>([]);
     const [dispatchHeadersList, setDispatchHeadersList] = useState<DispatchHeader[]>([]);
@@ -528,12 +394,10 @@ const ListReceiptsDestructionSendedFromStore = () => {
     const [loadingStores, setLoadingStores] = useState(false);
     const [loadingDispatches, setLoadingDispatches] = useState(false);
 
-    // details
     const [receiptDetails, setReceiptDetails] = useState<FormReceiptDetail[]>([]);
 
     const [viewedReceipt, setViewedReceipt] = useState<SendedReceiptType | null>(null);
 
-    // list/grid
     const [receiptList, setReceiptList] = useState<SendedReceiptType[]>([]);
     const [displayedReceipts, setDisplayedReceipts] = useState<SendedReceiptType[]>([]);
 
@@ -583,7 +447,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
-    // End flow (ONLY dispatch now)
     const [openIsEndModal, setOpenIsEndModal] = useState(false);
 
 
@@ -593,20 +456,11 @@ const ListReceiptsDestructionSendedFromStore = () => {
     const [dispatchManageFilterInactiveOnly, setDispatchManageFilterInactiveOnly] = useState(false);
 
     const { isTooltipGloballyEnabled } = useTooltip();
-    // const { allowedOperations } = useAuth();
-    // const ops = allowedOperations ?? [];
-    // const hasCreatePermission = useMemo(() => ops.some(op => op.systemOperationName === 'Eklemek'), [ops]);
-    // const hasEditPermission = useMemo(() => ops.some(op => op.systemOperationName === 'Düzenlemek'), [ops]);
-    // const hasDeletePermission = useMemo(() => ops.some(op => op.systemOperationName === 'Silmek'), [ops]);
-    // const hasDownloadPermission = useMemo(() => ops.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [ops]);
-
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -615,24 +469,19 @@ const ListReceiptsDestructionSendedFromStore = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
 
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -645,16 +494,11 @@ const ListReceiptsDestructionSendedFromStore = () => {
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
 
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
-
-
-    // Helpers
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message); setAlertSeverity(severity);
         setTimeout(() => setAlertMessage(null), 5000);
     }, []);
 
-    // --- Fetchers for combos (like original) ---
     const fetchWarehouses = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         const role = localStorage.getItem('activeUserRoleName') || '';
@@ -753,17 +597,14 @@ const ListReceiptsDestructionSendedFromStore = () => {
         finally { setLoadingStores(false); }
     }, [authToken, navigate, showAlert]);
 
-    // IMPORTANT: fill Sevk Belgesi combo from "get-Store-dispatches-return-to-center"
     const fetchDispatchHeadersByStoreId = useCallback(async (storeId: number | string) => {
         if (!authToken) { navigate("/"); return []; }
         setLoadingDispatches(true);
         try {
-            // اگر مسیر دقیق متفاوت است این URL را مطابق بک‌اند اصلاح کنید
             const url = server.baseurl + server.warehouse + `get-Store-dispatches-return-to-center/${Number(storeId)}`;
             const res = await axios.get(url, { headers: { "Authorization": `Bearer ${authToken}` } });
 
             if (res.data?.httpStatusCode === 200 && Array.isArray(res.data.data)) {
-                // تمام dispatchها را می‌آوریم؛ فیلتر وضعیت انتخابی بعداً در مودال
                 const all: DispatchHeader[] = res.data.data;
                 setDispatchHeadersList(all);
                 return all;
@@ -783,7 +624,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
         } finally { setLoadingDispatches(false); }
     }, [authToken, showAlert, navigate]);
 
-    // receipts list
     const fetchInitialData = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -826,7 +666,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
 
     useEffect(() => { fetchInitialData(); }, [fetchInitialData]);
 
-    // --- chained combos like original ---
     useEffect(() => {
         setSelectedStoreId(null); setStoresList([]);
         setSelectedDispatchId(null); setDispatchHeadersList([]);
@@ -846,7 +685,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
         }
     }, [selectedStoreId, fetchDispatchHeadersByStoreId, storeError]);
 
-    // when dispatch changes -> fill receiptDetails from its storeDispatchDetails
     useEffect(() => {
         if (!selectedDispatchId) return;
         const selected = dispatchHeadersList.find(d => Number(d.id) === Number(selectedDispatchId));
@@ -866,13 +704,11 @@ const ListReceiptsDestructionSendedFromStore = () => {
         if (dispatchError) setDispatchError(false);
     }, [selectedDispatchId, dispatchHeadersList, dispatchError]);
 
-    // selected dispatch code (for modal text)
     const selectedDispatchCode = useMemo(() => {
         const found = dispatchHeadersList.find(d => Number(d.id) === Number(selectedDispatchId));
         return found?.code ?? null;
     }, [dispatchHeadersList, selectedDispatchId]);
 
-    // filters
     useEffect(() => {
         const s = startDate ? new Date(new Date(startDate).setHours(0, 0, 0, 0)) : null;
         const e = endDate ? new Date(new Date(endDate).setHours(23, 59, 59, 999)) : null;
@@ -892,7 +728,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
     }, [searchTerm, startDate, endDate]);
     useEffect(() => { const t = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(t); }, []);
 
-    // form validity
     const isFormValid = useMemo(() => {
         if (!selectedWorkhouseId || !selectedStoreId || !selectedDispatchId) return false;
         if (!selectedWarehouseId || !docDate) return false;
@@ -967,13 +802,11 @@ const ListReceiptsDestructionSendedFromStore = () => {
         setReceiptDetailsError(false);
         setIsFormVisible(false);
         setRemovedReceiptDetails([]);
-        // setLastCreatedReceiptCode(null);
         setWorkhouseError(false);
         setStoreError(false);
         setDispatchError(false);
     };
 
-    // --- API: update dispatch isEnd (enable/disable combo option)
     const updateDispatchIsEnd = async (dispatchId: number, isEnd: boolean) => {
         const url = server.baseurl + server.warehouse + "update-store-dispatch-is-end";
         const payload = { id: dispatchId, isEnd };
@@ -983,7 +816,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
         return res?.data;
     };
 
-    // --- Insert receipt (no isEnd on receipt!)
     const insertReceipt = async () => {
         if (!validateForm()) return;
         setLoadingButton(true);
@@ -1006,10 +838,7 @@ const ListReceiptsDestructionSendedFromStore = () => {
             );
             if (res.data.httpStatusCode === 201) {
                 showAlert('Yeni giriş belgesi başarıyla eklendi!', 'success');
-                // setLastCreatedReceiptCode(res.data?.data?.code ?? null);
-                // پس از ذخیره، بپرسیم آیا کمبو (Sevk Belgesi) غیرفعال شود؟
                 setOpenIsEndModal(true);
-                // لیست اصلی را رفرش کنیم
                 await fetchInitialData();
             } else showAlert(res.data.message || 'Giriş belgesi eklenirken bir hata oluştu.', 'error');
         } catch (e: any) {
@@ -1022,7 +851,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
         } finally { setLoadingButton(false); }
     };
 
-    // --- Edit receipt
     const editReceipt = async () => {
         if (!validateForm() || !editingId) return;
         setLoadingButton(true);
@@ -1056,7 +884,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
         } finally { setLoadingButton(false); }
     };
 
-    // --- After insert: ask to disable selected dispatch (combo)
     const handleFinalToggleDispatch = async (shouldDisable: boolean) => {
         try {
             if (!shouldDisable) {
@@ -1074,7 +901,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
             if (res?.httpStatusCode === 200) {
                 showAlert(`Sevk Belgesi ${selectedDispatchCode ?? ''} sonlandırıldı.`, 'success');
                 setOpenIsEndModal(false);
-                // بازخوانی کمبو تا وضعیت isEnd را ببینیم
                 if (selectedStoreId) await fetchDispatchHeadersByStoreId(selectedStoreId);
                 resetFormAndState();
             } else showAlert(res?.message || 'Sevk Belgesi sonlandırılamadı.', 'error');
@@ -1088,17 +914,16 @@ const ListReceiptsDestructionSendedFromStore = () => {
         }
     };
 
-    // --- Manage Dispatch Modal helpers ---
     const openManageModal = (inactiveOnly: boolean) => {
         setDispatchManageFilterInactiveOnly(inactiveOnly);
         setOpenDispatchManageModal(true);
     };
     const handleChangeDispatchActiveState = async (dispatch: DispatchHeader, makeActive: boolean) => {
         try {
-            const res = await updateDispatchIsEnd(Number(dispatch.id), !makeActive); // active => isEnd=false
+            const res = await updateDispatchIsEnd(Number(dispatch.id), !makeActive);
             if (res?.httpStatusCode === 200) {
                 showAlert(`Sevk Belgesi ${dispatch.code} ${makeActive ? 'aktif' : 'sonlandırıldı'}.`, 'success');
-                // update local list
+
                 setDispatchHeadersList(prev => prev.map(d => d.id === dispatch.id ? { ...d, isEnd: !makeActive } : d));
             } else showAlert(res?.message || 'Güncelleme başarısız.', 'error');
         } catch (e: any) {
@@ -1106,7 +931,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
         }
     };
 
-    // UI handlers
     const handleCancelEdit = () => resetFormAndState();
     const handleClickOpenDeleteModal = () => {
         if (selectedRowForMenu) {
@@ -1200,8 +1024,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
         setFullDescriptionContent('');
     };
 
-
-    // --- Render ---
     return (
         <Box mt={2}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
@@ -1228,9 +1050,7 @@ const ListReceiptsDestructionSendedFromStore = () => {
                 <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                     <Typography variant="h5" mb={2}>{editingId ? 'Depo Giriş Belgesini Düzenle' : 'Yeni Depo Giriş Belgesi'}</Typography>
 
-                    {/* Combos Row */}
                     <Grid container spacing={2}>
-                        {/* Şantiye */}
                         <Grid item xs={12} sm={4}>
                             <CustomFormLabel required>Şantiye</CustomFormLabel>
                             <Autocomplete
@@ -1246,7 +1066,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
                             />
                         </Grid>
 
-                        {/* Şantiye Depo */}
                         <Grid item xs={12} sm={4}>
                             <CustomFormLabel required>Şantiye Depo</CustomFormLabel>
                             <Autocomplete
@@ -1262,7 +1081,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
                             />
                         </Grid>
 
-                        {/* Sevk Belgesi + Manage Button */}
                         <Grid item xs={12} sm={4}>
                             <Stack direction="row" alignItems="center" justifyContent="space-between">
                                 <CustomFormLabel required>Sevk Belgesi</CustomFormLabel>
@@ -1281,7 +1099,7 @@ const ListReceiptsDestructionSendedFromStore = () => {
                                 </CustomTooltip>
                             </Stack>
                             <Autocomplete
-                                options={dispatchHeadersList.filter(d => d.isEnd !== true)} // only active options
+                                options={dispatchHeadersList.filter(d => d.isEnd !== true)}
                                 value={dispatchHeadersList.find(d => Number(d.id) === selectedDispatchId) || null}
                                 loading={loadingDispatches}
                                 getOptionLabel={(o) => `${o.code} — ${formatDateDisplay(o.docDate)}`}
@@ -1292,8 +1110,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
                                 )}
                             />
                         </Grid>
-
-                        {/* Giriş Depo */}
                         <Grid item xs={12} sm={6}>
                             <CustomFormLabel required>Giriş Depo</CustomFormLabel>
                             <Autocomplete
@@ -1309,7 +1125,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
                             />
                         </Grid>
 
-                        {/* Belge Tarihi */}
                         <Grid item xs={12} sm={6}>
                             <CustomFormLabel required>Belge Tarihi</CustomFormLabel>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
@@ -1336,13 +1151,12 @@ const ListReceiptsDestructionSendedFromStore = () => {
                                 multiline
                                 rows={3}
                                 variant="outlined"
-                                value={generalDescription} // ⬅️ استفاده از نام جدید
-                                onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                value={generalDescription}
+                                onChange={(e) => setGeneralDescription(e.target.value)}
                             />
                         </Grid>
                     </Grid>
 
-                    {/* Details */}
                     <Box mt={4}>
                         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} gap={1} flexWrap="wrap">
                             <Typography variant="h6">Giriş Detayları</Typography>
@@ -1518,7 +1332,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 {row.description && row.description.trim().length > 0 ? (
-                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button
 
@@ -1530,13 +1343,11 @@ const ListReceiptsDestructionSendedFromStore = () => {
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (
-                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
                                                     <Typography variant="body2" align="center">
                                                         -
                                                     </Typography>
                                                 )}
                                             </StyledTableCell>
-                                            {/* Durum now based on recordStatus */}
                                             <StyledTableCell>
                                                 {row.recordStatus === 0 ? (
                                                     <Chip label="Aktif" color="success" size="small" />
@@ -1552,7 +1363,7 @@ const ListReceiptsDestructionSendedFromStore = () => {
                                                         startIcon={<IconEye />}
                                                         onClick={() => {
                                                             setDetailsToShow(row.receiptDetails || []);
-                                                            setViewedReceipt(row); // ✅ این خط اضافه شد
+                                                            setViewedReceipt(row);
                                                             setOpenDetailsModal(true);
                                                         }}
                                                     >
@@ -1568,7 +1379,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
 
                                                     {hasEditPermission && (
                                                         <MuiMenuItem onClick={() => {
-                                                            // Prefill edit using row
                                                             const firstDetail = row.receiptDetails?.[0];
                                                             const sdh = firstDetail?.storeDispatchDetail?.storeDispatchHeaders;
                                                             const dispatchId = sdh?.id ? Number(sdh.id) : null;
@@ -1660,7 +1470,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
                 />
             </BlankCard>
 
-            {/* Details Modal - آپدیت شده */}
             <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>
                     Giriş Detayları
@@ -1696,7 +1505,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
                                 </Table>
                             </TableContainer>
 
-                            {/* ✅ جدول خلاصه جمع‌ها */}
                             <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
                                 <TableContainer component={Paper} variant="outlined" sx={{ width: 'auto', minWidth: '300px' }}>
                                     <Table size="small">
@@ -1708,7 +1516,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
-                                            {/* استفاده از تابع getTotalsByUnit که بیرون کامپوننت تعریف کردیم */}
                                             {Object.entries(getTotalsByUnit(detailsToShow)).map(([unit, total]) => (
                                                 <TableRow key={unit}>
                                                     <StyledTableCell sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
@@ -1729,17 +1536,16 @@ const ListReceiptsDestructionSendedFromStore = () => {
                     )}
                 </DialogContent>
 
-                {/* ✅ دکمه‌های دانلود */}
                 <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
                     <Stack
-                        direction={{ xs: 'column', sm: 'row' }} // در موبایل ستونی، در دسکتاپ ردیفی
-                        spacing={2} // فاصله یکسان بین تمام دکمه‌ها
-                        sx={{ width: '100%' }} // اشغال تمام عرض کادر
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={2}
+                        sx={{ width: '100%' }}
                     >
                         <Button
                             variant="contained"
                             color="error"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }}
                             startIcon={<IconFileText />}
                             disabled={!viewedReceipt}
@@ -1756,7 +1562,7 @@ const ListReceiptsDestructionSendedFromStore = () => {
                         <Button
                             variant="contained"
                             color="success"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }}
                             startIcon={<IconFileSpreadsheet />}
                             disabled={!viewedReceipt}
@@ -1771,14 +1577,13 @@ const ListReceiptsDestructionSendedFromStore = () => {
                             Excel İndir
                         </Button>
                         <Button onClick={() => setOpenDetailsModal(false)} color="secondary" variant="outlined"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }} >Kapat</Button>
 
                     </Stack>
                 </DialogActions>
             </Dialog>
 
-            {/* Download Modals */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
                 <DialogTitle>Tüm Giriş Belgelerini İndir</DialogTitle>
                 <DialogContent>
@@ -1812,7 +1617,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
                 <DialogActions><Button onClick={() => setOpenRowDownloadModal(false)} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* Delete */}
             <DeleteReceiptsDestructionSendedFromStore
                 openModal={openDeleteModal}
                 onClose={handleCloseDeleteModal}
@@ -1821,8 +1625,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
                 onDeleteSuccess={() => fetchInitialData()}
                 showAlert={showAlert}
             />
-
-            {/* Modal: بعد از Insert فقط برای Sevk Belgesi */}
             <Dialog open={openIsEndModal} onClose={() => setOpenIsEndModal(false)}>
                 <DialogTitle>Fatura Durumu Onayı</DialogTitle>
                 <DialogContent>
@@ -1840,7 +1642,6 @@ const ListReceiptsDestructionSendedFromStore = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Modal: Yönet/نمایش لیست کل Sevk Belgeleri با رادیوباتن فعال/غیر فعال */}
             <Dialog open={openDispatchManageModal} onClose={() => setOpenDispatchManageModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Sevk Belgeleri Yönetimi</DialogTitle>
                 <DialogContent dividers>
@@ -1869,7 +1670,7 @@ const ListReceiptsDestructionSendedFromStore = () => {
                                                     row
                                                     value={d.isEnd ? 'inactive' : 'active'}
                                                     onChange={(e) => {
-                                                        const v = e.target.value; // 'active' | 'inactive'
+                                                        const v = e.target.value;
                                                         const makeActive = v === 'active';
                                                         handleChangeDispatchActiveState(d, makeActive);
                                                     }}

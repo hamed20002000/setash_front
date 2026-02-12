@@ -69,7 +69,6 @@ const DeleteWarehouseDispatchReturnToCenter = ({ openModal, dispatchIdToDelete, 
             }
         } finally {
             setLoading(false);
-            // ** مهم ** : فراخوانی onClose را در نهایت برای اطمینان از بسته شدن مودال اضافه کنید.
             onClose();
         }
     };

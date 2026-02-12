@@ -31,7 +31,6 @@ const Frameworks = () => {
       }}
     >
       <Container maxWidth="lg">
-        {/* Title */}
         <FrameworksTitle />
       </Container>
       <Stack overflow="hidden" mt={6} direction={'row'}>

@@ -14,7 +14,6 @@ import server from 'src/assets/address.json';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 
-// ===== Types =====
 interface UnitType { id: string; title: string; recordStatus: number; createAt: string; }
 interface ItemType { id: string; name: string; abbreviation: string; recordStatus: number; unit: UnitType; }
 interface ProviderType { id: number; name: string; firm: string; recordStatus: number; }
@@ -29,7 +28,7 @@ interface OrderDetailType {
 export interface OrderSourceType {
     id: string;
     docDate: string;
-    status: number;   // 0,1,2
+    status: number;
     isEnd?: boolean;
     orderDetails: OrderDetailType[];
 }
@@ -56,13 +55,11 @@ interface InvoiceItemsTableProps {
     onUpdateItem: (updatedItem: InvoiceItem) => void;
     providersList: ProviderType[];
 
-    // refreshSignal?: number;
     onOrderSelect?: (order: OrderSourceType | null) => void;
     workhouseId: number | null;
     showAlert?: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 }
 
-// ===== Utils =====
 const stripHtml = (htmlString: string) => {
     if (!htmlString) return "";
     const doc = new DOMParser().parseFromString(htmlString, 'text/html');
@@ -93,7 +90,6 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: 'transform 0.3s ease-in-out',
 }));
 
-// ===== Component =====
 const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
     items,
     itemsList,
@@ -101,7 +97,6 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
     onRemoveItem,
     onUpdateItem,
     providersList,
-    // refreshSignal = 0,
     onOrderSelect,
     workhouseId,
     showAlert = noop,
@@ -126,7 +121,6 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
         if (!token) return;
 
         try {
-            // 👇 استفاده از API جدید
             const res = await axios.get(
                 `${server.baseurl}${server.initialoperations}get-orders-by-workhouse-id/${id}`,
                 { headers: { Authorization: `Bearer ${token}` } }
@@ -134,11 +128,6 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
 
             if (res.data?.httpStatusCode === 200) {
                 const all = (res.data.data as OrderSourceType[]) || [];
-
-                // فیلتر کردن: فقط سفارش‌های تایید شده (Status 1) و تمام نشده (isEnd !== true)
-                // نکته: طبق دیتای نمونه شما status=0 بود، اگر در سیستم شما 
-                // سفارش باید تایید شده باشد تا در فاکتور بیاید، شرط status === 1 را نگه دارید
-                // اگر نه، آن را بردارید. من اینجا فرض می‌کنم هر وضعیتی قابل قبول است یا طبق منطق قبلی فیلتر می‌کنیم.
 
                 const active = all.filter(o => o.isEnd !== true);
                 const ended = all.filter(o => o.isEnd === true);
@@ -153,43 +142,31 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
         } catch (error) {
             setActiveOrders([]);
             setEndedOrders([]);
-            // showAlert('Siparişler yüklenirken bir hata oluştu.', 'error');
         }
     };
-
-    // 3. useEffect قبلی را حذف و با این جایگزین کنید
-    // هر وقت workhouseId تغییر کرد، لیست سفارش‌ها آپدیت شود
     useEffect(() => {
         if (workhouseId) {
             fetchOrdersByWorkhouse(workhouseId);
         } else {
-            // اگر کارگاه انتخاب نشده، لیست سفارش‌ها خالی شود
             setActiveOrders([]);
             setEndedOrders([]);
-            handleOrderChange(null, null); // ریست کردن انتخاب فعلی
+            handleOrderChange(null, null);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [workhouseId]);
 
-    // ❌ کدهای مربوط به تایمر isBlinking حذف شدند چون دیگر نیاز نیستند
-
-    // اگر سفارش انتخابی بعد از ریفرش دیگر در Active نبود → انتخاب و آیتم‌ها را پاک کن
     useEffect(() => {
         if (selectedOrder) {
             const stillActive = activeOrders.some(o => o.id === selectedOrder.id);
             if (!stillActive) {
                 setSelectedOrder(null);
                 onOrderSelect?.(null);
-                // پاک‌کردن آیتم‌ها
                 items.forEach(it => onRemoveItem(it.id));
                 setEditingItems({});
                 setDeletedItems([]);
             }
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeOrders]);
 
-    // ---- Reactivate Ended Order (isEnd:false) ----
     const handleReactivateOrder = async (order: OrderSourceType) => {
         const token = localStorage.getItem('authToken');
         if (!token) { showAlert('Oturum süresi doldu.', 'error'); return; }
@@ -213,66 +190,46 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
         }
     };
 
-    // ---- Editing handlers ----
     const handleItemChange = (id: number, field: keyof InvoiceItem, value: any) => {
         setEditingItems(prev => {
             const currentItem = items.find(i => i.id === id);
             const pendingEdit = prev[id] || {};
 
-            // 1. آیتم پایه (همراه با تغییر جدید)
             const updated: Partial<InvoiceItem> = {
                 ...(currentItem as InvoiceItem),
                 ...pendingEdit,
                 [field]: value
             };
 
-            // 2. تعریف مرجع محاسبه: فقط قیمت واحد (Fiyat)
             const basePrice = cleanAndConvertNumber(updated.price);
-
-            // مقادیر تخفیف فعلی (یا مقدار 0 اگر معتبر نباشند)
             let discountPercent = cleanAndConvertNumber(updated.discountPercent);
             let discountAmount = cleanAndConvertNumber(updated.discountAmount);
-
-            // 3. اعمال منطق محاسبه متقابل (بر اساس basePrice)
             if (basePrice > 0) {
 
                 if (field === 'discountPercent') {
                     discountPercent = cleanAndConvertNumber(value);
-
-                    // محدودیت‌ها (باید بین 0 تا 100 باشد)
                     if (discountPercent < 0) discountPercent = 0;
                     if (discountPercent > 100) discountPercent = 100;
-
-                    // محاسبه مقدار تخفیف بر اساس درصد (از قیمت واحد)
                     discountAmount = parseFloat(((basePrice * discountPercent) / 100).toFixed(2));
 
                 } else if (field === 'discountAmount') {
                     discountAmount = cleanAndConvertNumber(value);
-
-                    // محدودیت‌ها (نباید از قیمت واحد بیشتر باشد)
                     if (discountAmount < 0) discountAmount = 0;
-                    if (discountAmount > basePrice) discountAmount = basePrice; // ⬅️ محدودیت بر اساس قیمت واحد
-
-                    // محاسبه درصد تخفیف بر اساس مقدار (از قیمت واحد)
+                    if (discountAmount > basePrice) discountAmount = basePrice;
                     discountPercent = parseFloat(((discountAmount / basePrice) * 100).toFixed(2));
                 }
             } else {
-                // اگر قیمت واحد 0 باشد، تخفیف نیز 0 است
                 discountPercent = 0;
                 discountAmount = 0;
             }
 
-            // 4. به‌روزرسانی نهایی
             updated.discountPercent = discountPercent;
             updated.discountAmount = discountAmount;
-
-            // 5. مدیریت تغییر Provider (مانند قبل)
             if (field === 'providerId') {
                 const p = providersList.find(x => x.id === value);
                 updated.firm = p ? p.firm === '1' : false;
             }
 
-            // 6. بازگرداندن وضعیت به‌روز شده
             return { ...prev, [id]: updated };
         });
     };
@@ -305,17 +262,14 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
         setDeletedItems(prev => prev.filter(x => x.id !== it.id));
     };
 
-    // ---- Description modal ----
     const openDesc = (content: string) => { setDescContent(stripHtml(content)); setOpenDescModal(true); };
     const closeDesc = () => { setOpenDescModal(false); setDescContent(''); };
 
-    // ---- Source selection ----
     const handleOrderChange = (_: any, newValue: OrderSourceType | null) => {
-        // تغییر اصلاح شده: اگر آیتمی وجود دارد، آن را پاک کن (حتی اگر newValue نال باشد)
         if (items.length > 0) items.forEach(i => onRemoveItem(i.id));
 
         setSelectedOrder(newValue);
-        onOrderSelect?.(newValue); // 👈 به والد خبر بده
+        onOrderSelect?.(newValue);
 
         setDeletedItems([]);
         setEditingItems({});
@@ -359,11 +313,10 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
             if (res.data?.httpStatusCode === 200) {
                 showAlert(shouldEnd ? 'Sipariş sonlandırıldı ' : 'Sipariş aktifleştirildi.', 'success');
 
-                // اگر مخفی شد، انتخاب فعلی را پاک کن تا از کمبو برود
                 if (shouldEnd) {
                     setSelectedOrder(null);
                     onOrderSelect?.(null);
-                    items.forEach(i => onRemoveItem(i.id)); // پاک کردن ردیف‌های جدول
+                    items.forEach(i => onRemoveItem(i.id));
                 }
 
                 if (workhouseId) {
@@ -407,7 +360,6 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                             onChange={handleOrderChange}
                             sx={{ flexGrow: 1 }}
                             renderInput={(params) => <TextField {...params} label="Kaynak Sipariş" variant="outlined" size="small" />}
-                            // تغییر: وقتی لیست خالی شد (با زدن دکمه ریست)، این فالس می‌شود و اینپوت فعال می‌شود
                             disabled={!isItemsEmpty}
                             isOptionEqualToValue={(opt, val) => opt.id === val.id}
                             renderOption={(props, option) => (
@@ -440,7 +392,6 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                 </Grid>
             </Grid>
 
-            {/* Undo delete */}
             {deletedItems.length > 0 && (
                 <Box mb={2} p={2} border="1px solid" borderColor="error.main" borderRadius={2} bgcolor="error.light">
                     <Typography variant="subtitle2" color="error.dark" mb={1}>Silinen Ürünler (Geri Almak için tıklayın):</Typography>
@@ -464,7 +415,6 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                 </Box>
             )}
 
-            {/* Table */}
             <Typography variant="h6" gutterBottom>Eklenen Ürünler</Typography>
             <TableContainer sx={{ maxHeight: 600, overflowY: 'auto' }}>
                 <Table stickyHeader aria-label="invoice items table">
@@ -502,7 +452,6 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                                 const price = cleanAndConvertNumber(current?.price);
                                 const providerId = current?.providerId;
 
-                                // تغییر: محاسبه وضعیت فعال بودن ذخیره برای این سطر
                                 const canSave = isSaveEnabled(item);
 
                                 return (
@@ -565,31 +514,22 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                                         <TableCell>
                                             {editing ? (
                                                 <Stack direction="column" spacing={1}>
-                                                    {/* اینپوت درصد تخفیف */}
                                                     <TextField
                                                         label="İndirim %"
                                                         type="number"
                                                         size="small"
-                                                        // ❌ غلط: value={Number(current?.discountPercent).toFixed(2) || 0}
-                                                        // ✅ درست: مقدار خام را نشان بده تا کاربر بتواند تایپ کند
                                                         value={current?.discountPercent || 0}
-
-                                                        // ✅ این خط باعث می‌شود با کلیک، کل عدد انتخاب شود
                                                         onFocus={(event) => event.target.select()}
 
                                                         onChange={(e) => handleItemChange(item.id, 'discountPercent', e.target.value)}
                                                     />
 
-                                                    {/* اینپوت مبلغ تخفیف */}
                                                     <TextField
                                                         label="İndirim Miktar"
                                                         type="number"
                                                         size="small"
-                                                        // ❌ غلط: value={Number(current?.discountAmount).toFixed(2) || 0}
-                                                        // ✅ درست:
                                                         value={current?.discountAmount || 0}
 
-                                                        // ✅ انتخاب خودکار متن
                                                         onFocus={(event) => event.target.select()}
 
                                                         onChange={(e) => handleItemChange(item.id, 'discountAmount', e.target.value)}
@@ -598,7 +538,6 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                                             ) : (
                                                 <>
                                                     <Typography variant="subtitle1" noWrap>
-                                                        {/* در حالت نمایش (نه ویرایش) می‌توانید از toFixed استفاده کنید */}
                                                         {Number(item.discountPercent).toFixed(2)}%
                                                     </Typography>
                                                     <Typography variant="body2" color="textSecondary">
@@ -627,7 +566,6 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                                         <TableCell align="right">
                                             {editing ? (
                                                 <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Değişiklikleri kaydet" : ""}>
-                                                    {/* تغییر: فقط اگر canSave صحیح باشد دکمه چشمک می‌زند */}
                                                     <BlinkingButton variant="outlined" color="inherit" isBlinking={canSave} sx={{ padding: "1px" }}>
                                                         <IconButton color="success" onClick={() => handleSaveEdit(item)} disabled={!canSave}>
                                                             <IconCheck size={20} />
@@ -663,14 +601,12 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                 </Table>
             </TableContainer>
 
-            {/* Description Modal */}
             <Dialog open={openDescModal} onClose={closeDesc} maxWidth="sm" fullWidth>
                 <DialogTitle>Açıklama</DialogTitle>
                 <DialogContent dividers><Typography>{descContent}</Typography></DialogContent>
                 <DialogActions><Button onClick={closeDesc}>Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* Order Details Modal */}
             <Dialog open={openOrderDetailsModal} onClose={() => setOpenOrderDetailsModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Kaynak Sipariş Detayları</DialogTitle>
                 <DialogContent dividers>
@@ -715,7 +651,6 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                 <DialogActions><Button onClick={() => setOpenOrderDetailsModal(false)}>Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* Ended Orders Modal */}
             <Dialog open={openEndedOrdersModal} onClose={() => setOpenEndedOrdersModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Sonlandırılmış Siparişler</DialogTitle>
                 <DialogContent dividers>

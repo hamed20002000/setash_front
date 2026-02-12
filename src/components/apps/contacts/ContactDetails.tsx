@@ -98,14 +98,8 @@ const ContactDetails = () => {
 
   return (
     <>
-      {/* ------------------------------------------- */}
-      {/* Contact Detail Part */}
-      {/* ------------------------------------------- */}
       {contactDetail && !contactDetail.deleted ? (
         <>
-          {/* ------------------------------------------- */}
-          {/* Header Part */}
-          {/* ------------------------------------------- */}
           <Box p={3} py={2} display={'flex'} alignItems="center">
             <Typography variant="h5">Contact Details</Typography>
             <Stack gap={0} direction="row" ml={'auto'}>
@@ -138,9 +132,6 @@ const ContactDetails = () => {
             </Stack>
           </Box>
           <Divider />
-          {/* ------------------------------------------- */}
-          {/* Contact Table Part */}
-          {/* ------------------------------------------- */}
           <Box sx={{ overflow: 'auto' }}>
             {!editContact ? (
               <Box>
@@ -274,9 +265,6 @@ const ContactDetails = () => {
         </>
       ) : (
         <Box p={3} height="50vh" display={'flex'} justifyContent="center" alignItems={'center'}>
-          {/* ------------------------------------------- */}
-          {/* If no Contact  */}
-          {/* ------------------------------------------- */}
           <Box>
             <Typography variant="h4">Please Select a Contact</Typography>
             <br />

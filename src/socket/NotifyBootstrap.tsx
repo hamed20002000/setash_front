@@ -11,11 +11,11 @@ export default function NotifyBootstrap() {
 
     useEffect(() => {
         if (!startedRef.current) {
-            startNotifyService();       // ⬅️ نقش از localStorage
+            startNotifyService();
             startedRef.current = true;
             prevRole.current = activeRoleName ?? null;
         } else if (prevRole.current !== activeRoleName) {
-            switchRoleInService();      // ⬅️ نقش از localStorage
+            switchRoleInService();
             prevRole.current = activeRoleName ?? null;
         }
 

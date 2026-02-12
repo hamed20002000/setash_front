@@ -261,7 +261,6 @@ const ProductTableList = () => {
     setOrderBy(property);
   };
 
-  // This is for select all the row
   const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.checked) {
       const newSelecteds = rows.map((n: any) => n.title);
@@ -293,7 +292,7 @@ const ProductTableList = () => {
 
     setSelected(newSelected);
   };
-  
+
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   const handleChangePage = (event: unknown, newPage: number) => {
@@ -311,7 +310,6 @@ const ProductTableList = () => {
 
   const isSelected = (name: string) => selected.indexOf(name) !== -1;
 
-  // Avoid a layout jump when reaching the last page with empty rows.
   const emptyRows = page > 0 ? Math.max(0, (1 + page) * rowsPerPage - rows.length) : 0;
 
   const theme = useTheme();

@@ -15,7 +15,6 @@ import {
 import { keyframes, styled } from '@mui/material/styles';
 import {
     IconDots,
-    //  IconEdit, 
     IconTrash, IconSearch, IconFileDownload, IconPlus,
     IconEye, IconX, IconFileText, IconFileSpreadsheet, IconReload
 } from '@tabler/icons-react';
@@ -40,7 +39,6 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 
-// --- Styled Components ---
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans',
     fontSize: '0.8rem',
@@ -57,7 +55,6 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: 'transform 0.3s ease-in-out',
 }));
 
-// --- Types ---
 interface UnitType { id: string; title: string; }
 interface ItemType { id: string; name: string; abbreviation?: string; unit: UnitType; }
 interface WarehouseType { id: string | number; name: string; code: string; recordStatus?: number; status?: 'Aktif' | 'Pasif'; }
@@ -94,8 +91,8 @@ interface SendedReceiptType {
     createAt: string;
 
     description: string,
-    recordStatus: number;  // برای ستون Durum
-    isEnd: boolean | null; // (اگر بماند هم مشکل نیست)
+    recordStatus: number;
+    isEnd: boolean | null;
     receiptDetails: ReceiptDetailType[];
     warehouse: WarehouseType;
     statusText?: 'Aktif' | 'Pasif';
@@ -146,7 +143,6 @@ export interface WorkhouseType {
     status?: 'Aktif' | 'Pasif';
 }
 
-// فرم
 interface DispatchDetailInfo {
     id: string;
     quantity: string;
@@ -182,7 +178,6 @@ interface ApiResponse<T> {
     data: T;
 }
 
-// --- Utils ---
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
     try { return format(new Date(dateString), 'dd MMMM yyyy', { locale: tr }); }
@@ -191,7 +186,6 @@ const formatDateDisplay = (dateString: string | null): string => {
 const getStatus = (recordStatus: number): { text: 'Aktif' | 'Pasif', color: 'success' | 'error' } =>
     (recordStatus === 0 ? { text: 'Aktif', color: 'success' } : { text: 'Pasif', color: 'error' });
 
-// این تابع را خارج از کامپوننت (کنار سایر توابع کمکی) قرار دهید
 const getTotalsByUnit = (details: any[]) => {
     const totals: Record<string, number> = {};
     details.forEach(d => {
@@ -202,42 +196,6 @@ const getTotalsByUnit = (details: any[]) => {
     return totals;
 };
 
-// --- PDF helpers ---
-// const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
-//     const pageWidth = doc.internal.pageSize.getWidth();
-//     const docAny = doc as any;
-//     docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-//     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-//     doc.setFont('NotoSans');
-
-//     docAny.addImage(Logo, 'PNG', pageWidth - 50, 30, 40, 25);
-//     doc.setFontSize(14);
-//     doc.text(title, pageWidth / 2, 35, { align: 'center' });
-
-//     doc.setFontSize(10);
-//     doc.text(`Rapor Tarihi:`, 15, 45);
-//     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 45, 45);
-//     if (subtitle) doc.text(subtitle, 70, 52);
-// };
-// const addPdfFooter = (doc: jsPDF) => {
-//     const pageWidth = doc.internal.pageSize.getWidth();
-//     const pageHeight = doc.internal.pageSize.getHeight();
-//     doc.setFontSize(8);
-//     doc.setFont('NotoSans', 'normal');
-//     const companyInfo = [
-//         'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-//         'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-//         'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
-//     ];
-//     let y = pageHeight - 30;
-//     companyInfo.forEach(line => { doc.text(line, pageWidth / 2, y, { align: 'center' }); y += 4; });
-//     doc.setFontSize(10);
-//     doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-//     doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-//     const docAny = doc as any;
-//     const pageCount = docAny.internal.getNumberOfPages();
-//     doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-// };
 
 const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
 
@@ -246,10 +204,10 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -259,7 +217,7 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
@@ -268,8 +226,6 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
     if (subtitle) doc.text(subtitle, 70, 52);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -313,7 +269,7 @@ const exportReceiptsToPdf = (data: SendedReceiptType[], title: string, subtitle?
 
     data.forEach((receipt, index) => {
         let yPos = 55;
-        if (index > 0) { doc.addPage(); } // ریست کردن صفحه برای هر رسید
+        if (index > 0) { doc.addPage(); }
 
         addPdfHeader(doc, title, subtitle);
 
@@ -327,13 +283,12 @@ const exportReceiptsToPdf = (data: SendedReceiptType[], title: string, subtitle?
         const head = ['Malzeme', 'Miktar', 'Birim', 'Açıklama', 'Sevk Kodu'];
         const body = (receipt.receiptDetails || []).map(d => [
             d.item?.name || '-',
-            Number(d.quantity).toLocaleString('tr-TR'), // فرمت عدد
+            Number(d.quantity).toLocaleString('tr-TR'),
             d.item?.unit?.title || '-',
             d.description || '-',
             d.storeDispatchDetail?.storeDispatchHeaders?.code || '-',
         ]);
 
-        // ✅ محاسبه جمع‌ها برای فوتر
         const totals = getTotalsByUnit(receipt.receiptDetails || []);
         const footRows = Object.entries(totals).map(([unit, qty]) => [
             'Toplam:',
@@ -347,11 +302,11 @@ const exportReceiptsToPdf = (data: SendedReceiptType[], title: string, subtitle?
             startY: yPos,
             head: [head],
             body: body,
-            foot: footRows, // ✅ اضافه کردن فوتر
+            foot: footRows,
             theme: 'grid',
             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
             headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-            footStyles: { font: 'NotoSans', fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'normal' }, // استایل فوتر
+            footStyles: { font: 'NotoSans', fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'normal' },
             didDrawPage: () => { addPdfFooter(doc); },
         });
     });
@@ -359,7 +314,6 @@ const exportReceiptsToPdf = (data: SendedReceiptType[], title: string, subtitle?
     doc.save(`${title.replace(/ /g, '_')}.pdf`);
 };
 
-// --- Excel helpers ---
 const addExcelHeader = (ws: Excel.Worksheet, title: string, colLen: number) => {
     ws.views = [{ rightToLeft: true }];
     const t = ws.addRow([title]); t.font = { name: 'NotoSans', size: 14, bold: true };
@@ -392,22 +346,18 @@ const exportReceiptsToExcel = async (data: SendedReceiptType[], title: string) =
         const ws = wb.addWorksheet(`Giriş_${receipt.code}`.replace(/[\\/*?:[\]]/g, '_').substring(0, 30));
         const head = ['Malzeme', 'Miktar', 'Birim', 'Açıklama', 'Sevk Kodu'];
 
-        // هدر اصلی
         addExcelHeader(ws, title, head.length);
 
-        // اطلاعات رسید
         ws.addRow([`Belge Kodu:`, receipt.code]);
         ws.addRow([`Giriş Depo:`, receipt.warehouse?.name || '-']);
         ws.addRow([`Belge Tarihi:`, formatDateDisplay(receipt.docDate)]);
         ws.addRow(['Genel Açıklama', receipt.description || '-']);
         ws.addRow([]);
 
-        // هدر جدول کالاها
         const hr = ws.addRow(head);
         hr.font = { name: 'NotoSans', bold: true };
         hr.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; });
 
-        // بدنه جدول
         (receipt.receiptDetails || []).forEach(d => {
             ws.addRow([
                 d.item?.name || '-',
@@ -418,8 +368,7 @@ const exportReceiptsToExcel = async (data: SendedReceiptType[], title: string) =
             ]);
         });
 
-        // ✅ اضافه کردن بخش جمع کل به تفکیک واحد
-        ws.addRow([]); // یک خط خالی
+        ws.addRow([]);
         const summaryTitle = ws.addRow(["Birim Bazlı Toplamlar"]);
         summaryTitle.font = { name: 'NotoSans', bold: true, underline: true };
 
@@ -427,12 +376,11 @@ const exportReceiptsToExcel = async (data: SendedReceiptType[], title: string) =
         Object.entries(totals).forEach(([unit, total]) => {
             const tr = ws.addRow(['Toplam:', total, unit]);
 
-            // استایل دهی به ردیف جمع
             tr.getCell(1).font = { name: 'NotoSans', bold: true };
             tr.getCell(1).alignment = { horizontal: 'right' };
 
             tr.getCell(2).font = { name: 'NotoSans', bold: true };
-            tr.getCell(2).numFmt = '#,##0.##'; // فرمت عدد
+            tr.getCell(2).numFmt = '#,##0.##';
 
             tr.getCell(3).font = { name: 'NotoSans', bold: true };
         });
@@ -440,24 +388,21 @@ const exportReceiptsToExcel = async (data: SendedReceiptType[], title: string) =
         ws.addRow([]);
         addExcelCompanyInfo(ws, ws.lastRow!.number + 2, head.length);
 
-        // تنظیم عرض ستون‌ها
-        ws.getColumn(1).width = 30; // Malzeme
-        ws.getColumn(2).width = 15; // Miktar
-        ws.getColumn(3).width = 15; // Birim
-        ws.getColumn(4).width = 25; // Açıklama
-        ws.getColumn(5).width = 20; // Sevk Kodu
+        ws.getColumn(1).width = 30;
+        ws.getColumn(2).width = 15;
+        ws.getColumn(3).width = 15;
+        ws.getColumn(4).width = 25;
+        ws.getColumn(5).width = 20;
     });
 
     const buffer = await wb.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `${title.replace(/ /g, '_')}.xlsx`);
 };
 
-// --- Component ---
 const ListReceiptsSendedFromStore = () => {
     const navigate = useNavigate();
     const authToken = localStorage.getItem('authToken');
 
-    // --- State ---
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | null>(null);
 
@@ -511,7 +456,6 @@ const ListReceiptsSendedFromStore = () => {
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
 
-    // NEW: combos state
     const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
     const [storesList, setStoresList] = useState<StoreType[]>([]);
     const [dispatchHeadersList, setDispatchHeadersList] = useState<DispatchHeader[]>([]);
@@ -531,36 +475,19 @@ const ListReceiptsSendedFromStore = () => {
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
-    // --- End modal (for dispatch) ---
     const [openIsEndModal, setOpenIsEndModal] = useState(false);
-
-    // Manage warehouse hide (keep as is if needed)
-    // const [hiddenWarehouseIds, setHiddenWarehouseIds] = useState<Set<number>>(new Set());
-
-    // Inactive receipts modal (kept as requested)
     const [openInactiveModal, setOpenInactiveModal] = useState(false);
 
-    // NEW: Manage Sevk Belgesi modal
     const [openDispatchManageModal, setOpenDispatchManageModal] = useState(false);
     const [dispatchHeadersAllForModal, setDispatchHeadersAllForModal] = useState<DispatchHeader[]>([]);
 
     const { isTooltipGloballyEnabled } = useTooltip();
-    // const { allowedOperations } = useAuth();
-    // const ops = allowedOperations ?? [];
-    // const hasCreatePermission = useMemo(() => ops.some(op => op.systemOperationName === 'Eklemek'), [ops]);
-    // const hasEditPermission = useMemo(() => ops.some(op => op.systemOperationName === 'Düzenlemek'), [ops]);
-    // const hasDeletePermission = useMemo(() => ops.some(op => op.systemOperationName === 'Silmek'), [ops]);
-    // const hasDownloadPermission = useMemo(() => ops.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [ops]);
-
-
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -569,24 +496,19 @@ const ListReceiptsSendedFromStore = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
 
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -599,9 +521,6 @@ const ListReceiptsSendedFromStore = () => {
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
 
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
-
-    // inactive invoices derived from receipt list (as before)
     type InactiveInvoice = { id: number; invoiceNo: string; docDate: string; warehouseId: number; };
     const inactiveInvoices: InactiveInvoice[] = useMemo(() => {
         return (receiptList || [])
@@ -613,16 +532,12 @@ const ListReceiptsSendedFromStore = () => {
                 warehouseId: Number(r.warehouse?.id)
             }));
     }, [receiptList]);
-    // const inactiveCount = inactiveInvoices.length;
-
-    // --- Helpers ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
         setTimeout(() => setAlertMessage(null), 5000);
     }, []);
 
-    // --- API: Receipts list ---
     const fetchWarehouses = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         const role = localStorage.getItem('activeUserRoleName') || '';
@@ -661,7 +576,6 @@ const ListReceiptsSendedFromStore = () => {
         }
     }, [navigate, showAlert]);
 
-    // NEW: workhouses
     const fetchWorkhouses = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         const role = localStorage.getItem('activeUserRoleName') || '';
@@ -706,7 +620,6 @@ const ListReceiptsSendedFromStore = () => {
         }
     }, [navigate, showAlert]);
 
-    // NEW: stores by workhouse
     const fetchStoresByWorkhouseId = useCallback(async (workhouseId: string) => {
         if (!authToken) { navigate("/"); return []; }
         setLoadingStores(true);
@@ -735,7 +648,6 @@ const ListReceiptsSendedFromStore = () => {
         }
     }, [authToken, navigate, showAlert]);
 
-    // NEW: dispatch headers by store => for combo (only active: status===1 && isEnd!==true)
     const fetchDispatchHeadersByStoreId = useCallback(async (storeId: number | string) => {
         if (!authToken) { navigate("/"); return []; }
         setLoadingDispatches(true);
@@ -764,7 +676,6 @@ const ListReceiptsSendedFromStore = () => {
         } finally { setLoadingDispatches(false); }
     }, [authToken, showAlert, navigate]);
 
-    // NEW: Full list for modal (no isEnd filtering)
     const openManageDispatchModal = useCallback(async () => {
         if (!selectedStoreId) {
             showAlert('Lütfen önce "Şantiye Depo" seçiniz.', 'warning');
@@ -785,7 +696,6 @@ const ListReceiptsSendedFromStore = () => {
         } finally { setLoadingDispatches(false); }
     }, [authToken, selectedStoreId, showAlert]);
 
-    // --- API: Update dispatch isEnd (Sevk Belgesi) ---
     const updateDispatchIsEnd = async (id: number, isEnd: boolean) => {
         const url = server.baseurl + server.warehouse + "update-store-dispatch-is-end";
         const payload = { id, isEnd };
@@ -795,7 +705,6 @@ const ListReceiptsSendedFromStore = () => {
         return res?.data;
     };
 
-    // --- (kept) API: Update receipt isEnd for inactive modal actions if needed ---
     const updateReceiptIsEnd = async (id: number, isEnd: boolean) => {
         const url = server.baseurl + server.warehouse + "update-receipt-is-end";
         const payload = { id, isEnd };
@@ -804,8 +713,6 @@ const ListReceiptsSendedFromStore = () => {
         });
         return res?.data;
     };
-
-    // --- Initial load ---
     const fetchInitialData = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -846,7 +753,6 @@ const ListReceiptsSendedFromStore = () => {
     }, [authToken, fetchWarehouses, fetchWorkhouses, navigate, showAlert]);
     useEffect(() => { fetchInitialData(); }, [fetchInitialData]);
 
-    // filters
     useEffect(() => {
         const s = startDate ? new Date(new Date(startDate).setHours(0, 0, 0, 0)) : null;
         const e = endDate ? new Date(new Date(endDate).setHours(23, 59, 59, 999)) : null;
@@ -866,7 +772,6 @@ const ListReceiptsSendedFromStore = () => {
     }, [searchTerm, startDate, endDate]);
     useEffect(() => { const t = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(t); }, []);
 
-    // --- chained combos ---
     useEffect(() => {
         setSelectedStoreId(null);
         setStoresList([]);
@@ -889,7 +794,6 @@ const ListReceiptsSendedFromStore = () => {
         }
     }, [selectedStoreId, fetchDispatchHeadersByStoreId, storeError]);
 
-    // وقتی Sevk Belgesi انتخاب می‌شود، انبار مقصد را به طور خودکار ست کن
     useEffect(() => {
         if (selectedDispatchId) {
             const selectedDispatch = dispatchHeadersList.find(d => Number(d.id) === Number(selectedDispatchId));
@@ -897,10 +801,8 @@ const ListReceiptsSendedFromStore = () => {
             if (selectedDispatch && selectedDispatch.destinationWarehouse) {
                 const destId = Number(selectedDispatch.destinationWarehouse.id);
                 setSelectedWarehouseId(destId);
-                // خطا را اگر وجود داشت پاک کن
                 setWarehouseIdError(false);
             } else {
-                // اگر به هر دلیلی Sevk انبار مقصد نداشت (برای جلوگیری از باگ)
                 setSelectedWarehouseId(null);
             }
         } else {
@@ -908,7 +810,6 @@ const ListReceiptsSendedFromStore = () => {
         }
     }, [selectedDispatchId, dispatchHeadersList]);
 
-    // on dispatch change => fill receipt details
     useEffect(() => {
         if (!selectedDispatchId) return;
         const selected = dispatchHeadersList.find(d => Number(d.id) === Number(selectedDispatchId));
@@ -937,7 +838,6 @@ const ListReceiptsSendedFromStore = () => {
         if (dispatchError) setDispatchError(false);
     }, [selectedDispatchId, dispatchHeadersList, dispatchError]);
 
-    // --- form validity ---
     const isFormValid = useMemo(() => {
         if (!selectedWorkhouseId || !selectedStoreId || !selectedDispatchId) return false;
         if (!selectedWarehouseId || !docDate) return false;
@@ -961,7 +861,6 @@ const ListReceiptsSendedFromStore = () => {
         });
     }, [selectedWorkhouseId, selectedStoreId, selectedDispatchId, selectedWarehouseId, docDate, receiptDetails]);
 
-    // --- validate ---
     const validateForm = (): boolean => {
         let ok = true;
         if (!selectedWorkhouseId) { setWorkhouseError(true); ok = false; }
@@ -1016,7 +915,6 @@ const ListReceiptsSendedFromStore = () => {
         setDispatchError(false);
     };
 
-    // --- Insert ---
     const insertReceipt = async () => {
         if (!validateForm()) return;
         setLoadingButton(true);
@@ -1054,7 +952,6 @@ const ListReceiptsSendedFromStore = () => {
             if (res.data?.httpStatusCode === 201) {
                 showAlert('Yeni giriş belgesi başarıyla eklendi!', 'success');
 
-                // Refresh receipts list (optional but good)
                 try {
                     const receiptsRes = await axios.get<ApiResponse<SendedReceiptType[]>>(
                         server.baseurl + server.warehouse + `get-Receipt-sended-from-store-to-warehouse`,
@@ -1069,7 +966,6 @@ const ListReceiptsSendedFromStore = () => {
                     }
                 } catch { /* ignore */ }
 
-                // Ask to end selected dispatch
                 setOpenIsEndModal(true);
             } else {
                 showAlert(res.data?.message || 'Giriş belgesi eklenirken bir hata oluştu.', 'error');
@@ -1086,7 +982,6 @@ const ListReceiptsSendedFromStore = () => {
         }
     };
 
-    // --- Edit ---
     const editReceipt = async () => {
         if (!validateForm() || !editingId) return;
         setLoadingButton(true);
@@ -1125,7 +1020,6 @@ const ListReceiptsSendedFromStore = () => {
         } finally { setLoadingButton(false); }
     };
 
-    // --- End flow for Dispatch only (after insert) ---
     const handleFinalCloseDispatch = async (shouldEnd: boolean) => {
         try {
             setOpenIsEndModal(false);
@@ -1136,10 +1030,8 @@ const ListReceiptsSendedFromStore = () => {
             if (res?.httpStatusCode === 200) {
                 const code = dispatchHeadersList.find(d => Number(d.id) === Number(selectedDispatchId))?.code;
                 showAlert(`Sevk ${code ?? ''} başarıyla sonlandırıldı.`, 'success');
-                // remove from combo and clear form
                 setDispatchHeadersList(prev => prev.filter(d => Number(d.id) !== Number(selectedDispatchId)));
                 resetFormAndState();
-                // refresh receipts list optional
                 fetchInitialData();
             } else {
                 showAlert(res?.message || 'Sevk sonlandırılamadı.', 'error');
@@ -1159,13 +1051,11 @@ const ListReceiptsSendedFromStore = () => {
         return totals;
     };
 
-    // --- Reactivate from inactive receipts modal (kept) ---
     const handleReactivateInvoice = async (inv: InactiveInvoice) => {
         try {
             const res = await updateReceiptIsEnd(inv.id, false);
             if (res?.httpStatusCode === 200) {
                 showAlert(`Fatura ${inv.invoiceNo} aktif hale getirildi.`, 'success');
-                // setHiddenWarehouseIds(prev => { const s = new Set(prev); s.delete(Number(inv.warehouseId)); return s; });
                 await fetchInitialData();
             } else {
                 showAlert(res?.message || 'Fatura geri alınamadı.', 'error');
@@ -1270,8 +1160,6 @@ const ListReceiptsSendedFromStore = () => {
         setFullDescriptionContent('');
     };
 
-
-    // --- Render ---
     return (
         <Box mt={2}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
@@ -1299,7 +1187,6 @@ const ListReceiptsSendedFromStore = () => {
                     <Typography variant="h5" mb={2}>{editingId ? 'Depo Giriş Belgesini Düzenle' : 'Yeni Depo Giriş Belgesi'}</Typography>
 
                     <Grid container spacing={2}>
-                        {/* Şantiye */}
                         <Grid item xs={12} sm={4}>
                             <CustomFormLabel required>Şantiye</CustomFormLabel>
                             <Autocomplete
@@ -1315,7 +1202,6 @@ const ListReceiptsSendedFromStore = () => {
                             />
                         </Grid>
 
-                        {/* Şantiye Depo */}
                         <Grid item xs={12} sm={4}>
                             <CustomFormLabel required>Şantiye Depo</CustomFormLabel>
                             <Autocomplete
@@ -1331,7 +1217,6 @@ const ListReceiptsSendedFromStore = () => {
                             />
                         </Grid>
 
-                        {/* Sevk Belgesi + manage button */}
                         <Grid item xs={12} sm={4}>
                             <Stack direction="row" alignItems="center" justifyContent="space-between">
                                 <CustomFormLabel required sx={{ mb: 0 }}>Sevk Belgesi</CustomFormLabel>
@@ -1352,30 +1237,13 @@ const ListReceiptsSendedFromStore = () => {
                             />
                         </Grid>
 
-                        {/* Giriş Depo */}
-                        {/* <Grid item xs={12} sm={6}>
-                            <CustomFormLabel required>Giriş Depo</CustomFormLabel>
-                            <Autocomplete
-                                id="warehouse-select"
-                                options={warehouses.filter(w => (w.recordStatus ?? 0) === 0).filter(w => !hiddenWarehouseIds.has(Number(w.id)))}
-                                getOptionLabel={(option) => option.name}
-                                value={warehouses.find(w => Number(w.id) === selectedWarehouseId && !hiddenWarehouseIds.has(Number(w.id))) || null}
-                                onChange={(_, newValue) => { const newId = newValue ? Number(newValue.id) : null; setSelectedWarehouseId(newId); if (warehouseIdError && newValue) setWarehouseIdError(false); }}
-                                isOptionEqualToValue={(option, value) => Number(option.id) === Number(value.id)}
-                                renderInput={(params) => (<TextField {...params} fullWidth size="small" placeholder="Giriş Depo Seçin" error={warehouseIdError} helperText={warehouseIdError ? "Depo seçimi zorunludur!" : ""} />)}
-                            />
-                        </Grid> */}
-
                         <Grid item xs={12} sm={6}>
                             <CustomFormLabel required>Giriş Depo (Otomatik)</CustomFormLabel>
                             <Autocomplete
                                 id="warehouse-select"
-                                // لیست انبارها را هنوز نگه می‌داریم تا نام انبار پیدا شود
                                 options={warehouses}
                                 getOptionLabel={(option) => option.name}
-                                // مقدار را از استیتی که در useEffect بالا ست کردیم می‌گیرد
                                 value={warehouses.find(w => Number(w.id) === selectedWarehouseId) || null}
-                                // غیرفعال کردن برای جلوگیری از تغییر توسط کاربر
                                 disabled={true}
                                 renderInput={(params) => (
                                     <TextField
@@ -1383,14 +1251,12 @@ const ListReceiptsSendedFromStore = () => {
                                         fullWidth
                                         size="small"
                                         placeholder="Sevk belgesi seçildiğinde otomatik dolar"
-                                        // نمایش هشدار اگر Sevk انتخاب شده ولی انبار پیدا نشده (اختیاری)
                                         error={warehouseIdError}
                                         helperText={warehouseIdError ? "Sevk belgesinde hedef depo bulunamadı!" : "Bu alan sevk belgesine göre otomatik belirlenir."}
                                     />
                                 )}
                             />
                         </Grid>
-                        {/* Belge Tarihi */}
                         <Grid item xs={12} sm={6}>
                             <CustomFormLabel required>Belge Tarihi</CustomFormLabel>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
@@ -1415,8 +1281,8 @@ const ListReceiptsSendedFromStore = () => {
                                 multiline
                                 rows={3}
                                 variant="outlined"
-                                value={generalDescription} // ⬅️ استفاده از نام جدید
-                                onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                value={generalDescription}
+                                onChange={(e) => setGeneralDescription(e.target.value)}
                             />
                         </Grid>
                     </Grid>
@@ -1424,15 +1290,6 @@ const ListReceiptsSendedFromStore = () => {
                     <Box mt={4}>
                         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} gap={1} flexWrap="wrap">
                             <Typography variant="h6">Giriş Detayları</Typography>
-                            {/* <Stack direction="row" spacing={1} alignItems="center">
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Sonlandırılmış faturaları göster" : ""}>
-                                    <span>
-                                        <Button variant="outlined" color="secondary" startIcon={<IconBan size={18} />} onClick={() => setOpenInactiveModal(true)} disabled={inactiveCount === 0}>
-                                            Sonlandırılmış ({inactiveCount})
-                                        </Button>
-                                    </span>
-                                </CustomTooltip>
-                            </Stack> */}
                         </Stack>
 
                         {removedReceiptDetails.length > 0 && (
@@ -1606,7 +1463,6 @@ const ListReceiptsSendedFromStore = () => {
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 {row.description && row.description.trim().length > 0 ? (
-                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button
 
@@ -1618,7 +1474,6 @@ const ListReceiptsSendedFromStore = () => {
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (
-                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
                                                     <Typography variant="body2" align="center">
                                                         -
                                                     </Typography>
@@ -1636,7 +1491,7 @@ const ListReceiptsSendedFromStore = () => {
                                                         startIcon={<IconEye />}
                                                         onClick={() => {
                                                             setDetailsToShow(row.receiptDetails || []);
-                                                            setViewedReceipt(row); // ✅ این خط اضافه شد
+                                                            setViewedReceipt(row);
                                                             setOpenDetailsModal(true);
                                                         }}
                                                     >
@@ -1650,81 +1505,7 @@ const ListReceiptsSendedFromStore = () => {
                                                 </IconButton>
                                                 <Menu anchorEl={anchorEl} open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
 
-                                                    {/* {hasEditPermission && (
-                                                        <MuiMenuItem onClick={async () => {
-                                                            if (!selectedRowForMenu) return;
-                                                            setLoadingData(true);
-                                                            try {
-                                                                // derive store + dispatch from first detail
-                                                                const firstDetail = selectedRowForMenu.receiptDetails?.[0];
-                                                                const sdh = firstDetail?.storeDispatchDetail?.storeDispatchHeaders;
-                                                                const dispatchId = sdh?.id ? Number(sdh.id) : null;
-                                                                const storeId = sdh?.store?.id ? Number(sdh.store.id) : null;
 
-                                                                if (storeId) {
-                                                                    setSelectedStoreId(storeId);
-                                                                    await fetchDispatchHeadersByStoreId(storeId);
-                                                                }
-                                                                if (dispatchId) {
-                                                                    const existing = dispatchHeadersList.find(d => Number(d.id) === dispatchId);
-                                                                    if (!existing && storeId) {
-                                                                        const artificial: DispatchHeader | null = sdh ? {
-                                                                            id: dispatchId,
-                                                                            code: sdh.code,
-                                                                            docDate: sdh.docDate || new Date().toISOString(),
-                                                                            createAt: sdh.docDate || new Date().toISOString(),
-                                                                            recordStatus: 0, status: 1, isEnd: false,
-                                                                            store: { id: storeId, name: sdh.store?.name || '', recordStatus: 0 },
-                                                                            storeDispatchDetails: (selectedRowForMenu.receiptDetails || []).map(d => ({
-                                                                                id: Number(d.storeDispatchDetail?.id),
-                                                                                quantity: Number(d.storeDispatchDetail?.quantity || d.quantity),
-                                                                                description: d.storeDispatchDetail?.description || d.description || '',
-                                                                                item: d.item
-                                                                            }))
-                                                                        } : null;
-                                                                        if (artificial) setDispatchHeadersList(prev => [...prev, artificial]);
-                                                                    }
-                                                                    setSelectedDispatchId(dispatchId);
-                                                                }
-
-                                                                // build receiptDetails with max
-                                                                let maxMap = new Map<number, number>();
-                                                                const activeSelected = (dispatchId ? (dispatchHeadersList.find(d => Number(d.id) === dispatchId) ?? null) : null);
-                                                                if (activeSelected) activeSelected.storeDispatchDetails.forEach(dd => { maxMap.set(Number(dd.id), Number(dd.quantity)); });
-
-                                                                const formatted: FormReceiptDetail[] = (selectedRowForMenu.receiptDetails || []).map(d => {
-                                                                    const sdd = d.storeDispatchDetail;
-                                                                    const sddId = sdd ? Number(sdd.id) : 0;
-                                                                    const maxQty = maxMap.has(sddId) ? Number(maxMap.get(sddId)) : (sdd?.quantity ? Number(sdd.quantity) : Number(d.quantity));
-                                                                    const dispId = dispatchId ?? 0;
-                                                                    const dispCode = sdh?.code || 'N/A';
-                                                                    return {
-                                                                        itemId: Number(d.item.id),
-                                                                        quantity: Number(d.quantity),
-                                                                        description: d.description || '',
-                                                                        StoreDispatchDetailId: sddId,
-                                                                        item: d.item,
-                                                                        dispatchCode: dispCode,
-                                                                        maxDispatchQuantity: maxQty,
-                                                                        StoreDispatchId: dispId,
-                                                                    };
-                                                                });
-
-                                                                setReceiptDetails(formatted);
-                                                                if (sdh?.store?.id) setSelectedStoreId(Number(sdh.store.id));
-                                                                setEditingId(selectedRowForMenu.id);
-                                                                setEditingCode(selectedRowForMenu.code);
-                                                                setDocDate(new Date(selectedRowForMenu.docDate));
-                                                                setGeneralDescription(selectedRowForMenu.description || '');
-                                                                setSelectedWarehouseId(Number(selectedRowForMenu.warehouse?.id) || null);
-                                                                setIsFormVisible(true);
-                                                                handleCloseMenu();
-                                                            } catch { showAlert('Düzenleme için veri hazırlanırken bir hata oluştu.', 'error'); }
-                                                            finally { setLoadingData(false); }
-                                                        }}>
-                                                            <ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle
-                                                        </MuiMenuItem>
-                                                    )} */}
                                                     {hasDeletePermission && (
                                                         <MuiMenuItem onClick={handleClickOpenDeleteModal}>
                                                             <ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek
@@ -1760,7 +1541,6 @@ const ListReceiptsSendedFromStore = () => {
                 />
             </BlankCard>
 
-            {/* Details Modal - به همراه جدول جمع کل و دکمه‌های دانلود */}
             <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>
                     Giriş Detayları
@@ -1773,7 +1553,6 @@ const ListReceiptsSendedFromStore = () => {
                 <DialogContent dividers>
                     {detailsToShow.length > 0 ? (
                         <>
-                            {/* جدول لیست آیتم‌ها */}
                             <TableContainer component={Paper}>
                                 <Table aria-label="Ürün detayları tablosu" size="small">
                                     <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
@@ -1797,7 +1576,6 @@ const ListReceiptsSendedFromStore = () => {
                                 </Table>
                             </TableContainer>
 
-                            {/* ✅ جدول خلاصه جمع‌ها بر اساس واحد */}
                             <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
                                 <TableContainer component={Paper} variant="outlined" sx={{ width: 'auto', minWidth: '300px' }}>
                                     <Table size="small">
@@ -1829,24 +1607,22 @@ const ListReceiptsSendedFromStore = () => {
                     )}
                 </DialogContent>
 
-                {/* ✅ فوتر مودال شامل دکمه‌های دانلود */}
                 <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
                     <Stack
-                        direction={{ xs: 'column', sm: 'row' }} // در موبایل ستونی، در دسکتاپ ردیفی
-                        spacing={2} // فاصله یکسان بین تمام دکمه‌ها
-                        sx={{ width: '100%' }} // اشغال تمام عرض کادر
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={2}
+                        sx={{ width: '100%' }}
                     >
                         <Button
                             variant="contained"
                             color="error"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }}
-                            startIcon={<IconFileText />} // آیکون PDF
+                            startIcon={<IconFileText />}
                             disabled={!viewedReceipt}
                             onClick={() => {
                                 if (viewedReceipt) {
                                     showAlert('PDF oluşturuluyor...', 'info');
-                                    // استفاده مستقیم از تابع helper موجود
                                     exportReceiptsToPdf([viewedReceipt], `Giriş Belgesi Detayları: ${viewedReceipt.code}`);
                                     showAlert('PDF indiriliyor.', 'success');
                                 }
@@ -1857,14 +1633,13 @@ const ListReceiptsSendedFromStore = () => {
                         <Button
                             variant="contained"
                             color="success"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }}
-                            startIcon={<IconFileSpreadsheet />} // آیکون Excel
+                            startIcon={<IconFileSpreadsheet />}
                             disabled={!viewedReceipt}
                             onClick={async () => {
                                 if (viewedReceipt) {
                                     showAlert('Excel oluşturuluyor...', 'info');
-                                    // استفاده مستقیم از تابع helper موجود
                                     await exportReceiptsToExcel([viewedReceipt], `Giriş Belgesi Detayları: ${viewedReceipt.code}`);
                                     showAlert('Excel indiriliyor.', 'success');
                                 }
@@ -1873,14 +1648,13 @@ const ListReceiptsSendedFromStore = () => {
                             Excel İndir
                         </Button>
                         <Button onClick={() => setOpenDetailsModal(false)} color="secondary" variant="outlined"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }} >Kapat</Button>
 
                     </Stack>
                 </DialogActions>
             </Dialog>
 
-            {/* Download Modals */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
                 <DialogTitle>Tüm Giriş Belgelerini İndir</DialogTitle>
                 <DialogContent>
@@ -1914,7 +1688,6 @@ const ListReceiptsSendedFromStore = () => {
                 <DialogActions><Button onClick={() => setOpenRowDownloadModal(false)} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* Delete */}
             <DeleteReceiptsSendedFromStore
                 openModal={openDeleteModal}
                 onClose={handleCloseDeleteModal}
@@ -1924,7 +1697,6 @@ const ListReceiptsSendedFromStore = () => {
                 showAlert={showAlert}
             />
 
-            {/* Modal: Fatura Durumu Onayı (برای بستن Sevk Belgesi) */}
             <Dialog open={openIsEndModal} onClose={() => setOpenIsEndModal(false)}>
                 <DialogTitle>Fatura Durumu Onayı</DialogTitle>
                 <DialogContent>
@@ -1943,7 +1715,6 @@ const ListReceiptsSendedFromStore = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Modal: Sonlandırılmış فاکتورها (kept) */}
             <Dialog open={openInactiveModal} onClose={() => setOpenInactiveModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Sonlandırılmış Faturalar (Fişi Kesilmiş)</DialogTitle>
                 <DialogContent dividers>
@@ -1987,7 +1758,6 @@ const ListReceiptsSendedFromStore = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Modal: Manage Sevk Belgesi list with radio */}
             <Dialog open={openDispatchManageModal} onClose={() => setOpenDispatchManageModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Sevk Belgesi Yönetimi</DialogTitle>
                 <DialogContent dividers>
@@ -2020,9 +1790,7 @@ const ListReceiptsSendedFromStore = () => {
                                                                 const res = await updateDispatchIsEnd(Number(d.id), wantEnd);
                                                                 if (res?.httpStatusCode === 200) {
                                                                     showAlert(`Sevk ${d.code} ${wantEnd ? 'sonlandırıldı' : 'aktifleştirildi'}.`, 'success');
-                                                                    // update modal list
                                                                     setDispatchHeadersAllForModal(prev => prev.map(x => x.id === d.id ? { ...x, isEnd: wantEnd } : x));
-                                                                    // sync main combo
                                                                     if (wantEnd) {
                                                                         setDispatchHeadersList(prev => prev.filter(x => Number(x.id) !== Number(d.id)));
                                                                         if (Number(selectedDispatchId) === Number(d.id)) {

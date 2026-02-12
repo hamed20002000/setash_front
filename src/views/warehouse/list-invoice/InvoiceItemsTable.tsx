@@ -14,7 +14,6 @@ import server from 'src/assets/address.json';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 
-// ===== Types =====
 interface UnitType { id: string; title: string; recordStatus: number; createAt: string; }
 interface ItemType { id: string; name: string; abbreviation: string; recordStatus: number; unit: UnitType; }
 interface ProviderType { id: number; name: string; firm: string; recordStatus: number; }
@@ -29,7 +28,7 @@ interface OrderDetailType {
 export interface OrderSourceType {
     id: string;
     docDate: string;
-    status: number;   // 0,1,2
+    status: number;
     isEnd?: boolean;
     orderDetails: OrderDetailType[];
     workhouse: any | null;
@@ -57,15 +56,10 @@ interface InvoiceItemsTableProps {
     onUpdateItem: (updatedItem: InvoiceItem) => void;
     providersList: ProviderType[];
 
-
-
-    // refreshSignal?: number;
     onOrderSelect?: (order: OrderSourceType | null) => void;
-
     showAlert?: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 }
 
-// ===== Utils =====
 const stripHtml = (htmlString: string) => {
     if (!htmlString) return "";
     const doc = new DOMParser().parseFromString(htmlString, 'text/html');
@@ -96,7 +90,6 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: 'transform 0.3s ease-in-out',
 }));
 
-// ===== Component =====
 const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
     items,
     itemsList,
@@ -104,7 +97,6 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
     onRemoveItem,
     onUpdateItem,
     providersList,
-    // refreshSignal = 0,
     onOrderSelect,
     showAlert = noop,
 }) => {
@@ -122,8 +114,6 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
     const [editingItems, setEditingItems] = useState<Record<number, Partial<InvoiceItem>>>({});
 
     const { isTooltipGloballyEnabled } = useTooltip();
-
-    // ---- Load Orders (initial + on refreshSignal) ----
     const fetchOrders = async () => {
         const token = localStorage.getItem('authToken');
         if (!token) return;
@@ -135,13 +125,11 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
             if (res.data?.httpStatusCode === 200) {
                 const all = (res.data.data as OrderSourceType[]) || [];
 
-                // اضافه کردن فیلتر workhouse === null به شروط قبلی
                 const filteredData = all.filter(o =>
-                    o.status === 1 &&           // فقط تایید شده‌ها
-                    o.workhouse === null        // 👈 فیلتر درخواستی شما
+                    o.status === 1 &&
+                    o.workhouse === null
                 );
 
-                // جداسازی سفارش‌های فعال و پایان‌یافته از لیست فیلتر شده
                 setActiveOrders(filteredData.filter(o => o.isEnd !== true));
                 setEndedOrders(filteredData.filter(o => o.isEnd === true));
 
@@ -155,23 +143,19 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
 
     useEffect(() => { fetchOrders(); }, []);
 
-    // اگر سفارش انتخابی بعد از ریفرش دیگر در Active نبود → انتخاب و آیتم‌ها را پاک کن
     useEffect(() => {
         if (selectedOrder) {
             const stillActive = activeOrders.some(o => o.id === selectedOrder.id);
             if (!stillActive) {
                 setSelectedOrder(null);
                 onOrderSelect?.(null);
-                // پاک‌کردن آیتم‌ها
                 items.forEach(it => onRemoveItem(it.id));
                 setEditingItems({});
                 setDeletedItems([]);
             }
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeOrders]);
 
-    // ---- Reactivate Ended Order (isEnd:false) ----
     const handleReactivateOrder = async (order: OrderSourceType) => {
         const token = localStorage.getItem('authToken');
         if (!token) { showAlert('Oturum süresi doldu.', 'error'); return; }
@@ -192,66 +176,49 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
         }
     };
 
-    // ---- Editing handlers ----
     const handleItemChange = (id: number, field: keyof InvoiceItem, value: any) => {
         setEditingItems(prev => {
             const currentItem = items.find(i => i.id === id);
             const pendingEdit = prev[id] || {};
 
-            // 1. آیتم پایه (همراه با تغییر جدید)
             const updated: Partial<InvoiceItem> = {
                 ...(currentItem as InvoiceItem),
                 ...pendingEdit,
                 [field]: value
             };
 
-            // 2. تعریف مرجع محاسبه: فقط قیمت واحد (Fiyat)
             const basePrice = cleanAndConvertNumber(updated.price);
-
-            // مقادیر تخفیف فعلی (یا مقدار 0 اگر معتبر نباشند)
             let discountPercent = cleanAndConvertNumber(updated.discountPercent);
             let discountAmount = cleanAndConvertNumber(updated.discountAmount);
-
-            // 3. اعمال منطق محاسبه متقابل (بر اساس basePrice)
             if (basePrice > 0) {
 
                 if (field === 'discountPercent') {
                     discountPercent = cleanAndConvertNumber(value);
 
-                    // محدودیت‌ها (باید بین 0 تا 100 باشد)
                     if (discountPercent < 0) discountPercent = 0;
                     if (discountPercent > 100) discountPercent = 100;
-
-                    // محاسبه مقدار تخفیف بر اساس درصد (از قیمت واحد)
                     discountAmount = parseFloat(((basePrice * discountPercent) / 100).toFixed(2));
 
                 } else if (field === 'discountAmount') {
                     discountAmount = cleanAndConvertNumber(value);
 
-                    // محدودیت‌ها (نباید از قیمت واحد بیشتر باشد)
                     if (discountAmount < 0) discountAmount = 0;
-                    if (discountAmount > basePrice) discountAmount = basePrice; // ⬅️ محدودیت بر اساس قیمت واحد
-
-                    // محاسبه درصد تخفیف بر اساس مقدار (از قیمت واحد)
+                    if (discountAmount > basePrice) discountAmount = basePrice;
                     discountPercent = parseFloat(((discountAmount / basePrice) * 100).toFixed(2));
                 }
             } else {
-                // اگر قیمت واحد 0 باشد، تخفیف نیز 0 است
                 discountPercent = 0;
                 discountAmount = 0;
             }
 
-            // 4. به‌روزرسانی نهایی
             updated.discountPercent = discountPercent;
             updated.discountAmount = discountAmount;
 
-            // 5. مدیریت تغییر Provider (مانند قبل)
             if (field === 'providerId') {
                 const p = providersList.find(x => x.id === value);
                 updated.firm = p ? p.firm === '1' : false;
             }
 
-            // 6. بازگرداندن وضعیت به‌روز شده
             return { ...prev, [id]: updated };
         });
     };
@@ -284,17 +251,14 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
         setDeletedItems(prev => prev.filter(x => x.id !== it.id));
     };
 
-    // ---- Description modal ----
     const openDesc = (content: string) => { setDescContent(stripHtml(content)); setOpenDescModal(true); };
     const closeDesc = () => { setOpenDescModal(false); setDescContent(''); };
 
-    // ---- Source selection ----
     const handleOrderChange = (_: any, newValue: OrderSourceType | null) => {
-        // تغییر اصلاح شده: اگر آیتمی وجود دارد، آن را پاک کن (چه در حال انتخاب جدید باشیم چه ریست کردن)
         if (items.length > 0) items.forEach(i => onRemoveItem(i.id));
 
         setSelectedOrder(newValue);
-        onOrderSelect?.(newValue); // 👈 به والد خبر بده
+        onOrderSelect?.(newValue);
 
         setDeletedItems([]);
         setEditingItems({});
@@ -338,14 +302,13 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
             if (res.data?.httpStatusCode === 200) {
                 showAlert(shouldEnd ? 'Sipariş sonlandırıldı ' : 'Sipariş aktifleştirildi.', 'success');
 
-                // اگر مخفی شد، انتخاب فعلی را پاک کن تا از کمبو برود
                 if (shouldEnd) {
                     setSelectedOrder(null);
                     onOrderSelect?.(null);
-                    items.forEach(i => onRemoveItem(i.id)); // پاک کردن ردیف‌های جدول
+                    items.forEach(i => onRemoveItem(i.id));
                 }
 
-                await fetchOrders(); // لیست سفارش‌ها را دوباره بگیر تا تغییرات اعمال شود
+                await fetchOrders();
             }
         } catch (error) {
             showAlert('Durum değiştirilirken hata oluştu.', 'error');
@@ -384,7 +347,6 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                             onChange={handleOrderChange}
                             sx={{ flexGrow: 1 }}
                             renderInput={(params) => <TextField {...params} label="Kaynak Sipariş" variant="outlined" size="small" />}
-                            // تغییر: دکمه فقط وقتی غیرفعال می‌شود که آیتمی وجود داشته باشد. وقتی لیست پاک شود (با ریست)، این فعال می‌شود.
                             disabled={!isItemsEmpty}
                             isOptionEqualToValue={(opt, val) => opt.id === val.id}
                             renderOption={(props, option) => (
@@ -393,25 +355,12 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                                 </Box>
                             )}
                         />
-                        {/* {selectedOrder && (
-                            <Stack direction="row" alignItems="center" spacing={1}>
-                                <Button variant="outlined" onClick={() => setOpenOrderDetailsModal(true)}>Detayları Gör</Button>
-                                <CustomTooltip title="Kaynak Siparişi Sıfırla">
-                                    <IconButton color="primary" onClick={() => handleOrderChange(null, null)}>
-                                        <IconRotate2 size={20} />
-                                    </IconButton>
-                                </CustomTooltip>
-                            </Stack>
-                        )} */}
 
                         {selectedOrder && (
                             <Stack direction="row" alignItems="center" spacing={1}>
                                 <Button variant="outlined" onClick={() => setOpenOrderDetailsModal(true)}>
                                     Detayları Gör
                                 </Button>
-
-                                {/* قابلیت جدید: دکمه مخفی‌سازی هوشمند */}
-                                {/* فرض می‌کنیم منطق تشخیص قبلاً ثبت شده بودن را در شرط زیر می‌گذاریم */}
                                 <CustomTooltip title="Bu siparişi listeye göre gizle (Sonlandır)">
                                     <IconButton
                                         color="error"
@@ -433,7 +382,6 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                 </Grid>
             </Grid>
 
-            {/* Undo delete */}
             {deletedItems.length > 0 && (
                 <Box mb={2} p={2} border="1px solid" borderColor="error.main" borderRadius={2} bgcolor="error.light">
                     <Typography variant="subtitle2" color="error.dark" mb={1}>Silinen Ürünler (Geri Almak için tıklayın):</Typography>
@@ -457,7 +405,6 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                 </Box>
             )}
 
-            {/* Table */}
             <Typography variant="h6" gutterBottom>Eklenen Ürünler</Typography>
             <TableContainer sx={{ maxHeight: 600, overflowY: 'auto' }}>
                 <Table stickyHeader aria-label="invoice items table">
@@ -494,8 +441,6 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                                 const qty = cleanAndConvertNumber(current?.quantity);
                                 const price = cleanAndConvertNumber(current?.price);
                                 const providerId = current?.providerId;
-
-                                // محاسبه وضعیت فعال بودن دکمه ذخیره برای این ردیف
                                 const canSave = isSaveEnabled(item);
 
                                 return (
@@ -610,7 +555,6 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                                         <TableCell align="right">
                                             {editing ? (
                                                 <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Değişiklikleri kaydet" : ""}>
-                                                    {/* تغییر: فقط اگر canSave صحیح باشد، چشمک بزند */}
                                                     <BlinkingButton variant="outlined" color="inherit" isBlinking={canSave} sx={{ padding: "1px" }}>
                                                         <IconButton color="success" onClick={() => handleSaveEdit(item)} disabled={!canSave}>
                                                             <IconCheck size={20} />
@@ -646,14 +590,12 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                 </Table>
             </TableContainer>
 
-            {/* Description Modal */}
             <Dialog open={openDescModal} onClose={closeDesc} maxWidth="sm" fullWidth>
                 <DialogTitle>Açıklama</DialogTitle>
                 <DialogContent dividers><Typography>{descContent}</Typography></DialogContent>
                 <DialogActions><Button onClick={closeDesc}>Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* Order Details Modal */}
             <Dialog open={openOrderDetailsModal} onClose={() => setOpenOrderDetailsModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Kaynak Sipariş Detayları</DialogTitle>
                 <DialogContent dividers>
@@ -698,7 +640,6 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                 <DialogActions><Button onClick={() => setOpenOrderDetailsModal(false)}>Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* Ended Orders Modal */}
             <Dialog open={openEndedOrdersModal} onClose={() => setOpenEndedOrdersModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Sonlandırılmış Siparişler</DialogTitle>
                 <DialogContent dividers>

@@ -18,14 +18,12 @@ const FirstStep = ({ total, Discount }: Props) => {
             <Typography variant="h5" fontWeight={600} mb={3}>
               Order Summary
             </Typography>
-            {/* Sub Total */}
             <Stack direction="row" justifyContent="space-between" mb={3}>
               <Typography variant="h6" fontWeight={400}>
                 Sub Total
               </Typography>
               <Typography variant="h6">${total}</Typography>
             </Stack>
-            {/* Discount */}
             <Stack direction="row" justifyContent="space-between" mb={3}>
               <Typography variant="h6" fontWeight={400}>
                 Discount 5%
@@ -34,14 +32,12 @@ const FirstStep = ({ total, Discount }: Props) => {
                 -${Discount}
               </Typography>
             </Stack>
-            {/* Sub Total */}
             <Stack direction="row" justifyContent="space-between" mb={3}>
               <Typography variant="h6" fontWeight={400}>
                 Shipping
               </Typography>
               <Typography variant="h6">Free</Typography>
             </Stack>
-            {/* Sub Total */}
             <Stack direction="row" justifyContent="space-between" mb={1}>
               <Typography variant="h6">Total</Typography>
               <Typography variant="h5" color="success">

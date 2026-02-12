@@ -44,21 +44,18 @@ import DeleteDispatch from "./DeleteDispatch";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
-// ✨ NEW imports for Excel
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    fontFamily: 'NotoSans',
+    fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: {
-        fontSize: '1rem', // Masaüstünde daha büyük
+        fontSize: '1rem',
     },
 }));
 
-// === Type Definitions ===
 interface DispatchDetailType {
     id: string;
     itemId: number;
@@ -188,7 +185,6 @@ const formatDateDisplay = (dateString: string | null): string => {
     }
 };
 
-// === Styled Components ===
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
     '&.Mui-selected': {
         color: 'white',
@@ -219,10 +215,10 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -232,16 +228,13 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
-
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
     doc.text(`Rapor Tarihi:`, 15, 35);
     doc.setFont('NotoSans', 'normal');
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -307,8 +300,6 @@ const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, colum
     });
 };
 
-
-// === Main Component ===
 const ListWarehouseDispatch = () => {
     const { warehouseId } = useParams<{ warehouseId: string }>();
     const navigate = useNavigate();
@@ -329,7 +320,6 @@ const ListWarehouseDispatch = () => {
     const hasIdsFilter = notifIds.length > 0;
     const idsSet = new Set<number>(notifIds);
 
-    // === State Variables ===
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
     const [selectedWorkhouseId, setSelectedWorkhouseId] = useState<number | null>(null);
@@ -353,7 +343,6 @@ const ListWarehouseDispatch = () => {
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<DispatchType | null>(null);
-    // const openMenu = Boolean(anchorEl);
 
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingCode, setEditingCode] = useState<string | null>(null);
@@ -384,11 +373,9 @@ const ListWarehouseDispatch = () => {
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
 
-    // === New State for Status Update Modal ===
     const [openStatusUpdateModal, setOpenStatusUpdateModal] = useState(false);
     const [updateModalData, setUpdateModalData] = useState<{ id: string | null; status: number; description: string }>({ id: null, status: 0, description: '' });
 
-    // === New State for Status Description Modal (Read-only) ===
     const [openStatusDescriptionModal, setOpenStatusDescriptionModal] = useState(false);
     const [readOnlyDescription, setReadOnlyDescription] = useState<string>('');
 
@@ -399,7 +386,6 @@ const ListWarehouseDispatch = () => {
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
-    // ✨ NEW: State for download modals
     const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
     const [openDownloadFilteredModal, setOpenDownloadFilteredModal] = useState(false);
     const [openRowDownloadModal, setOpenRowDownloadModal] = useState(false);
@@ -473,7 +459,6 @@ const ListWarehouseDispatch = () => {
         }
     }, [showAlert]);
 
-    // === API Calls ===
     const fetchInitialData = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -649,7 +634,6 @@ const ListWarehouseDispatch = () => {
         setIsFormVisible(false);
     };
 
-    // === API Actions ===
     const insertDispatch = async () => {
         if (!validateForm()) return;
         setLoadingButton(true);
@@ -784,7 +768,6 @@ const ListWarehouseDispatch = () => {
         setSelectedRowForMenu(null);
     };
 
-    // === UI Handlers ===
     const handleEditClick = () => {
         if (selectedRowForMenu) {
             setEditingId(selectedRowForMenu.id);
@@ -889,8 +872,6 @@ const ListWarehouseDispatch = () => {
             return;
         }
         showAlert('PDF oluşturuluyor...', 'info');
-
-        // تنظیم صفحه به صورت افقی (l: landscape)
         const doc = new jsPDF();
         const docAny = doc as any;
 
@@ -899,7 +880,6 @@ const ListWarehouseDispatch = () => {
                 doc.addPage();
             }
 
-            // افزودن فونت و هدر
             addPdfHeader(doc, title);
 
             if (subtitle) {
@@ -907,7 +887,6 @@ const ListWarehouseDispatch = () => {
                 doc.text(subtitle, 15, 50);
             }
 
-            // اطلاعات اصلی حواله
             doc.setFontSize(11);
             let yPos = 65;
             doc.text(`Sevk Kodu: ${dispatch.code}`, 15, yPos);
@@ -921,15 +900,12 @@ const ListWarehouseDispatch = () => {
             doc.text(`Şoför: ${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`, 15, yPos);
             doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || '-'})`, 280, yPos, { align: 'right' });
 
-            // آماده‌سازی داده‌های جدول اصلی
             const detailsRows = (dispatch.warehouseDispatchDetails || []).map(d => [
                 d.item?.name || '-',
                 d.quantity,
                 d.item?.unit?.title || '-',
                 d.description || '-'
             ]);
-
-            // رسم جدول اصلی
             autoTable(docAny, {
                 startY: yPos + 10,
                 head: [['Malzeme Adı', 'Miktar', 'Birim', 'Açıklama']],
@@ -939,8 +915,6 @@ const ListWarehouseDispatch = () => {
                 headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
                 didDrawPage: () => addPdfFooter(doc)
             });
-
-            // --- بخش محاسبات جمع‌بندی بر اساس واحد ---
             const finalY = docAny.lastAutoTable.finalY || (yPos + 20);
             const unitSummary: Record<string, number> = {};
             let grandTotal = 0;
@@ -957,14 +931,11 @@ const ListWarehouseDispatch = () => {
                 total.toString(),
                 unit
             ]);
-
-            // افزودن سطر جمع کل نهایی
             summaryRows.push([
                 { content: 'GENEL TOPLAM', styles: { fontStyle: 'normal', fillColor: [220, 220, 220] } },
                 { content: grandTotal.toString(), styles: { fontStyle: 'normal', fillColor: [220, 220, 220] } },
                 { content: '-', styles: { fillColor: [220, 220, 220] } }
             ] as any);
-            // رسم جدول جمع‌بندی
             autoTable(docAny, {
                 startY: finalY + 10,
                 head: [['Birim Bazlı Özet', 'Miktar', 'Birim']],
@@ -991,10 +962,7 @@ const ListWarehouseDispatch = () => {
             const worksheetTitle = `Sevk_${dispatch.code}`.replace(/[\\/*?:[\]]/g, '_');
             const worksheet = workbook.addWorksheet(worksheetTitle);
 
-            // هدر اکسل
             addExcelHeader(worksheet, title, 4);
-
-            // اطلاعات حواله
             worksheet.addRow([`Sevk Kodu:`, dispatch.code]);
             worksheet.addRow([`Belge Tarihi:`, formatDateDisplay(dispatch.docDate)]);
             worksheet.addRow([`Depo:`, dispatch.warehouse?.name || '-']);
@@ -1002,8 +970,6 @@ const ListWarehouseDispatch = () => {
             worksheet.addRow([`Şoför:`, `${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`]);
             worksheet.addRow([`Araç:`, `${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || ''})`]);
             worksheet.addRow([]);
-
-            // جدول جزئیات
             const headerRow = worksheet.addRow(['Malzeme Adı', 'Miktar', 'Birim', 'Açıklama']);
             headerRow.font = { name: 'NotoSans', bold: true };
             headerRow.eachCell(cell => {
@@ -1025,14 +991,10 @@ const ListWarehouseDispatch = () => {
                     d.description || '-'
                 ]);
 
-                // محاسبه مجموع برای واحدها
                 unitSummary[unit] = (unitSummary[unit] || 0) + qty;
                 grandTotal += qty;
             });
-
-            // --- افزودن بخش جمع‌بندی در اکسل ---
-            worksheet.addRow([]); // سطر فاصله
-
+            worksheet.addRow([]);
             const summaryHeader = worksheet.addRow(['Birim Bazlı Toplamlar', '', '', '']);
             summaryHeader.font = { bold: true, size: 11 };
             worksheet.mergeCells(summaryHeader.number, 1, summaryHeader.number, 4);
@@ -1042,15 +1004,12 @@ const ListWarehouseDispatch = () => {
                 row.font = { name: 'NotoSans', bold: true };
                 row.getCell(2).alignment = { horizontal: 'left' };
             });
-
-            // سطر جمع کل نهایی (GENEL TOPLAM)
             const grandTotalRow = worksheet.addRow(['GENEL TOPLAM:', grandTotal, '', '']);
             grandTotalRow.font = { name: 'NotoSans', bold: true, size: 12 };
             grandTotalRow.eachCell(cell => {
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } }; // رنگ زرد برای جمع کل
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
             });
 
-            // تنظیم عرض خودکار ستون‌ها
             worksheet.columns.forEach(column => {
                 column.width = 25;
             });
@@ -1065,8 +1024,6 @@ const ListWarehouseDispatch = () => {
             showAlert('Excel başarıyla oluşturuldu.', 'success');
         });
     };
-
-    // ✨ NEW: Unified download handler for all/filtered data
     const handleDownload = (format: 'pdf' | 'excel', isFiltered: boolean) => {
         const dataToDownload = isFiltered ? displayedDispatches : dispatchList;
         const title = isFiltered ? 'Filtrelenmiş Sevk Belgeleri Raporu' : 'Tüm Sevk Belgeleri Raporu';
@@ -1089,7 +1046,6 @@ const ListWarehouseDispatch = () => {
         setSelectedDispatchForDownload(null);
         setOpenRowDownloadModal(false);
     };
-    // ✨ NEW: Unified download handler for a single row
     const handleDownloadSingleDispatch = (format: 'pdf' | 'excel') => {
         if (!selectedDispatchForDownload) return;
         const data = [selectedDispatchForDownload];
@@ -1149,8 +1105,6 @@ const ListWarehouseDispatch = () => {
 
         return { summary, grandTotal };
     }, [detailsToShow]);
-
-    // === UI ===
     return (
         <Box mt={2}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
@@ -1306,12 +1260,11 @@ const ListWarehouseDispatch = () => {
                                 multiline
                                 rows={3}
                                 variant="outlined"
-                                value={generalDescription} // ⬅️ استفاده از نام جدید
-                                onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                value={generalDescription}
+                                onChange={(e) => setGeneralDescription(e.target.value)}
                             />
                         </Grid>
                     </Grid>
-                    {/* Sevk Detayları */}
                     <Box mt={4}>
                         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                             <Typography variant="h6">Sevk Detayları</Typography>
@@ -1323,8 +1276,6 @@ const ListWarehouseDispatch = () => {
                                     !selectedItemIds.includes(Number(item.itemId)) || Number(item.itemId) === Number(detail.itemId)
                                 );
                                 const currentSelectedItem = itemsWithBalance.find(item => Number(item.itemId) === Number(detail.itemId));
-                                // const balance = currentSelectedItem ? Math.max(0, Number(currentSelectedItem.balance)) : 0;
-                                // const displayBalance = currentSelectedItem ? `(Bakiye: ${balance})` : '';
 
                                 return (
                                     <Grid item xs={12} key={index}>
@@ -1397,7 +1348,6 @@ const ListWarehouseDispatch = () => {
                     <Alert severity={alertSeverity} onClose={() => setAlertMessage(null)}>{alertMessage}</Alert>
                 </Stack>
             )}
-            {/* Tablo */}
             <BlankCard>
                 <Grid item xs={12} mt={2} mr={2}>
                     <Stack direction="row" spacing={2} justifyContent="flex-end">
@@ -1516,8 +1466,6 @@ const ListWarehouseDispatch = () => {
                                     <StyledTableCell><Typography variant="h6">Kod</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Depo</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Şoför</Typography></StyledTableCell>
-                                    {/* <StyledTableCell><Typography variant="h6">Araç</Typography></StyledTableCell> */}
-                                    {/* <StyledTableCell><Typography variant="h6">Şantiye</Typography></StyledTableCell> */}
                                     <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Durum</Typography></StyledTableCell>
@@ -1532,12 +1480,9 @@ const ListWarehouseDispatch = () => {
                                             <StyledTableCell><Typography variant="body1">{row.code}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.warehouse?.name || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{`${row.driver?.name || ''} ${row.driver?.family || ''} - ${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell>
-                                            {/* <StyledTableCell><Typography variant="body1">{`${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell> */}
-                                            {/* <StyledTableCell><Typography variant="body1">{row.workhouse?.name || '-'}</Typography></StyledTableCell> */}
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 {row.description && row.description.trim().length > 0 ? (
-                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button
 
@@ -1549,7 +1494,6 @@ const ListWarehouseDispatch = () => {
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (
-                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
                                                     <Typography variant="body2" align="center">
                                                         -
                                                     </Typography>
@@ -1714,8 +1658,6 @@ const ListWarehouseDispatch = () => {
                                             <StyledTableCell>{detail.description || '-'}</StyledTableCell>
                                         </TableRow>
                                     ))}
-
-                                    {/* سطر جمع‌بندی بر اساس واحدها */}
                                     {Object.entries(detailsSummary.summary).map(([unit, total]) => (
                                         <TableRow key={unit} sx={{ backgroundColor: 'rgba(0, 0, 0, 0.04)' }}>
                                             <StyledTableCell sx={{ fontWeight: 'bold' }}>{unit} Bazında Toplam:</StyledTableCell>
@@ -1725,7 +1667,6 @@ const ListWarehouseDispatch = () => {
                                         </TableRow>
                                     ))}
 
-                                    {/* سطر جمع کل نهایی */}
                                     <TableRow sx={{ backgroundColor: 'rgb(240, 240, 240)' }}>
                                         <StyledTableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>GENEL TOPLAM:</StyledTableCell>
                                         <StyledTableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>
@@ -1744,7 +1685,7 @@ const ListWarehouseDispatch = () => {
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <Stack
-                        direction={{ xs: 'column', sm: 'row' }} // ستونی در موبایل، ردیفی در دسکتاپ
+                        direction={{ xs: 'column', sm: 'row' }}
                         spacing={2}
                         sx={{ width: '100%' }}
                     >
@@ -1767,12 +1708,11 @@ const ListWarehouseDispatch = () => {
 
                             <Button
 
-                                fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                                fullWidth
                                 sx={{ flex: 1 }}
                                 variant="contained"
                                 color="success"
                                 startIcon={<IconFileSpreadsheet />}
-                                // استفاده از تابع موجود در کد شما برای خروجی Excel
                                 onClick={() => {
                                     if (selectedRowForMenu) {
                                         exportDispatchesToExcel([selectedRowForMenu], `Sevk_${selectedRowForMenu.code}`);
@@ -1787,8 +1727,7 @@ const ListWarehouseDispatch = () => {
                             onClick={() => setOpenDetailsModal(false)}
                             color="secondary"
                             variant="outlined"
-
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }}
                         >
                             Kapat
@@ -1860,7 +1799,6 @@ const ListWarehouseDispatch = () => {
                 showAlert={showAlert}
             />
 
-            {/* ✨ NEW: Modal for all downloads */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
                 <DialogTitle>Tüm Sevk Belgelerini İndir</DialogTitle>
                 <DialogContent>
@@ -1884,7 +1822,6 @@ const ListWarehouseDispatch = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* ✨ NEW: Modal for filtered downloads */}
             <Dialog open={openDownloadFilteredModal} onClose={() => setOpenDownloadFilteredModal(false)} maxWidth="xs">
                 <DialogTitle>Filtrelenmiş Sevk Belgelerini İndir</DialogTitle>
                 <DialogContent>
@@ -1908,7 +1845,6 @@ const ListWarehouseDispatch = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* ✨ NEW: Modal for single row download */}
             <Dialog open={openRowDownloadModal} onClose={() => setOpenRowDownloadModal(false)} maxWidth="xs">
                 <DialogTitle>Dosya Formatını Seçin</DialogTitle>
                 <DialogContent>

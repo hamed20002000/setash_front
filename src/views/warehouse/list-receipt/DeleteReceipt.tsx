@@ -14,7 +14,6 @@ import server from '../../../assets/address.json';
 import { useNavigate } from 'react-router-dom';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// --- Props interface ---
 interface DeleteReceiptModalProps {
     openModal: boolean;
     onClose: () => void;

@@ -35,7 +35,6 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 
-/* ---------------- Styled ---------------- */
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans',
     fontSize: '0.8rem',
@@ -53,7 +52,6 @@ const BlinkingButton = styled(Button, {
     transition: 'transform 0.3s ease-in-out',
 }));
 
-/* ---------------- Types ---------------- */
 interface UnitType { id: string; title: string; }
 interface ItemType { id: string; name: string; abbreviation: string; unit: UnitType; }
 
@@ -143,14 +141,12 @@ interface InactiveInvoice {
     docDate: string;
 }
 
-/* ---------------- Utils ---------------- */
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
     try { return format(new Date(dateString), 'dd MMMM yyyy', { locale: tr }); }
     catch { return "Geçersiz Tarih"; }
 };
 
-// تابع جدید برای محاسبه جمع کل بر اساس واحد
 const calculateReceiptSummaries = (details: any[]) => {
     const summary: Record<string, number> = {};
     details.forEach(d => {
@@ -161,7 +157,6 @@ const calculateReceiptSummaries = (details: any[]) => {
     return summary;
 };
 
-/* ---------------- PDF & Excel helpers ---------------- */
 const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const docAny = doc as any;
@@ -219,7 +214,6 @@ const exportReceiptsToPdf = (data: BetweenStoreReceiptType[], title: string, sub
             d.description || '-'
         ]);
 
-        // محاسبه جمع برای فوتر
         const summaries = calculateReceiptSummaries(receipt.storeReceiptDetails || []);
         const summaryRows = Object.entries(summaries).map(([unit, total]) => [
             "TOPLAM:",
@@ -232,7 +226,7 @@ const exportReceiptsToPdf = (data: BetweenStoreReceiptType[], title: string, sub
             startY: yPos,
             head: [['Malzeme', 'Miktar', 'Birim', 'Açıklama']],
             body: detailsRows,
-            foot: summaryRows, // اضافه شدن فوتر جمع
+            foot: summaryRows,
             theme: 'grid',
             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
             headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0] },
@@ -300,7 +294,6 @@ const exportReceiptsToExcel = (data: BetweenStoreReceiptType[], title: string) =
             ws.addRow([d.item?.name || '-', Number(d.quantity), d.item?.unit?.title || '-', d.description || '-']);
         });
 
-        // اضافه کردن بخش جمع در اکسل
         ws.addRow([]);
         const summaryTitle = ws.addRow(["Birim Bazlı Toplamlar"]);
         summaryTitle.font = { bold: true, underline: true };
@@ -326,29 +319,24 @@ const exportReceiptsToExcel = (data: BetweenStoreReceiptType[], title: string) =
     return workbook.xlsx.writeBuffer().then(buffer => saveAs(new Blob([buffer]), fileName));
 };
 
-/* ---------------- Component ---------------- */
 const ListBetweenStoreReceipt = () => {
     const navigate = useNavigate();
     const authToken = localStorage.getItem('authToken');
 
-    // Form states
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null);
     const [selectedDispatchId, setSelectedDispatchId] = useState<string | null>(null);
     const [receiptDetails, setReceiptDetails] = useState<FormReceiptDetail[]>([]);
 
-    // Lists
     const [stores, setStores] = useState<StoreType[]>([]);
     const [dispatches, setDispatches] = useState<DispatchEntity[]>([]);
 
-    // Table/List states
     const [receiptList, setReceiptList] = useState<BetweenStoreReceiptType[]>([]);
     const [displayedReceipts, setDisplayedReceipts] = useState<BetweenStoreReceiptType[]>([]);
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // UI states
     const [loadingData, setLoadingData] = useState(true);
     const [loadingButton, setLoadingButton] = useState(false);
     const [isFormValid, setIsFormValid] = useState(false);
@@ -372,7 +360,6 @@ const ListBetweenStoreReceipt = () => {
     const [receiptIdToDelete, setReceiptIdToDelete] = useState<string | null>(null);
     const [receiptCodeToDelete, setReceiptCodeToDelete] = useState<string>('');
 
-    // ** تغییر مهم: استفاده از کل آبجکت رسید برای مودال **
     const [openDetailsModal, setOpenDetailsModal] = useState(false);
     const [viewedReceipt, setViewedReceipt] = useState<BetweenStoreReceiptType | null>(null);
 
@@ -382,7 +369,6 @@ const ListBetweenStoreReceipt = () => {
 
     const [generalDescription, setGeneralDescription] = useState('');
 
-    // Download modals
     const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
     const [openDownloadFilteredModal, setOpenDownloadFilteredModal] = useState(false);
     const [openRowDownloadModal, setOpenRowDownloadModal] = useState(false);
@@ -399,19 +385,11 @@ const ListBetweenStoreReceipt = () => {
     const [lastSelectedDispatch, setLastSelectedDispatch] = useState<{ id: string; code: string } | null>(null);
 
     const { isTooltipGloballyEnabled } = useTooltip();
-    // const { allowedOperations } = useAuth();
-    // const hasCreatePermission = useMemo(() => (allowedOperations || []).some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
-    // const hasEditPermission = useMemo(() => (allowedOperations || []).some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
-    // const hasDeletePermission = useMemo(() => (allowedOperations || []).some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => (allowedOperations || []).some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
-
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -420,24 +398,19 @@ const ListBetweenStoreReceipt = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
 
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -450,8 +423,6 @@ const ListBetweenStoreReceipt = () => {
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
 
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
-
 
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -459,7 +430,6 @@ const ListBetweenStoreReceipt = () => {
         setTimeout(() => { setAlertMessage(null); }, 5000);
     }, []);
 
-    /* ---------------- Fetchers ---------------- */
     const fetchInitialData = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -498,7 +468,6 @@ const ListBetweenStoreReceipt = () => {
         if (!authToken) { navigate("/"); return []; }
         try {
             const res = await axios.get<ApiResponse<DispatchEntity[]>>(
-                // `${server.baseurl}${server.warehouse}get-between-store-dispatches/${Number(storeId)}`,
                 `${server.baseurl}${server.warehouse}get-between-store-dispatches-by-destination-store-id/${Number(storeId)}`,
 
                 { headers: { Authorization: `Bearer ${authToken}` } }
@@ -581,7 +550,6 @@ const ListBetweenStoreReceipt = () => {
         return () => clearTimeout(t);
     }, []);
 
-    /* ---------------- Helpers ---------------- */
     const populateDetailsFromDispatch = useCallback((dispatch: DispatchEntity | null) => {
         if (!dispatch) { setReceiptDetails([]); return; }
         const newDetails: FormReceiptDetail[] = (dispatch.storeDispatchDetails || []).map(sd => ({
@@ -655,7 +623,6 @@ const ListBetweenStoreReceipt = () => {
         setIsFormVisible(false);
     };
 
-    /* ---------------- API: End/Un-End Dispatch ---------------- */
     const updateDispatchIsEnd = useCallback(async (id: string, isEnd: boolean) => {
         if (!authToken) { navigate("/"); return { ok: false }; }
         try {
@@ -673,7 +640,6 @@ const ListBetweenStoreReceipt = () => {
         }
     }, [authToken, navigate, showAlert]);
 
-    /* ---------------- CRUD ---------------- */
     const insertReceipt = async () => {
         if (!validateForm()) return;
         setLoadingButton(true);
@@ -697,7 +663,6 @@ const ListBetweenStoreReceipt = () => {
             if (res.data.httpStatusCode === 201) {
                 showAlert('Yeni giriş belgesi başarıyla eklendi!', 'success');
 
-                // بعد از ثبت، اگر Sevk انتخاب شده بود، مودال تایید بستن Sevk را باز کن
                 if (selectedDispatchId) {
                     const picked = dispatches.find(d => d.id === selectedDispatchId);
                     setLastSelectedDispatch({ id: selectedDispatchId, code: picked?.code || 'N/A' });
@@ -861,7 +826,6 @@ const ListBetweenStoreReceipt = () => {
 
     const handleClearDateFilters = () => { setStartDate(null); setEndDate(null); };
 
-    /* ---------------- NEW: Sevk List Modal actions ---------------- */
     const handleToggleDispatchRow = async (row: DispatchEntity, value: 'open' | 'ended') => {
         const targetIsEnd = value === 'ended';
         const res = await updateDispatchIsEnd(row.id, targetIsEnd);
@@ -875,7 +839,6 @@ const ListBetweenStoreReceipt = () => {
         }
     };
 
-    /* ---------------- NEW: Confirm End Dispatch after Insert ---------------- */
     const handleConfirmEndDispatch = async (shouldEnd: boolean) => {
         setOpenEndDispatchConfirmModal(false);
         const d = lastSelectedDispatch;
@@ -905,8 +868,6 @@ const ListBetweenStoreReceipt = () => {
         setFullDescriptionContent('');
     };
 
-
-    /* ---------------- UI ---------------- */
     return (
         <Box mt={2}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
@@ -966,7 +927,6 @@ const ListBetweenStoreReceipt = () => {
                         <Grid item xs={12} sm={5}>
                             <Stack direction="row" alignItems="center" justifyContent="space-between">
                                 <CustomFormLabel required>Şantiyenin Depo Sevk Belgesi</CustomFormLabel>
-                                {/* دکمه لیست Sevk ها */}
                                 <CustomTooltip title="Sevk Belgeleri listesi">
                                     <span>
                                         <Button
@@ -1144,7 +1104,6 @@ const ListBetweenStoreReceipt = () => {
                 </Stack>
             )}
 
-            {/* لیست + فیلتر + دانلودها */}
             <BlankCard>
                 <Stack direction="row" spacing={2} justifyContent="flex-end" mt={2} mb={2} mr={2}>
                     {isFilterActive && hasDownloadPermission && (
@@ -1327,7 +1286,6 @@ const ListBetweenStoreReceipt = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Details Modal */}
             <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>
                     Giriş Detayları
@@ -1359,7 +1317,6 @@ const ListBetweenStoreReceipt = () => {
                                 </Table>
                             </TableContainer>
 
-                            {/* جدول خلاصه جمع‌ها */}
                             <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
                                 <TableContainer component={Paper} variant="outlined" sx={{ width: 'auto', minWidth: '300px' }}>
                                     <Table size="small">
@@ -1394,14 +1351,14 @@ const ListBetweenStoreReceipt = () => {
                 </DialogContent>
                 <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
                     <Stack
-                        direction={{ xs: 'column', sm: 'row' }} // در موبایل ستونی، در دسکتاپ ردیفی
-                        spacing={2} // فاصله یکسان بین تمام دکمه‌ها
-                        sx={{ width: '100%' }} // اشغال تمام عرض کادر
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={2}
+                        sx={{ width: '100%' }}
                     >
                         <Button
                             variant="contained"
                             color="error"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }}
                             startIcon={<IconFileText />}
                             disabled={!viewedReceipt}
@@ -1412,7 +1369,7 @@ const ListBetweenStoreReceipt = () => {
                         <Button
                             variant="contained"
                             color="success"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }}
                             startIcon={<IconFileSpreadsheet />}
                             disabled={!viewedReceipt}
@@ -1421,14 +1378,12 @@ const ListBetweenStoreReceipt = () => {
                             Excel İndir
                         </Button>
                         <Button onClick={() => setOpenDetailsModal(false)} color="secondary" variant="outlined"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }} >Kapat</Button>
 
                     </Stack>
                 </DialogActions>
             </Dialog>
-
-            {/* Download Modals */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
                 <DialogTitle>Tüm Girişleri İndir</DialogTitle>
                 <DialogContent>
@@ -1460,7 +1415,6 @@ const ListBetweenStoreReceipt = () => {
                 <DialogActions><Button onClick={() => setOpenRowDownloadModal(false)}>Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* مودال فاکتورهای Sonlandırılmış */}
             <Dialog open={openInactiveModal} onClose={() => setOpenInactiveModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Sonlandırılmış Faturalar (Fişi Kesilmiş)</DialogTitle>
                 <DialogContent dividers>
@@ -1506,8 +1460,6 @@ const ListBetweenStoreReceipt = () => {
                     <Button onClick={() => setOpenInactiveModal(false)}>Kapat</Button>
                 </DialogActions>
             </Dialog>
-
-            {/* Delete */}
             <DeleteBetweenStoreReceipt
                 openModal={openDeleteModal}
                 onClose={handleCloseDeleteModal}
@@ -1517,7 +1469,6 @@ const ListBetweenStoreReceipt = () => {
                 showAlert={showAlert}
             />
 
-            {/* NEW: Sevk Listesi Modal */}
             <Dialog open={openDispatchListModal} onClose={() => setOpenDispatchListModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Şantiyenin Depo Sevk Listesi</DialogTitle>
                 <DialogContent dividers>
@@ -1564,7 +1515,6 @@ const ListBetweenStoreReceipt = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* NEW: Confirm End Dispatch after Insert */}
             <Dialog open={openEndDispatchConfirmModal} onClose={() => setOpenEndDispatchConfirmModal(false)}>
                 <DialogTitle>Sevk Durumu Onayı</DialogTitle>
                 <DialogContent>

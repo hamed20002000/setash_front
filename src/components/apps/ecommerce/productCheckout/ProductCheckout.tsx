@@ -40,9 +40,6 @@ const ProductChecout = () => {
         activeStep={activeStep}
         finalStep={<FinalStep />}
       >
-        {/* ------------------------------------------- */}
-        {/* Step1 */}
-        {/* ------------------------------------------- */}
         {activeStep === 0 ? (
           <>
             <Box my={3}>
@@ -50,9 +47,6 @@ const ProductChecout = () => {
             </Box>
             {checkout.length > 0 ? (
               <>
-                {/* ------------------------------------------- */}
-                {/* Cart Total */}
-                {/* ------------------------------------------- */}
                 <FirstStep total={total} Discount={Discount} />
                 <Stack direction={'row'} justifyContent="space-between">
                   <Button
@@ -74,9 +68,6 @@ const ProductChecout = () => {
           </>
         ) : activeStep === 1 ? (
           <>
-            {/* ------------------------------------------- */}
-            {/* Step2 */}
-            {/* ------------------------------------------- */}
             <SecondStep nexStep={handleNext} />
             <FirstStep total={total} Discount={Discount} />
             <Stack direction={'row'} justifyContent="space-between">
@@ -90,9 +81,6 @@ const ProductChecout = () => {
           </>
         ) : (
           <>
-            {/* ------------------------------------------- */}
-            {/* Step3 */}
-            {/* ------------------------------------------- */}
             <ThirdStep />
             <FirstStep total={total} Discount={Discount} />
             <Stack direction={'row'} justifyContent="space-between">

@@ -1,7 +1,6 @@
 
 import { getSocket, connectIfNeeded, switchRole as switchSocketRole } from './Socket';
 
-// --- انواع ---
 export type NotifyType =
     | 'order'
     | 'invoice-to-warehouse'
@@ -29,7 +28,6 @@ export type Noti = {
     at?: string;
     atISO?: string;
     type?: NotifyType;
-    // IDs برای ناوبری
     projectId?: string;
     warehouseId?: string;
     storeId?: string;
@@ -40,8 +38,6 @@ export type Role = 'admin' | 'user' | (string & {});
 function toStrictRole(role: Role | undefined): 'admin' | 'user' {
     return role === 'admin' ? 'admin' : role === 'user' ? 'user' : 'admin';
 }
-
-// role فقط از localStorage خوانده می‌شود (منبع حقیقت)
 function readRoleFromStorage(): 'admin' | 'user' | '' {
     try {
         return (localStorage.getItem('activeUserRoleName') || '') as any;
@@ -79,8 +75,6 @@ type State = {
     liveUpdateCounter: number;
 } & Buckets;
 
-// ثابت‌ها و توابع مرتبط با ذخیره‌سازی محلی (localStorage) حذف شدند
-// const MAX_ITEMS = 500; // این را برای کنترل حجم لیست‌ها نگه می‌داریم
 
 const emptyBuckets = (): Buckets => ({
     order: [],
@@ -115,13 +109,9 @@ const state: State = {
     ...emptyBuckets(),
 };
 
-// ❌ حذف توابع loadFromStorage و saveToStorage
-
-// Pub/Sub
 type Listener = (s: Readonly<State>) => void;
 const listeners = new Set<Listener>();
 
-// 💡 برای جلوگیری از رشد بی نهایت لیست‌ها، یک سقف تعریف می‌کنیم
 const MAX_ITEMS = 500;
 
 const snapshot = (): Readonly<State> =>
@@ -148,15 +138,9 @@ const snapshot = (): Readonly<State> =>
         tender: [...state.tender],
     });
 
-// const emit = () => {
-//     const s = snapshot();
-//     listeners.forEach((l) => l(s));
-// };
-
 
 const emit = () => {
     const s = snapshot();
-    // 💡 پرچم پس از انتشار snapshot ریست می شود
     state.needsRefresh = false;
     listeners.forEach((l) => l(s));
 };
@@ -171,8 +155,6 @@ export const subscribe = (l: Listener): (() => void) => {
 
 export const getState = () => snapshot();
 
-// ❌ حذف فراخوانی loadFromStorage();
-
 let started = false;
 let socket = getSocket();
 
@@ -185,7 +167,6 @@ const toNoti = (payload: any): Noti => {
 
     return {
         id: payload?.id ?? (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
-        // 💡 title اکنون می‌تواند از type ست شود، چون type هنگام فراخوانی onNotifyEvent تزریق می‌شود
         title: String(payload?.type ?? 'bildirim'),
         body: `Tanımlayıcı: ${payload?.id ?? 'belirtilmemiş'}`,
         at: new Date().toLocaleString(),
@@ -201,7 +182,6 @@ function push(type: NotifyType, n: Noti) {
     const cap = (arr: Noti[]) => [n, ...arr].slice(0, MAX_ITEMS);
     state.notis = cap(state.notis);
 
-    // 💡 به دلیل حذف ذخیره‌سازی محلی، کنترل cap برای جلوگیری از پر شدن حافظه ضروری است
     switch (type) {
         case 'order': state.order = cap(state.order); break;
         case 'invoice-to-warehouse': state.invoiceToWarehouse = cap(state.invoiceToWarehouse); break;
@@ -224,51 +204,33 @@ function push(type: NotifyType, n: Noti) {
     }
 }
 
-// function onNotifyEvent(eventName: NotifyType, payload: any) {
-//     if (!payload?.type) {
-//         payload.type = eventName;
-//     }
-//     if (Number(payload.recordStatus) !== 0) {
-//         return;
-//     }
-//     const n = toNoti(payload);
-//     push(payload.type as NotifyType, n);
-//     emit();
-// }
 
 function onNotifyEvent(eventName: NotifyType, payload: any) {
-    // 1. اطمینان از تنظیم بودن 'type'
     if (!payload?.type) {
         payload.type = eventName;
     }
 
-    // 2. چک کردن recordStatus = 0
     if (Number(payload.recordStatus) !== 0) {
-        // اعلان خوانده شده است، نادیده گرفته می‌شود
         return;
     }
 
     const n = toNoti(payload);
 
-    // 3. افزودن اعلان
     push(payload.type as NotifyType, n);
 
-    // 💡 گام مهم: افزایش شمارنده برای تضمین Re-render در UI (حل مشکل صفحه ثابت)
     state.liveUpdateCounter++;
 
     emit();
 }
 
-// function onConnect() { state.connected = true; emit(); }
 function onConnect() {
     state.connected = true;
-    state.needsRefresh = true; // ⬅️ پس از هر اتصال موفق، نیاز به واکشی داریم
+    state.needsRefresh = true;
     emit();
 }
 function onDisconnect() { state.connected = false; emit(); }
 function onConnectError(err: any) { console.log('connect_error', err?.message, err); }
 
-// 💡 لیست انواع رویدادهای سوکت
 const NOTIFY_EVENTS: NotifyType[] = [
     'order', 'invoice-to-warehouse', 'warehouse-dispatch', 'warehouse-dispatch-destruction',
     'warehouse-dispatch-between-warehouse', 'invoice-to-store', 'store-dispatch-to-project',
@@ -282,9 +244,7 @@ function bind() {
     socket.on('disconnect', onDisconnect);
     socket.on('connect_error', onConnectError);
 
-    // 💡 گوش دادن به تمام انواع اعلان‌ها به عنوان رویدادهای مجزا
     NOTIFY_EVENTS.forEach(event => {
-        // استفاده از bind برای تزریق نام رویداد به عنوان آرگومان اول
         socket.on(event, onNotifyEvent.bind(null, event));
     });
 }
@@ -294,9 +254,7 @@ function unbind() {
     socket.off('disconnect', onDisconnect);
     socket.off('connect_error', onConnectError);
 
-    // 💡 حذف تمامی شنوندگان برای انواع اعلان‌ها
     NOTIFY_EVENTS.forEach(event => {
-        // این رویکرد آسان‌ترین راه برای unbind کردن توابع bind شده است
         (socket as any).removeAllListeners(event);
     });
 }
@@ -322,25 +280,8 @@ export function stopNotifyService({ disconnect = true }: { disconnect?: boolean 
     if (disconnect) socket.disconnect();
 }
 
-// export function switchRoleInService(_role?: Role, { clearLists = false }: { clearLists?: boolean } = {}) {
-//     const strict = toStrictRole(readRoleFromStorage());
-//     if (toStrictRole(state.role) === strict) return;
-
-//     state.role = strict;
-
-//     // 💡 از آنجا که persist حذف شد، تغییر نقش معمولاً باید لیست‌ها را پاک کند
-//     if (clearLists) {
-//         state.notis = [];
-//         Object.assign(state, emptyBuckets());
-//     }
-//     emit();
-//     switchSocketRole();
-// }
-
 export function switchRoleInService(_role?: Role, { clearLists = false }: { clearLists?: boolean } = {}) {
     const strict = toStrictRole(readRoleFromStorage());
-    // اگر نقش تغییر نکرده باشد، اما این تابع به صورت دستی فراخوانی شود (مثلاً پس از ثبت)
-    // باز هم می‌توانیم refresh کنیم.
 
     const roleChanged = toStrictRole(state.role) !== strict;
 
@@ -353,10 +294,8 @@ export function switchRoleInService(_role?: Role, { clearLists = false }: { clea
         Object.assign(state, emptyBuckets());
     }
 
-    // 💡 پرچم را تنظیم می‌کنیم تا کامپوننت UI بداند که باید واکشی کند
     state.needsRefresh = true;
     emit();
 
-    // 💡 مهم: اتصال سوکت باید پس از تغییر نقش در سرویس برقرار شود
     switchSocketRole();
 }

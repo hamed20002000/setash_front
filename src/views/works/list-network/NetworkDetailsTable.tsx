@@ -36,19 +36,17 @@ const SubEntryRow: React.FC<SubEntryRowProps> = ({
     const [isSubExpanded, setIsSubExpanded] = useState(false);
     const displayDnName = (dnValue: string) => {
         if (dnValue.includes('###')) {
-            return dnValue.split('###')[0]; // فقط نام را برمی‌گرداند: c1
+            return dnValue.split('###')[0];
         }
-        return dnValue; // اگر داده قدیمی باشد، خودش را نشان می‌دهد
+        return dnValue;
     };
     return (
         <React.Fragment>
             <TableRow sx={{
                 '&:last-child td': { border: 0 },
-                // اختیاری: می‌توانید رنگ پس‌زمینه سطر مجموع را کمی متفاوت کنید
                 backgroundColor: subEntry.isToplamRow ? '#f9f9f9' : 'inherit'
             }}>
                 <TableCell style={{ width: '50px' }}>
-                    {/* دکمه بازشو برای همه سطرها (شامل مجموع) نمایش داده شود */}
                     {subEntry.itemDetails && subEntry.itemDetails.length > 0 && (
                         <IconButton size="small" onClick={() => setIsSubExpanded(!isSubExpanded)}>
                             {isSubExpanded ? <IconChevronDown size={20} /> : <IconChevronRight size={20} />}
@@ -56,15 +54,11 @@ const SubEntryRow: React.FC<SubEntryRowProps> = ({
                     )}
                 </TableCell>
 
-                {/* نام DN (که شامل "TOPLAM" است) نمایش داده شود */}
                 <TableCell>
                     <Typography variant="body2" fontWeight={subEntry.isToplamRow ? 'bold' : 'normal'}>
-                        {/* 🔴 اینجا اصلاح شد: استفاده از تابع برای حذف آیدی از ظاهر جدول */}
                         {displayDnName(subEntry.dn)}
                     </Typography>
                 </TableCell>
-
-                {/* 🔴 تغییر مهم اینجاست: اگر سطر مجموع بود، خالی نشان بده، وگرنه مقدار را نشان بده */}
                 <TableCell>
                     <Typography variant="body2">
                         {subEntry.isToplamRow ? '' : subEntry.yeni}
@@ -82,7 +76,6 @@ const SubEntryRow: React.FC<SubEntryRowProps> = ({
                 </TableCell>
 
                 <TableCell sx={{ width: '100px', textAlign: 'right' }}>
-                    {/* دکمه‌های ویرایش و حذف را برای سطر مجموع مخفی کنید تا اشتباهی پاک نشود */}
                     {!subEntry.isToplamRow && (
                         <>
                             <IconButton
@@ -106,7 +99,6 @@ const SubEntryRow: React.FC<SubEntryRowProps> = ({
                 </TableCell>
             </TableRow>
 
-            {/* بخش بازشوی Collapse بدون تغییر باقی می‌ماند تا آیتم‌های داخل TOPLAM دیده شوند */}
             <TableRow>
                 <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
                     <Collapse in={isSubExpanded} timeout="auto" unmountOnExit>

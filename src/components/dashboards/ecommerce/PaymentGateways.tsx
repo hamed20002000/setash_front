@@ -18,11 +18,10 @@ interface statType {
   color: string;
   lightcolor: string;
   icon: string;
-  }
+}
 
-  const PaymentGateways: React.FC = () => {
+const PaymentGateways: React.FC = () => {
 
-  // chart color
   const theme = useTheme();
   const primary = theme.palette.primary.main;
   const primarylight = theme.palette.primary.light;
@@ -34,7 +33,7 @@ interface statType {
   const secondarylight = theme.palette.success.light;
 
 
-    const stats: statType[] = [
+  const stats: statType[] = [
     {
       title: 'Paypal',
       subtitle: 'Big Brands',
@@ -86,7 +85,7 @@ interface statType {
                   variant="rounded"
                   sx={{ bgcolor: stat.lightcolor, color: stat.color, width: 40, height: 40 }}
                 >
-                    <Avatar src={stat.icon} alt={stat.icon} sx={{ width: 24, height: 24 }} />
+                  <Avatar src={stat.icon} alt={stat.icon} sx={{ width: 24, height: 24 }} />
                 </Avatar>
                 <Box>
                   <Typography variant="h6" mb="4px">
@@ -108,7 +107,7 @@ interface statType {
               )}
             </Stack>
           ))}
-          <Button variant="outlined" color="primary" sx={{mt: "40px !important"}}>
+          <Button variant="outlined" color="primary" sx={{ mt: "40px !important" }}>
             View all transactions
           </Button>
         </Stack>

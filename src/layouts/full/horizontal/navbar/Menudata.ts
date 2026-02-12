@@ -102,7 +102,6 @@ const getIconComponent = (iconIdentifier: string | undefined): React.ElementType
   return IconComponents[cleanedIdentifier] || IconPlus;
 };
 
-// ✅ تابع اصلی فیلتر کردن منوها بر اساس عملیات مجاز
 export const mapApiDataToMenuItems = (apiData: ApiMenuItem[], allowedOperations: string[]): MenuitemsType[] => {
   if (!apiData || apiData.length === 0) return [];
 
@@ -112,17 +111,14 @@ export const mapApiDataToMenuItems = (apiData: ApiMenuItem[], allowedOperations:
     .filter(item => item.recordStatus === 0)
     .sort((a, b) => a.order - b.order)
     .forEach(item => {
-      // ابتدا فرزندان منو را به صورت بازگشتی فیلتر می‌کنیم
       let children: MenuitemsType[] | undefined;
       if (item.menus && item.menus.length > 0) {
         children = mapApiDataToMenuItems(item.menus, allowedOperations);
       }
 
-      // بررسی دسترسی مشاهده برای منوی فعلی
       const hasViewPermission = item.menuOperations
         .filter(op => op.recordStatus === 0)
         .some(op => op.systemOperation.name === 'Görüntülemek' && allowedOperations.includes(op.id));
-      // اگر منو دسترسی مشاهده دارد یا فرزندان مجاز دارد، آن را در لیست نهایی قرار می‌دهیم
       if (hasViewPermission || (children && children.length > 0)) {
         const menuItem: MenuitemsType = {
           id: item.id || uniqueId(),
@@ -139,7 +135,6 @@ export const mapApiDataToMenuItems = (apiData: ApiMenuItem[], allowedOperations:
   return filteredAndMappedMenus;
 };
 
-// ✅ تابع دریافت منوهای خام از سرور (بدون تغییر)
 const getRawMenusFromApi = async (): Promise<any[]> => {
   const authToken = localStorage.getItem('authToken');
   if (!authToken) {
@@ -163,7 +158,6 @@ const getRawMenusFromApi = async (): Promise<any[]> => {
   }
 };
 
-// ✅ تابع اصلی که از AuthProvider فراخوانی می‌شود
 export const getDynamicMenuItems = async (allowedOperations: string[]): Promise<MenuitemsType[]> => {
   const rawMenus = await getRawMenusFromApi();
   const mappedMenuItems = mapApiDataToMenuItems(rawMenus, allowedOperations);

@@ -78,12 +78,6 @@ const Sidebar = () => {
 
             >
 
-                {/* ------------------------------------------- */}
-
-                {/* Sidebar for desktop */}
-
-                {/* ------------------------------------------- */}
-
                 <Drawer
 
                     anchor="left"
@@ -116,12 +110,6 @@ const Sidebar = () => {
 
                 >
 
-                    {/* ------------------------------------------- */}
-
-                    {/* Sidebar Box */}
-
-                    {/* ------------------------------------------- */}
-
                     <Box
 
                         sx={{
@@ -132,11 +120,6 @@ const Sidebar = () => {
 
                     >
 
-                        {/* ------------------------------------------- */}
-
-                        {/* Logo */}
-
-                        {/* ------------------------------------------- */}
 
                         <Box px={3} sx={{
 
@@ -146,17 +129,11 @@ const Sidebar = () => {
 
                             <Logo />
 
-                            {/* <h2>Setashf</h2> */}
 
                         </Box>
 
                         <Scrollbar sx={{ height: 'calc(100% - 190px)' }}>
 
-                            {/* ------------------------------------------- */}
-
-                            {/* Sidebar Items */}
-
-                            {/* ------------------------------------------- */}
 
                             <SidebarItems />
 
@@ -196,16 +173,6 @@ const Sidebar = () => {
 
 
 
-                    // backgroundColor:
-
-                    //   customizer.activeMode === 'dark'
-
-                    //     ? customizer.darkBackground900
-
-                    //     : customizer.activeSidebarBg,
-
-                    // color: customizer.activeSidebarBg === '#ffffff' ? '' : 'white',
-
                     border: '0 !important',
 
                     boxShadow: (theme) => theme.shadows[8],
@@ -216,17 +183,10 @@ const Sidebar = () => {
 
         >
 
-            {/* ------------------------------------------- */}
-
-            {/* Logo */}
-
-            {/* ------------------------------------------- */}
 
             <Box px={2}>
 
                 <Logo />
-
-                {/* <h2>Setash</h2> */}
 
             </Box>
 

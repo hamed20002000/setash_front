@@ -2,11 +2,10 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React from 'react'; // useState دیگر اینجا استفاده نمی‌شود
+import React from 'react';
 import { useSelector } from 'src/store/Store';
 import { useLocation } from 'react-router-dom';
 
-// mui imports
 import {
   ListItemIcon,
   ListItemButton,
@@ -16,10 +15,8 @@ import {
   useTheme,
 } from '@mui/material';
 
-// custom imports
-import NavItem from '../NavItem'; // مطمئن شوید NavItem از onClick برای بستن سایدبار استفاده می‌کند
+import NavItem from '../NavItem';
 
-// plugins
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { AppState } from 'src/store/Store';
@@ -31,7 +28,7 @@ type NavGroupProps = {
   title?: string;
   icon?: any;
   href?: any;
-  children?: NavGroupProps[]; // اضافه شدن children به NavGroupProps
+  children?: NavGroupProps[];
 };
 
 interface NavCollapseProps {
@@ -40,23 +37,18 @@ interface NavCollapseProps {
   pathWithoutLastPart: any;
   pathDirect: any;
   hideMenu: any;
-  // onClick: (event: React.MouseEvent<HTMLElement>) => void; // <--- **این خط را حذف کنید**
-  // **START: پراپ‌های جدید برای کنترل اکاردئون**
-  isOpen: boolean; // از والد می‌آید، وضعیت باز بودن این منو را نشان می‌دهد
-  onToggle: (id: string) => void; // تابعی که از والد می‌آید برای اطلاع‌رسانی کلیک
-  // **END: پراپ‌های جدید برای کنترل اکاردئون**
+  isOpen: boolean;
+  onToggle: (id: string) => void;
 }
 
-// FC Component For Dropdown Menu
 const NavCollapse = ({
   menu,
   level,
   pathWithoutLastPart,
   pathDirect,
   hideMenu,
-  // onClick, // <--- **این پراپ را از اینجا حذف کنید**
-  isOpen, // <--- **پراپ isOpen را دریافت کنید**
-  onToggle, // <--- **پراپ onToggle را دریافت کنید**
+  isOpen,
+  onToggle,
 }: NavCollapseProps) => {
   const customizer = useSelector((state: AppState) => state.customizer);
   const Icon = menu?.icon;
@@ -64,33 +56,12 @@ const NavCollapse = ({
   const { pathname } = useLocation();
   const { t } = useTranslation();
 
-  // این handleClick حالا فقط باید به والد (SidebarItems) اطلاع دهد.
   const handleClick = () => {
-    // onToggle را با ID منوی فعلی فراخوانی کنید تا والد وضعیت را مدیریت کند.
     onToggle(menu.id);
-    // onClick اصلی را که برای بستن سایدبار موبایل بود، اینجا دیگر فراخوانی نمی‌کنیم.
-    // چون مسئولیت بستن سایدبار به NavItem منتقل شده است.
   };
-
-  // React.useEffect قبلی که 'open' را بر اساس pathname تنظیم می‌کرد،
-  // دیگر نیازی به setOpen داخلی ندارد و باید حذف شود.
-  // این useEffect باید حذف شود تا فقط والد کنترل کند.
-  /*
-  React.useEffect(() => {
-       // این منطق حالا باید توسط والد مدیریت شود
-     setOpen(false); // <--- این خط باید حذف شود
-     menu?.children?.forEach((item: any) => {
-       if (item?.href === pathname) {
-         setOpen(true); // <--- این خط باید حذف شود
-       }
-     });
-   }, [pathname, menu.children]);
-   */
-
   const menuIcon =
     level > 1 ? <Icon stroke={1.5} size="1rem" /> : <Icon stroke={1.5} size="1.3rem" />;
 
-  // بررسی کنید آیا هر یک از فرزندان این منو در مسیر فعلی فعال هستند
   const isAnyChildActive = menu.children
     ? menu.children.some(
       (child: any) =>
@@ -103,7 +74,6 @@ const NavCollapse = ({
     marginBottom: '2px',
     padding: '8px 10px',
     paddingLeft: hideMenu ? '10px' : level > 2 ? `${level * 15}px` : '10px',
-    // backgroundColor و color حالا بر اساس isOpen و isAnyChildActive تنظیم می‌شوند
     backgroundColor: (isOpen || isAnyChildActive) && level < 2 ? 'rgb(93 135 255)' : 'transparent',
     whiteSpace: 'nowrap',
     '&:hover': {
@@ -122,7 +92,6 @@ const NavCollapse = ({
     borderRadius: `${customizer.borderRadius}px`,
   }));
 
-  // If Menu has Children
   const submenus = menu.children?.map((item: any) => {
     if (item.children) {
       return (
@@ -133,8 +102,8 @@ const NavCollapse = ({
           pathWithoutLastPart={pathWithoutLastPart}
           pathDirect={pathDirect}
           hideMenu={hideMenu}
-          isOpen={false} // <--- برای زیرمنوها، فعلاً isOpen را false در نظر بگیرید مگر اینکه منطق پیچیده‌تری برای آن اضافه کنید
-          onToggle={onToggle} // تابع onToggle را به پایین پاس می‌دهیم
+          isOpen={false}
+          onToggle={onToggle}
         />
       );
     } else {
@@ -154,8 +123,8 @@ const NavCollapse = ({
   return (
     <>
       <ListItemStyled
-        onClick={handleClick} // <--- استفاده از handleClick جدید
-        selected={isAnyChildActive} // فقط اگر فرزندان فعال باشند selected شود
+        onClick={handleClick}
+        selected={isAnyChildActive}
         key={menu?.id}
       >
         <ListItemIcon
@@ -168,10 +137,8 @@ const NavCollapse = ({
           {menuIcon}
         </ListItemIcon>
         <ListItemText color="inherit">{hideMenu ? '' : <>{t(`${menu.title}`)}</>}</ListItemText>
-        {/* استفاده از پراپ `isOpen` برای نمایش آیکون صحیح */}
         {!isOpen ? <IconChevronDown size="1rem" /> : <IconChevronUp size="1rem" />}
       </ListItemStyled>
-      {/* استفاده از پراپ `isOpen` برای کنترل وضعیت Collapse */}
       <Collapse in={isOpen} timeout="auto" unmountOnExit>
         <div style={{ marginLeft: "10px", background: "rgb(93 135 255 / 19%)" }}>
           {submenus}

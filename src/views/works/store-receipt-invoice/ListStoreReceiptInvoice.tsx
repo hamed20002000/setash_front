@@ -1603,7 +1603,7 @@ const ListStoreReceiptInvoice: React.FC = () => {
                             </TableHead>
                             <TableBody>
                                 {invoicesList
-                                    .filter(inv => (typeof inv.status === "number" ? inv.status === 1 : inv.recordStatus === 0)) // فقط status=1
+                                    .filter(inv => (typeof inv.status === "number" ? inv.status === 1 : inv.recordStatus === 0))
                                     .map(row => (
                                         <TableRow key={row.id}>
                                             <StyledTableCell>{row.invoiceNo}</StyledTableCell>

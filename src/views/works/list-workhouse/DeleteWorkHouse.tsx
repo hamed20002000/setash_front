@@ -6,15 +6,14 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
-import server from '../../../assets/address.json'; // مسیر فایل address.json را تنظیم کنید
+import server from '../../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// --- Props interface ---
 type Props = {
     openModal: boolean;
     workhouseIdToDelete: number | null;
-    workhouseNameToDelete: string; // برای نمایش نام کارگاه در پیام تایید
+    workhouseNameToDelete: string;
     onClose: () => void;
     onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
@@ -25,7 +24,6 @@ const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // State for Workhouse In Use modal
     const [openWorkhouseInUseModal, setOpenWorkhouseInUseModal] = useState<boolean>(false);
 
     const handleDeleteWorkhouse = async () => {
@@ -38,14 +36,13 @@ const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             showAlert('Lütfen giriş yapın.', 'warning');
-            // navigate("/"); // ممکن است بخواهید به صفحه ورود هدایت کنید
             return;
         }
 
         setLoading(true);
         try {
             const response = await axios.delete(
-                `${server.baseurl}${server.initialoperations}delete-workhouse/${workhouseIdToDelete}`, // ✅ آدرس API برای حذف کارگاه
+                `${server.baseurl}${server.initialoperations}delete-workhouse/${workhouseIdToDelete}`,
                 {
                     headers: {
                         "Accept": "application/json",
@@ -86,7 +83,6 @@ const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete
 
     return (
         <>
-            {/* Main Delete Confirmation Modal */}
             <Dialog
                 open={openModal}
                 onClose={onClose}
@@ -126,7 +122,6 @@ const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete
                 </DialogActions>
             </Dialog>
 
-            {/* Dialog for Workhouse In Use */}
             <Dialog
                 open={openWorkhouseInUseModal}
                 onClose={handleCloseWorkhouseInUseModal}

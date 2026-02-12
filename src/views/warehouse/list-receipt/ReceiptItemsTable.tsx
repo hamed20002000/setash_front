@@ -38,12 +38,11 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
     isInvoiceComboDisabled,
 }) => {
     const navigate = useNavigate();
-    const [invoicesList, setInvoicesList] = useState<InvoiceType[]>([]);  // برای کمبو: فقط بازها
-    const [allInvoices, setAllInvoices] = useState<InvoiceType[]>([]);    // برای مودال: status=1 (باز و بسته)
+    const [invoicesList, setInvoicesList] = useState<InvoiceType[]>([]);
+    const [allInvoices, setAllInvoices] = useState<InvoiceType[]>([]);
     const [selectedInvoice, setSelectedInvoice] = useState<InvoiceType | null>(null);
     const [editingItem, setEditingItem] = useState<ProcessedReceiptItem | null>(null);
 
-    // مودال «Listeyi Göster»
     const [openInvoiceListModal, setOpenInvoiceListModal] = useState(false);
 
     const { isTooltipGloballyEnabled } = useTooltip();
@@ -58,7 +57,6 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
         }
     };
 
-    // --- API: به‌روزرسانی وضعیت فاکتور (Açık / Sonlandırılmış) ---
     const updateInvoiceIsEnd = async (invoiceId: number, isEnd: boolean) => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
@@ -68,8 +66,8 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
             const resp = await axios.put(url, payload, { headers: { "Authorization": `Bearer ${authToken}` } });
             if (resp.data?.httpStatusCode === 200) {
                 showAlert(isEnd ? 'Fatura sonlandırıldı.' : 'Fatura tekrar açıldı.', 'success');
-                await getInvoices();        // رفرش لیست‌های مودال و کمبو
-                if (typeof getReceipts === 'function') await getReceipts(); // اگر لازم شد والد هم رفرش شود
+                await getInvoices();
+                if (typeof getReceipts === 'function') await getReceipts();
             } else {
                 showAlert(resp.data?.message || 'Fatura durumu güncellenemedi.', 'error');
             }
@@ -78,13 +76,11 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
         }
     };
 
-    // هندل انتخاب Radio برای هر ردیف مودال
     const handleToggleInvoiceRow = async (row: InvoiceType, val: 'open' | 'ended') => {
         const isEnd = (val === 'ended');
         await updateInvoiceIsEnd(Number(row.id), isEnd);
     };
 
-    // --- GET: فاکتورها (فقط status=1 در مودال نمایش داده می‌شوند) ---
     const getInvoices = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
@@ -97,13 +93,10 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
             if (response.data.httpStatusCode === 200) {
                 const fetchedInvoices = (response.data.data as InvoiceType[]) || [];
 
-                // اگر این فیلتر کسب‌وکاری لازم است، نگهش داریم
                 const businessFiltered = fetchedInvoices.filter(inv => inv?.warehouse !== null && inv?.workhouse === null);
 
-                // فقط status = 1 برای مودال
                 const statusOk = businessFiltered.filter(inv => inv.status === 1);
 
-                // برای کمبو: فقط بازها (isEnd !== true)
                 const openForCombo = statusOk.filter(inv => inv.isEnd !== true);
 
                 setAllInvoices(statusOk);
@@ -126,7 +119,6 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
         getInvoices();
     }, [getInvoices]);
 
-    // اگر در حالت ویرایش کمبو قفل است و آیتم‌ها داریم، مقدار نمایشی کمبو را از آیتم‌ها ست کن
     useEffect(() => {
         if (isInvoiceComboDisabled && !selectedInvoice && items.length) {
             setSelectedInvoice({
@@ -148,7 +140,7 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
 
         if (newValue) {
             const newItems: ProcessedReceiptItem[] = newValue.invoiceDetails.map(detail => ({
-                id: crypto.randomUUID() as unknown as number, // در صورت نیاز type را به string|number تغییر بده
+                id: crypto.randomUUID() as unknown as number,
                 item: detail.item.id,
                 itemName: detail.item.name,
                 invoiceNo: newValue.invoiceNo,
@@ -169,35 +161,16 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
 
     const handleEditClick = (item: ProcessedReceiptItem) => setEditingItem(item);
 
-    // const handleUpdateChange = (id: any, field: 'quantity' | 'description', value: any) => {
-    //     if (field === 'quantity') {
-    //         const numValue = Number(value);
-    //         if (isNaN(numValue) || numValue <= 0) return;
-    //     }
-    //     const updatedItems = items.map(item => {
-    //         if (item.id === id) {
-    //             return {
-    //                 ...item,
-    //                 [field]: field === 'quantity' ? Number(value) : value
-    //             };
-    //         }
-    //         return item;
-    //     });
-    //     onItemsUpdate(updatedItems);
-    // };
 
     const handleUpdateChange = (id: any, field: 'quantity' | 'description', value: any) => {
         if (field === 'quantity') {
             const numValue = Number(value);
             const currentItem = items.find(i => i.id === id);
 
-            // بررسی مقدار کمتر از صفر
             if (numValue <= 0) {
                 showAlert('Miktar 0\'dan büyük olmalıdır.', 'error');
                 return;
             }
-
-            // رفع خطای تایپ اسکریپت با تبدیل رشته به عدد
             if (currentItem?.orderDetail?.quantity && numValue > Number(currentItem.orderDetail.quantity)) {
                 showAlert(`Miktar fatura miktarından (${currentItem.orderDetail.quantity}) fazla olamaz!`, 'warning');
                 return;
@@ -223,17 +196,6 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
 
     const handleCancelEdit = () => setEditingItem(null);
 
-    // const handleSaveEdit = () => {
-    //     if (!editingItem) return;
-    //     const currentItem = items.find(i => i.id === editingItem.id);
-    //     if (currentItem && (currentItem.quantity <= 0 || isNaN(currentItem.quantity))) {
-    //         showAlert('Miktar 0\'dan büyük bir sayı olmalıdır.', 'warning');
-    //         return;
-    //     }
-    //     setEditingItem(null);
-    //     showAlert('Ürün başarıyla güncellendi.', 'success');
-    // };
-
     const handleSaveEdit = () => {
         if (!editingItem) return;
 
@@ -257,7 +219,6 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
     };
     return (
         <Paper elevation={3} sx={{ p: 2 }}>
-            {/* لیبل + دکمه نمایش مودال */}
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
                 <CustomFormLabel htmlFor="invoice-autocomplete" required>Fatura Seçin*</CustomFormLabel>
                 <Stack direction="row" spacing={1}>
@@ -273,7 +234,6 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
                 </Stack>
             </Box>
 
-            {/* کمبو: فقط فاکتورهای باز (status=1 && isEnd=false) */}
             <Autocomplete<InvoiceType>
                 id="invoice-autocomplete"
                 options={invoicesList}
@@ -303,7 +263,6 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
                 )}
             />
 
-            {/* Deleted chips */}
             {deletedItems.length > 0 && (
                 <Box mb={2} p={2} border="1px solid" borderColor="error.main" borderRadius={2} bgcolor="error.light">
                     <Typography variant="subtitle2" color="error.dark" mb={1}>Silinen Ürünler:</Typography>
@@ -323,7 +282,6 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
                 </Box>
             )}
 
-            {/* Table of selected items */}
             <Typography variant="h6" gutterBottom mt={2}>Eklenen Ürünler</Typography>
             <TableContainer sx={{ maxHeight: 600, overflowY: 'auto' }}>
                 <Table stickyHeader aria-label="receipt items table">
@@ -349,13 +307,6 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
                                     <TableCell><Typography>{item.itemName || '-'}</Typography></TableCell>
                                     <TableCell>
                                         {editingItem?.id === item.id ? (
-                                            // <TextField
-                                            //     type="number"
-                                            //     size="small"
-                                            //     value={item.quantity}
-                                            //     onChange={(e) => handleUpdateChange(item.id as any, 'quantity', e.target.value)}
-                                            //     InputProps={{ inputProps: { min: 1, step: 'any' } }}
-                                            // />
                                             <TextField
                                                 type="number"
                                                 size="small"
@@ -363,11 +314,11 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
                                                 onChange={(e) => handleUpdateChange(item.id, 'quantity', e.target.value)}
                                                 InputProps={{
                                                     inputProps: {
-                                                        min: 0, // جلوگیری از انتخاب صفر یا منفی از طریق فلش‌ها
+                                                        min: 0,
                                                         step: 'any'
                                                     }
                                                 }}
-                                                error={item.quantity <= 0} // قرمز شدن فیلد در صورت مقدار نامعتبر
+                                                error={item.quantity <= 0}
                                             />
                                         ) : (
                                             <Typography>{Number(item.quantity).toFixed(2)}</Typography>
@@ -430,7 +381,6 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
                 </Table>
             </TableContainer>
 
-            {/* --- مودال لیست فاکتورها دقیقا با RadioGroup برای Aç/Kapat --- */}
             <Dialog open={openInvoiceListModal} onClose={() => setOpenInvoiceListModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Fatura Listesi</DialogTitle>
                 <DialogContent dividers>

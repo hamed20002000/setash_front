@@ -328,7 +328,7 @@ const ListCarwarehouseReport = () => {
 
                 const noWorkhouseOption: WorkhouseType = {
                     id: -1,
-                    name: "Şantiyesiz (Boş)",
+                    name: "Şantiyesiz",
                     code: "",
                     address: "",
                     createAt: "",
@@ -798,7 +798,9 @@ const ListCarwarehouseReport = () => {
                 <Grid container spacing={3} p={2}>
                     <Grid item xs={12} sm={4} md={3}>
                         <Autocomplete
-                            id="workhouse-select" options={workhousesList} getOptionLabel={(o) => `${o.name} (${o.code})`}
+                            id="workhouse-select"
+                            options={workhousesList}
+                            getOptionLabel={(o) => o.id === -1 ? o.name : `${o.name} (${o.code})`}
                             value={workhousesList.find(wh => wh.id === filterParams.workhouseId) || null}
                             onChange={(_, newValue) => handleFilterChange('workhouseId', newValue?.id || null)}
                             renderInput={(params) => (<TextField {...params} label="Şantiye" fullWidth size="small" />)}

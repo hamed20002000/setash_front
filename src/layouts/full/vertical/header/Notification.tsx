@@ -32,7 +32,6 @@ type ProjectType = {
 
 type To = string | ((n: Noti) => string);
 
-// ---------- Routes ----------
 const ROUTES: Record<string, (id: string | number) => string> = {
   'warehouse-dispatch': (id) => `/warehouse/list-warehouse-dispatch/${id}`,
   'warehouse-dispatch-destruction': (id) => `/warehouse/list-warehouse-dispatch-return-to-center/${id}`,
@@ -45,12 +44,10 @@ const ROUTES: Record<string, (id: string | number) => string> = {
   'request': (id) => `/store/list-requests/${id}`,
 };
 
-// ---------- TYPE META ----------
 const TYPE_META: Record<
   NotifyType,
   { label: string; bg: any; icon: React.ReactNode; to: To }
 > = {
-  // نیازمند ID
   'warehouse-dispatch': {
     label: 'Depo Sevk', bg: 'info.main', icon: <IconTruck size={22} />,
     to: (n) => ROUTES['warehouse-dispatch'](String(n.warehouseId)),
@@ -84,7 +81,6 @@ const TYPE_META: Record<
     to: (n) => ROUTES['project-planning-date-created'](String(n.projectId)),
   },
 
-  // بدون نیاز به ID
   'order': { label: 'Satın Alma', bg: 'primary.main', icon: <IconPackages size={22} />, to: '/order/list-order/' },
   'invoice-to-warehouse': { label: 'Depo Faturaları', bg: 'secondary.main', icon: <IconFileInvoice size={22} />, to: '/invoice/list-invoice/' },
   'invoice-to-store': { label: 'Şantiye Faturaları', bg: 'secondary.main', icon: <IconFileInvoice size={22} />, to: '/invoice/list-store-invoice/' },
@@ -95,19 +91,18 @@ const TYPE_META: Record<
   'request': {
     label: 'Yeni Talep/Onay',
     bg: 'secondary.main',
-    icon: <IconClipboardList size={22} />, // یا IconFileText / IconInbox
-    to: `/store/list-requests/`, // مسیر کلی به صفحه لیست درخواست‌ها
+    icon: <IconClipboardList size={22} />,
+    to: `/store/list-requests/`,
   },
   'tender': {
-    label: 'Yeni İhale', // متن نمایش داده شده
-    bg: 'warning.main',  // رنگ پس‌زمینه آیکون
-    icon: <IconGavel size={22} />, // آیکون
-    to: '/tender/list-tender' // <--- مسیری که کاربر هدایت می‌شود
+    label: 'Yeni İhale',
+    bg: 'warning.main',
+    icon: <IconGavel size={22} />,
+    to: '/tender/list-tender'
   },
   'leave-created': { label: 'Yeni İzin Kaydı', bg: 'warning.main', icon: <IconCalendarEvent size={22} />, to: '/hr/leaves/' },
 };
 
-// نوع‌هایی که ID لازم دارند (درصورت null بودن، نمایش نده)
 const TYPES_NEED_ID: Record<NotifyType, 'warehouse' | 'store' | 'project' | null> = {
   'warehouse-dispatch': 'warehouse',
   'warehouse-dispatch-destruction': 'warehouse',
@@ -143,7 +138,6 @@ const Notifications = () => {
   const [items, setItems] = useState<Noti[]>([]);
   const [openAll, setOpenAll] = useState(false);
 
-  // --- مودال انتخاب ---
   const [selectOpen, setSelectOpen] = useState(false);
   const [selectLoading, setSelectLoading] = useState(false);
   const [selectType, setSelectType] = useState<NotifyType | null>(null);
@@ -155,7 +149,6 @@ const Notifications = () => {
   const [liveUpdates, setLiveUpdates] = useState(0);
 
 
-  // === Helper: فیلتر براساس نیاز به ID
   const shouldKeepByNeed = (n: { type?: string; warehouseId?: any; storeId?: any; projectId?: any }) => {
     const t = (n.type || 'order') as NotifyType;
     const need = TYPES_NEED_ID[t];
@@ -180,7 +173,6 @@ const Notifications = () => {
 
       if (resp.data?.httpStatusCode === 200 && Array.isArray(resp.data?.data)) {
         const mapped: Noti[] = resp.data.data
-          // .filter((x: any) => Number(x.recordStatus) === 0)
           .filter(shouldKeepByNeed)
           .map((x: any): Noti => ({
             id: String(x.id),
@@ -202,7 +194,7 @@ const Notifications = () => {
             const tb = b.atISO ? Date.parse(b.atISO) : 0;
             return tb - ta;
           });
-          return merged.slice(0, 200); // سقف منطقی
+          return merged.slice(0, 200);
         });
       }
     } catch (e) {
@@ -210,63 +202,23 @@ const Notifications = () => {
     }
   }, []);
 
-  //   useEffect(() => {
-
-
-  //     const unsub = subscribe((s) => {
-
-  // if (s.liveUpdateCounter !== liveUpdates) {
-  //           setLiveUpdates(s.liveUpdateCounter);
-  //       }
-
-  //       const list = s?.notis ?? [];
-  //       // فیلتر براساس نیاز ID (برای همخوانی با رفتار آفلاین)
-  //       const filtered = list.filter(shouldKeepByNeed);
-
-
-  //       if (s.needsRefresh) {
-  //         fetchOfflineNotifs();
-  //       }
-
-  //       setItems(prev => {
-  //         // ادغام زنده + موجود
-  //         const byId = new Map<string, Noti>();
-  //         // for (const n of [...filtered, ...prev]) byId.set(String(n.id), n);
-  //         for (const n of prev) byId.set(String(n.id), n);
-  //         for (const n of filtered) byId.set(String(n.id), n);
-  //         const merged = Array.from(byId.values()).sort((a, b) => {
-  //           const ta = a.atISO ? Date.parse(a.atISO) : 0;
-  //           const tb = b.atISO ? Date.parse(b.atISO) : 0;
-  //           return tb - ta;
-  //         });
-  //         return merged.slice(0, 200);
-  //       });
-  //     });
-  //     return () => { unsub(); };
-  //   }, []);
-
 
   useEffect(() => {
     const unsub = subscribe((s) => {
 
-      // 💡 اگر شمارنده سرویس تغییر کرد، وضعیت محلی را به‌روزرسانی کن
-      // این خط ری‌رندر را تضمین می‌کند.
       if (s.liveUpdateCounter !== liveUpdates) {
         setLiveUpdates(s.liveUpdateCounter);
       }
 
       const list = s?.notis ?? [];
 
-      // 💡 منطق واکشی آفلاین پس از اتصال مجدد یا تغییر نقش
       if (s.needsRefresh) {
         fetchOfflineNotifs();
       }
 
-      // فیلتر براساس نیاز ID (برای همخوانی با رفتار آفلاین)
       const filtered = list.filter(shouldKeepByNeed);
 
       setItems(prev => {
-        // ادغام و مرتب سازی
         const byId = new Map<string, Noti>();
         for (const n of prev) byId.set(String(n.id), n);
         for (const n of filtered) byId.set(String(n.id), n);
@@ -279,8 +231,6 @@ const Notifications = () => {
       });
     });
 
-    // 💡 liveUpdates باید در وابستگی‌ها باشد تا اگر این مقدار تغییر کرد، useEffect دوباره اجرا شود 
-    // و به آخرین مقدار liveUpdates دسترسی داشته باشد.
     return () => { unsub(); };
   }, [fetchOfflineNotifs, liveUpdates]);
 
@@ -560,7 +510,6 @@ const Notifications = () => {
         </Badge>
       </IconButton>
 
-      {/* Dropdown */}
       <Menu
         id="msgs-menu"
         aria-labelledby="notifications-button"
@@ -625,7 +574,6 @@ const Notifications = () => {
         </Box>
       </Menu>
 
-      {/* Modal: همهٔ گروه‌ها */}
       <Dialog open={openAll} onClose={() => setOpenAll(false)} fullWidth maxWidth="md">
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Typography variant="h6">Tüm Bildirimler</Typography>
@@ -676,7 +624,6 @@ const Notifications = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Modal دوم: انتخاب Warehouse/Store/Project */}
       <Dialog open={selectOpen} onClose={() => setSelectOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>
           {selectType ? getMeta(selectType).label : 'Seçiniz'}
@@ -690,7 +637,6 @@ const Notifications = () => {
                 const currentGroup = groupedByType.find(g => g.type === selectType);
                 const byEntity = currentGroup?.byEntity ?? new Map<string, { count: number; notifIds: string[] }>();
 
-                // --- Warehouse list ---
                 if (selectType && ['warehouse-dispatch', 'warehouse-dispatch-destruction', 'warehouse-dispatch-between-warehouse'].includes(selectType)) {
                   return (
                     <List>
@@ -719,7 +665,6 @@ const Notifications = () => {
                   );
                 }
 
-                // --- Store list ---
                 if (selectType && ['store-dispatch-to-project', 'store-dispatch-to-center', 'store-dispatch-destruction-to-center', 'store-dispatch-between-store'].includes(selectType)) {
                   return (
                     <List>
@@ -748,7 +693,6 @@ const Notifications = () => {
                   );
                 }
 
-                // --- Project list ---
                 if (selectType && ['project-planning-date-created'].includes(selectType)) {
                   return (
                     <List>

@@ -93,14 +93,13 @@ export function getCurrentRole() {
 
 
 export function reEstablishConnection() {
-    const s = getSocket(); // مطمئن می‌شویم سوکت ایجاد شده باشد
+    const s = getSocket();
     const role = readRoleFromStorage();
     currentRole = role as any;
 
     const opts = (s.io.opts as any) || {};
     opts.query = { ...(opts.query || {}), role };
 
-    // اگر متصل است، قطع و وصل مجدد کن
     if (s.connected) s.disconnect();
     s.connect();
 }

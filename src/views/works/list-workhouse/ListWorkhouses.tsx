@@ -41,8 +41,6 @@ import { useAuth } from 'src/context/AuthContext';
 import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
-// import { TimesNewRoman } from 'src/assets/fonts/Times';
-// import { ArialFont } from 'src/assets/fonts/Arial';
 import Logo from 'src/assets/images/logos/logo.png';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 
@@ -61,11 +59,10 @@ const formatDateDisplay = (dateString: string | null): string => {
 
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    fontFamily: 'NotoSans',
+    fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: {
-        fontSize: '1rem', // Masaüstünde daha büyük
+        fontSize: '1rem',
     },
 }));
 
@@ -250,7 +247,6 @@ interface RegionTreeSelectMenuItemProps {
     searchQuery: string;
 }
 
-// ✅ Updated component for rendering the tree menu items
 interface RegionTreeSelectMenuItemProps {
     node: RegionNode;
     onSelect: (regionId: number) => void;
@@ -262,7 +258,6 @@ interface RegionTreeSelectMenuItemProps {
 const RegionTreeSelectMenuItem: React.FC<RegionTreeSelectMenuItemProps> = ({ node, onSelect, selectedId, onCloseParentSelect, searchQuery }) => {
     const isSelected = selectedId === node.id;
     const hasChildren = node.children && node.children.length > 0;
-    // ✅ Logic to keep nodes open during search
     const isOpen = searchQuery !== '' || (node.children && node.children.length > 0);
 
     const handleItemClick = (e: React.MouseEvent) => {
@@ -291,9 +286,9 @@ const RegionTreeSelectMenuItem: React.FC<RegionTreeSelectMenuItemProps> = ({ nod
                 <Stack direction="row" alignItems="center" width="100%">
                     {hasChildren ? (
                         <IconButton
-                            onClick={(e) => e.stopPropagation()} // Keep the menu open
+                            onClick={(e) => e.stopPropagation()}
                             size="small"
-                            sx={{ mr: 1, p: 0.5, visibility: searchQuery !== '' ? 'hidden' : 'visible' }} // Hide icon during search
+                            sx={{ mr: 1, p: 0.5, visibility: searchQuery !== '' ? 'hidden' : 'visible' }}
                         >
                             {isOpen ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
                         </IconButton>
@@ -401,10 +396,8 @@ const ListWorkhouses = () => {
     const [isClosingButtonLoading, setIsClosingButtonLoading] = useState<boolean>(false);
 
 
-    // const [isFormVisible, setIsFormVisible] = useState(false);
-    // const [isBlinking, setIsBlinking] = useState(true);
 
-    const [isFormVisible, setIsFormVisible] = useState(workId !== undefined); // اگر workId در آدرس باشد، true شود
+    const [isFormVisible, setIsFormVisible] = useState(workId !== undefined);
     const [isBlinking, setIsBlinking] = useState(workId === undefined);
 
     const [isFilterActive, setIsFilterActive] = useState(false);
@@ -412,7 +405,6 @@ const ListWorkhouses = () => {
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
 
-    // ✅ NEW: State for download modals
     const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
     const [openDownloadFilteredModal, setOpenDownloadFilteredModal] = useState(false);
     const [openRowDownloadModal, setOpenRowDownloadModal] = useState(false);
@@ -421,32 +413,13 @@ const ListWorkhouses = () => {
 
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // const { allowedOperations } = useAuth();
-    // const hasCreatePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-    // }, [allowedOperations]);
-
-    // const hasEditPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-    // }, [allowedOperations]);
-
-    // const hasDeletePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-    // }, [allowedOperations]);
-
-    // const hasDownloadPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
-    // }, [allowedOperations]);
-
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // حذف اسلش آخر برای مقایسه دقیق‌تر در صورت وجود
             const normalizedItemHref = item.href?.replace(/\/$/, "");
             const normalizedPath = path.replace(/\/$/, "");
 
-            // بررسی اینکه آیا مسیر فعلی با href منو شروع می‌شود یا خیر
             if (normalizedItemHref && normalizedPath.startsWith(normalizedItemHref)) {
                 return item;
             }
@@ -459,26 +432,19 @@ const ListWorkhouses = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
-        // اگر آدرس دارای پارامتر بود (مثلاً بعد از آخرین / عدد یا ID بود)، آن را حذف کن
-        // این بخش بستگی به ساختار URL های شما دارد
         const baseRoute = location.pathname.split('/').slice(0, 3).join('/');
         return findMenuByHref(menuItems, baseRoute);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -490,8 +456,6 @@ const ListWorkhouses = () => {
     const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
-
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
 
 
     const fetchWorkInfo = useCallback(async () => {
@@ -523,42 +487,6 @@ const ListWorkhouses = () => {
         }
     }, [workId, navigate]);
 
-    // const fetchWorkhouses = useCallback(async (workIdParam?: string) => {
-    //     setLoadingData(true);
-    //     const authToken = localStorage.getItem('authToken');
-    //     if (!authToken) {
-    //         navigate("/");
-    //         setLoadingData(false);
-    //         return;
-    //     }
-    //     try {
-    //         const response = await axios.get(server.baseurl + server.initialoperations + "get-workhouse", {
-    //             headers: { "Authorization": `Bearer ${authToken}` }
-    //         });
-    //         if (response.data.httpStatusCode === 200) {
-    //             const allWorkhouses = response.data.data as WorkhouseType[];
-    //             const filteredWorkhouses = workIdParam
-    //                 ? allWorkhouses.filter(item => item.work && Number(item.work.id) === Number(workIdParam))
-    //                 : allWorkhouses;
-    //             const workhousesWithStatus = filteredWorkhouses.map((item) => ({
-    //                 ...item,
-    //                 status: item.recordStatus === 0 ? 'Aktif' : 'Pasif'
-    //             }));
-    //             setWorkhousesList(workhousesWithStatus);
-    //         } else {
-    //             showAlert(response.data.message || 'Şantiyeler yüklenirken bir hata oluştu.', 'error');
-    //         }
-    //     } catch (e: any) {
-    //         if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
-    //         else if (e.response?.status === 401) {
-    //             localStorage.removeItem('authToken');
-    //             showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
-    //         }
-    //         else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
-    //     } finally {
-    //         setLoadingData(false);
-    //     }
-    // }, [navigate]);
     const fetchWorkhouses = useCallback(async (workIdParam?: string) => {
         setLoadingData(true);
 
@@ -708,7 +636,6 @@ const ListWorkhouses = () => {
                 (statusFilter === 'active' && wh.recordStatus === 0) ||
                 (statusFilter === 'inactive' && wh.recordStatus === 1);
 
-            // 🚀 اضافه شدن فیلتر تاریخ بر اساس createAt
             const createDate = new Date(wh.createAt);
             const matchesDate =
                 (!startDate || createDate >= startDate) &&
@@ -719,7 +646,7 @@ const ListWorkhouses = () => {
 
         const sortedData = stableSort(filteredBySearchAndStatus, getComparator(order, orderBy));
         return sortedData;
-    }, [workhousesList, searchTerm, statusFilter, order, orderBy, startDate, endDate]); // 👈 وابستگی‌های جدید
+    }, [workhousesList, searchTerm, statusFilter, order, orderBy, startDate, endDate]);
 
     const paginatedWorkhouses = useMemo(() => {
         return displayedWorkhouses.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
@@ -985,7 +912,7 @@ const ListWorkhouses = () => {
             if (response.data.httpStatusCode === 200) {
                 showAlert(`Şantiye '${workhouseToClose.name}' başarıyla kapatıldı!`, 'success');
                 handleCloseWorkhouseModal();
-                fetchWorkhouses(workId); // رفرش لیست
+                fetchWorkhouses(workId);
             } else {
                 showAlert(response.data.message || 'Şantiye kapatılırken bir hata oluştu.', 'error');
             }
@@ -996,11 +923,10 @@ const ListWorkhouses = () => {
         }
     };
 
-    // 🚀 به‌روزرسانی هندلر بستن مودال برای پاک کردن وضعیت
     const handleCloseWorkhouseModal = () => {
         setOpenCloseWorkhouseModal(false);
         setWorkhouseToClose(null);
-        setClosureDate(null); // 👈 پاک کردن تاریخ
+        setClosureDate(null);
     };
 
     const handleChangePage = (_event: unknown, newPage: number) => { setPage(newPage); };
@@ -1060,10 +986,10 @@ const ListWorkhouses = () => {
         docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
         const pageWidth = doc.internal.pageSize.getWidth();
-        const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+        const logoWidth = 35;
         const logoHeight = 18;
         const margin = 15;
-        const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+        const logoX = pageWidth - logoWidth - margin;
 
         try {
             doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -1073,7 +999,7 @@ const ListWorkhouses = () => {
 
         doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
-        doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+        doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
         doc.setFontSize(10);
         doc.setFont('NotoSans', 'bold');
@@ -1081,8 +1007,6 @@ const ListWorkhouses = () => {
         doc.setFont('NotoSans', 'normal');
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
 
-        // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-        // doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
         doc.line(15, 40, pageWidth - 15, 40);
     };
@@ -1151,7 +1075,6 @@ const ListWorkhouses = () => {
         });
     };
 
-    // یک تابع جدید و هوشمند برای تبدیل قیمت‌های با فرمت‌های مختلف به عدد
     const parseTurkishNumber = (value: string | number | null | undefined): number => {
         if (typeof value === 'number') {
             return value;
@@ -1159,18 +1082,12 @@ const ListWorkhouses = () => {
         if (!value || typeof value !== 'string') {
             return 0;
         }
-
-        // ابتدا تمام کاراکترهای غیر عددی به جز نقطه و کاما را حذف می‌کنیم
         const cleanedValue = value.replace(/[^\d.,]/g, '');
-
-        // اگر رشته دارای کاما برای اعشار بود، آن را به نقطه تبدیل می‌کنیم
-        // و جداکننده های هزارگان (نقطه) را حذف می‌کنیم
         const isTurkishFormat = cleanedValue.includes(',');
         if (isTurkishFormat) {
             return parseFloat(cleanedValue.replace(/\./g, '').replace(',', '.'));
         }
 
-        // اگر فرمت آمریکایی بود (نقطه برای اعشار)، مستقیماً تبدیل می‌کنیم
         return parseFloat(cleanedValue);
     };
 
@@ -1201,9 +1118,7 @@ const ListWorkhouses = () => {
                 isFirstPage = false;
 
                 const headerTitle = `Şantiye Detayları: ${workhouse.name}`;
-                const tableStartY = 70; // Adjusted startY to prevent overlap
-
-                // Using the updated header function
+                const tableStartY = 70;
                 addPdfHeader(doc, headerTitle);
 
                 try {
@@ -1223,7 +1138,7 @@ const ListWorkhouses = () => {
 
                         const detailRows = details.map(detail => [
                             detail.owner || '-',
-                            formatter.format(parseTurkishNumber(detail.price)), // ✨ اعمال فرمت روی هر سطر
+                            formatter.format(parseTurkishNumber(detail.price)),
                             formatDateDisplay(detail.rentStartDate),
                             formatDateDisplay(detail.rentEndDate),
                             detail.description || '-',
@@ -1267,7 +1182,6 @@ const ListWorkhouses = () => {
             showAlert('PDF başarıyla oluşturuldu.', 'success');
             setLoadingData(false);
         } else {
-            // Simple PDF
             const columns = [
                 "İsim", "Kod", "Adres", "Bölge",
                 ...(!workId ? ["İş"] : []),
@@ -1354,7 +1268,7 @@ const ListWorkhouses = () => {
                             totalPrice += numericPrice;
                             const row = worksheet.addRow([
                                 detail.owner || '-',
-                                numericPrice, // ✨ ارسال مقدار عددی به سلول
+                                numericPrice,
                                 formatDateDisplay(detail.rentStartDate),
                                 formatDateDisplay(detail.rentEndDate),
                                 detail.description || '-',
@@ -1369,7 +1283,7 @@ const ListWorkhouses = () => {
 
                         const totalRow = worksheet.addRow(['Toplam Fiyat', totalPrice]);
                         totalRow.font = { name: 'NotoSans', bold: false };
-                        totalRow.getCell(2).numFmt = '"₺"#,##0.00'; // ✨ فرمت‌دهی جمع کل
+                        totalRow.getCell(2).numFmt = '"₺"#,##0.00';
 
                         worksheet.columns.forEach(column => {
                             let maxLength = 0;
@@ -1397,7 +1311,6 @@ const ListWorkhouses = () => {
             });
             setLoadingData(false);
         } else {
-            // Simple Excel
             const worksheet = workbook.addWorksheet('Şantiyeler');
             const columns = [
                 "İsim", "Kod", "Adres", "Bölge",
@@ -1447,7 +1360,6 @@ const ListWorkhouses = () => {
             setLoadingData(false);
         }
     };
-    // Download Modal Handlers
     const handleOpenDownloadAllModal = () => { setOpenDownloadAllModal(true); };
     const handleCloseDownloadAllModal = () => { setOpenDownloadAllModal(false); };
 
@@ -1504,12 +1416,11 @@ const ListWorkhouses = () => {
         handleCloseRowDownloadModal();
     };
 
-    // NEW: Handlers for Workhouse Closure Modal
     const handleOpenCloseWorkhouseModal = () => {
         if (!selectedRowForMenu) return;
         setWorkhouseToClose(selectedRowForMenu);
         setOpenCloseWorkhouseModal(true);
-        handleCloseMenu(); // بستن منوی عملیات
+        handleCloseMenu();
     };
 
     const handleAssignPersonnel = () => {
@@ -1532,9 +1443,7 @@ const ListWorkhouses = () => {
                         spacing={{ xs: 2, sm: 1 }}
                         mb={4}
                     >
-                        {/* 1. گروه اطلاعات (چیپ‌ها) - بدون تغییر */}
                         <Stack direction="row" spacing={1} flexWrap="wrap">
-                            {/* فرض می‌کنیم workInfo تعریف شده است */}
                             {workInfo && <Chip label={`İş: ${workInfo.title}`} color="primary" variant="filled" size="small" />}
                             {workInfo && <Chip label={`İhale: ${workInfo.tenderTitle}`} color="success" variant="filled" size="small" />}
                         </Stack>
@@ -1546,7 +1455,6 @@ const ListWorkhouses = () => {
                             width={{ xs: '100%', sm: '30%' }}
                             justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
                         >
-                            {/* دکمه "Yeni Şantiyeyi Kaydet" */}
                             {!isFormVisible && hasCreatePermission && (
                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şantiyeyi Belgesi kaydetmek için tıklayınız" : ""}>
                                     <BlinkingButton
@@ -1554,21 +1462,20 @@ const ListWorkhouses = () => {
                                         color="primary"
                                         onClick={() => setIsFormVisible(true)}
                                         isBlinking={isBlinking}
-                                        fullWidth={true} // 👈 در موبایل تمام عرض
+                                        fullWidth={true}
                                     >
                                         Yeni Şantiyeyi Kaydet
                                     </BlinkingButton>
                                 </CustomTooltip>
                             )}
 
-                            {/* دکمه "Gizle" */}
                             {isFormVisible && (
                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
                                     <Button
                                         variant="contained"
                                         color="error"
                                         onClick={resetFormAndState}
-                                        fullWidth={true} // 👈 در موبایل تمام عرض
+                                        fullWidth={true}
                                         startIcon={<IconX size={20} />}
                                     >
                                         Gizle
@@ -1576,13 +1483,12 @@ const ListWorkhouses = () => {
                                 </CustomTooltip>
                             )}
 
-                            {/* دکمه "Geri Dön" */}
                             <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
                                 <Button
                                     variant="outlined"
                                     color="error"
                                     onClick={() => navigate(-1)}
-                                    fullWidth={true} // 👈 در موبایل تمام عرض
+                                    fullWidth={true}
                                     endIcon={<IconArrowRight size={20} />}
                                 >
                                     Geri Dön
@@ -1620,7 +1526,6 @@ const ListWorkhouses = () => {
                                         variant="contained"
                                         color="error"
                                         onClick={resetFormAndState}
-                                        // disabled={loadingButton}
                                         fullWidth={false}
                                         startIcon={<IconX size={20} />}
                                     >
@@ -1904,7 +1809,6 @@ const ListWorkhouses = () => {
                         <Table aria-label="workhouse table">
                             <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                                 <TableRow>
-                                    {/* Sütun Başlıkları */}
                                     {!workId && (
                                         <StyledTableCell sx={{ color: "#171c23" }}>
                                             <Typography variant="h6">İş</Typography>
@@ -1943,7 +1847,7 @@ const ListWorkhouses = () => {
                                             sx={{
                                                 '&:last-child td, &:last-child th': { border: 0 },
                                                 ...(row.endDate
-                                                    ? { backgroundColor: '#ffa7a76e' } // رنگ Hex مستقیم + Opacity
+                                                    ? { backgroundColor: '#ffa7a76e' }
                                                     : {}
                                                 )
                                             }}>
@@ -1959,39 +1863,10 @@ const ListWorkhouses = () => {
                                                 <Typography variant="body1">{row.code}</Typography>
                                             </StyledTableCell>
 
-                                            {/* <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
-                                                <Box sx={{
-                                                    maxHeight: '5em',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    display: '-webkit-box',
-                                                    WebkitLineClamp: 3,
-                                                    WebkitBoxOrient: 'vertical',
-                                                }}>
-                                                    <Typography variant="body1">{row.address}</Typography>
-                                                </Box>
-                                                {row.address.length > 50 && (
-                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm adresi gör" : ""}>
-                                                        <Button
-                                                            variant="text"
-                                                            size="small"
-                                                            sx={{ fontSize: "10px", padding: "2px 5px" }}
-                                                            onClick={() => {
-                                                                setSelectedAddress(row.address);
-                                                                setOpenAddressModal(true);
-                                                            }}
-                                                        >
-                                                            Açıklamanı Oku
-                                                        </Button>
-                                                    </CustomTooltip>
-                                                )}
-                                            </StyledTableCell> */}
-
                                             <StyledTableCell sx={{ maxWidth: 200 }} align="center">
                                                 {row.address && row.address.trim().length > 0 ? (
-                                                    // ✅ حالت اول: آدرس هست -> فقط دکمه نمایش بده
                                                     <Button
-                                                        variant="outlined" // یا "text" یا "contained" بسته به سلیقه
+                                                        variant="outlined"
                                                         size="small"
                                                         color="primary"
                                                         onClick={() => {
@@ -2147,7 +2022,6 @@ const ListWorkhouses = () => {
                 showAlert={showAlert}
                 onDeleteSuccess={() => fetchWorkhouses(workId)}
             />
-            {/* Modal for all downloads */}
             <Dialog open={openDownloadAllModal} onClose={handleCloseDownloadAllModal} maxWidth="xs">
                 <DialogTitle>Tüm Şantiyeleri İndir</DialogTitle>
                 <DialogContent>
@@ -2181,7 +2055,6 @@ const ListWorkhouses = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Modal for filtered downloads */}
             <Dialog open={openDownloadFilteredModal} onClose={handleCloseDownloadFilteredModal} maxWidth="xs">
                 <DialogTitle>Filtrelenmiş Şantiyeleri İndir</DialogTitle>
                 <DialogContent>
@@ -2215,7 +2088,6 @@ const ListWorkhouses = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Modal for downloading a single row */}
             <Dialog open={openRowDownloadModal} onClose={handleCloseRowDownloadModal} maxWidth="xs">
                 <DialogTitle>Dosya Formatını Seçin</DialogTitle>
                 <DialogContent>
@@ -2261,7 +2133,6 @@ const ListWorkhouses = () => {
                         {workhouseToClose?.name} adlı şantiyeyi kapatmak için bitiş tarihini
                         seçin. Bu işlem, şantiyeyi pasif duruma getirecektir.
                     </Typography>
-                    {/* 🚀 افزودن DatePicker */}
                     <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                         <DatePicker
                             label="Bitiş Tarihi"
@@ -2271,7 +2142,6 @@ const ListWorkhouses = () => {
                             renderInput={(params) => <TextField {...params} size="small" fullWidth error={!closureDate && isClosingButtonLoading} />}
                         />
                     </LocalizationProvider>
-                    {/* پایان DatePicker */}
 
                 </DialogContent>
                 <DialogActions>

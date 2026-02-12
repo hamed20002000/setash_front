@@ -19,7 +19,6 @@ import {
   IconLayoutDashboard, IconChartInfographic
 } from '@tabler/icons-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-// === Type Definitions
 interface UserRole {
   id: string;
   name: string;
@@ -107,7 +106,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// === Utility Functions
 const decodeJwtToken = (token: string): JwtPayload | null => {
   try {
     const base64Url = token.split('.')[1];
@@ -123,7 +121,6 @@ const decodeJwtToken = (token: string): JwtPayload | null => {
 
     return JSON.parse(jsonPayload);
   } catch (e) {
-    // console.error("Error decoding JWT token:", e);
     return null;
   }
 };
@@ -146,7 +143,6 @@ const IconComponents: { [key: string]: React.ElementType } = {
 
 const getIconComponent = (iconName: string): React.ElementType => IconComponents[iconName.trim()] || IconPlus;
 
-// === AuthProvider Component
 interface AuthProviderProps {
   children: ReactNode;
 }
@@ -167,7 +163,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ منطق فیلتر کردن منو بهینه شده است
   const mapApiDataToMenuItems = useCallback((apiData: ApiMenuItem[], allowedOperations: AllowedOperation[]): MenuitemsType[] => {
     if (!apiData || apiData.length === 0) return [];
 
@@ -181,11 +176,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           children = mapApiDataToMenuItems(item.menus, allowedOperations);
         }
 
-        // const hasViewPermission = item.menuOperations
-        //   .filter(op => op.recordStatus === 0 && op.systemOperation.name === 'Görüntülemek')
-        //   .some(op => allowedOperations.includes(op.id));
-
-        // ✅ منطق جدید برای بررسی دسترسی نمایش
         const hasViewPermission = item.menuOperations
           .filter(op => op.recordStatus === 0 && op.systemOperation.name === 'Görüntülemek')
           .some(op => allowedOperations.some(allowedOp => allowedOp.menuOperationId === op.id));
@@ -219,56 +209,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
       return response.data.success ? response.data.data : [];
     } catch (error) {
-      // console.error('Error fetching dynamic menu items:', error);
       return [];
     }
   }, []);
 
 
-  // const updateMenuAndOperations = useCallback(async (roleId: string) => {
-  //   setIsAuthDataLoading(true);
-  //   setAllowedOperations([]);
-  //   setMenuItems([]);
-
-  //   const authToken = localStorage.getItem('authToken');
-  //   if (!authToken) {
-  //     setIsAuthDataLoading(false);
-  //     return { ops: [], rawMenus: [] }; // ✅ بازگرداندن مقادیر خالی
-  //   }
-  //   try {
-  //     const operationsResponse = await axios.get<{ data: { roleMenuOperations: RoleMenuOperationApiResponse[] } }>(
-  //       `${server.baseurl}${server.user}get-role-with-operations/${roleId}`,
-  //       { headers: { "Authorization": `Bearer ${authToken}` } }
-  //     );
-
-  //     const ops: AllowedOperation[] = operationsResponse.data?.data?.roleMenuOperations
-  //       .filter(op => op.recordStatus === 0 && op.menuOperation?.recordStatus === 0)
-  //       .map(op => ({
-  //         menuOperationId: op.menuOperation.id,
-  //         systemOperationId: op.menuOperation.systemOperation.id,
-  //         systemOperationName: op.menuOperation.systemOperation.name
-  //       })) || [];
-
-  //     const rawMenus = await getRawMenusFromApi();
-  //     const filteredMenus = mapApiDataToMenuItems(rawMenus, ops);
-  //     const finalMenuItems = filteredMenus.sort((a, b) => a.order - b.order);
-
-  //     // ✅ وضعیت‌ها را پس از دریافت اطلاعات کامل به‌روز می‌کنیم
-  //     setAllowedOperations(ops);
-  //     setMenuItems(finalMenuItems);
-
-  //     // ✅ اطلاعات را برمی‌گردانیم تا در تابع updateActiveRole استفاده شود
-  //     return { ops, rawMenus };
-
-  //   } catch (e) {
-  //     // console.error("Failed to fetch menu and role data:", e);
-  //     setAllowedOperations([]);
-  //     setMenuItems([]);
-  //     return { ops: [], rawMenus: [] }; // ✅ در صورت خطا مقادیر خالی را بازمی‌گردانیم
-  //   } finally {
-  //     setIsAuthDataLoading(false);
-  //   }
-  // }, [getRawMenusFromApi, mapApiDataToMenuItems]);
 
   const updateMenuAndOperations = useCallback(async (roleId: string) => {
 
@@ -286,7 +231,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
 
     try {
-      // ۱. اجرای همزمان هر دو API برای سرعت بیشتر
       const [roleOpsRes, userOpsRes, rawMenus] = await Promise.all([
         axios.get<{ data: { roleMenuOperations: RoleMenuOperationApiResponse[] } }>(
           `${server.baseurl}${server.user}get-role-with-operations/${roleId}`,
@@ -299,16 +243,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         getRawMenusFromApi()
       ]);
 
-      // ۲. استخراج عملیات‌ها از نقش (Role Operations)
       const roleOps = roleOpsRes.data?.data?.roleMenuOperations || [];
 
-      // ۳. استخراج عملیات‌ها از کاربر (User Operations)
       const userOps = userOpsRes.data?.data?.userMenuOperations || [];
 
-      // ۴. ادغام دو لیست و حذف تکراری‌ها (با استفاده از Map بر اساس menuOperationId)
       const allOpsMap = new Map<string, AllowedOperation>();
 
-      // افزودن عملیات‌های نقش
       roleOps
         .filter(op => op.recordStatus === 0 && op.menuOperation?.recordStatus === 0)
         .forEach(op => {
@@ -319,7 +259,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           });
         });
 
-      // افزودن عملیات‌های مستقیم کاربر (اگر تکراری باشد جایگزین می‌شود یا نادیده گرفته می‌شود)
       userOps
         .filter(op => op.recordStatus === 0 && op.menuOperation?.recordStatus === 0)
         .forEach(op => {
@@ -334,11 +273,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       const finalOps = Array.from(allOpsMap.values());
 
-      // ۵. فیلتر کردن منوها بر اساس لیست نهایی عملیات‌ها
       const filteredMenus = mapApiDataToMenuItems(rawMenus, finalOps);
       const finalMenuItems = filteredMenus.sort((a, b) => (a.order || 0) - (b.order || 0));
 
-      // ۶. بروزرسانی استیت‌ها
       setAllowedOperations(finalOps);
       setMenuItems(finalMenuItems);
 
@@ -358,7 +295,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   function pickAndPersistActiveRole(roles: UserRole[], savedName?: string | null) {
 
-    // اگر قبلاً چیزی ذخیره شده و هنوز معتبره
     const saved = savedName ? roles.find(r => r.name === savedName) : undefined;
     if (saved) {
       localStorage.setItem('activeUserRoleName', saved.name);
@@ -366,8 +302,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return saved;
     }
 
-    // در غیر این صورت: اگر چندتاست، اولی؛ اگر یکیه همون
-    const chosen = roles[0]; // فرض: roles حداقل 1 عضو دارد
+    const chosen = roles[0];
     localStorage.setItem('activeUserRoleName', chosen.name);
     localStorage.setItem('activeUserRoleId', chosen.id);
     return chosen;
@@ -376,11 +311,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
 
   const loadAuthData = useCallback(async () => {
-    setIsAuthDataLoading(true); // ✅ شروع حالت بارگذاری
+    setIsAuthDataLoading(true);
     const authToken = localStorage.getItem('authToken');
 
     if (!authToken) {
-      // اگر توکن نیست، بلافاصله وضعیت را به حالت غیرمجاز برگردانید
       setUsername('Guest');
       setUserRoles([]);
       setActiveRoleName(null);
@@ -388,12 +322,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setAllowedOperations([]);
       setMenuItems([]);
       setIsAuth(false);
-      setIsAuthDataLoading(false); // ✅ پایان بارگذاری
-      return; // مهم: اجرای تابع را متوقف کنید
+      setIsAuthDataLoading(false);
+      return;
     }
 
     try {
-      // ✅ تمام عملیات‌های ناهمگام را به صورت همزمان اجرا کنید
       const [rolesResponse, decodedToken, rawMenus] = await Promise.all([
         axios.get<{ data: RoleApiResponse[] }>(`${server.baseurl}${server.user}get-roles`, {
           headers: { "Authorization": `Bearer ${authToken}` }
@@ -402,11 +335,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         getRawMenusFromApi(),
       ]);
 
-      // ✅ پردازش داده‌ها
       const allActiveRoles = rolesResponse.data.data?.filter(role => role.recordStatus === 0) || [];
       const currentUsername = decodedToken?.username;
 
-      // ✅ اگر داده‌های اولیه معتبر نیستند، به حالت غیرمجاز برگردید
       if (!currentUsername || allActiveRoles.length === 0) {
         throw new Error('Invalid authentication data.');
       }
@@ -417,12 +348,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         .filter((role): role is RoleApiResponse => role !== undefined)
         .map(role => ({ id: role.id, name: role.name }));
 
-      // ✅ انتخاب نقش فعال
-      // const savedActiveRoleName = localStorage.getItem('activeUserRoleName');
-      // let roleToActivate = rolesFromToken.find(r => r.name === savedActiveRoleName);
-      // if (!roleToActivate && rolesFromToken.length > 0) {
-      //   roleToActivate = rolesFromToken[0];
-      // }
       const savedActiveRoleName = localStorage.getItem('activeUserRoleName');
       if (rolesFromToken.length === 0) throw new Error('No roles resolved for user');
 
@@ -430,7 +355,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       let ops: AllowedOperation[] = [];
       if (roleToActivate) {
-        const userId = decodedToken?.userid; // مطمئن شوید نام فیلد در توکن درست است
+        const userId = decodedToken?.userid;
 
         const [roleOpsRes, userOpsRes] = await Promise.all([
           axios.get(`${server.baseurl}${server.user}get-role-with-operations/${roleToActivate.id}`,
@@ -441,7 +366,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         const allOpsMap = new Map<string, AllowedOperation>();
 
-        // ادغام عملیات‌های نقش
         (roleOpsRes.data?.data?.roleMenuOperations || [])
           .filter((op: any) => op.recordStatus === 0 && op.menuOperation?.recordStatus === 0)
           .forEach((op: any) => {
@@ -452,7 +376,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             });
           });
 
-        // ادغام عملیات‌های مستقیم کاربر
         (userOpsRes.data?.data?.userMenuOperations || [])
           .filter((op: any) => op.recordStatus === 0 && op.menuOperation?.recordStatus === 0)
           .forEach((op: any) => {
@@ -465,7 +388,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         ops = Array.from(allOpsMap.values());
       }
-      // ✅ فقط زمانی که تمام داده‌ها آماده است، وضعیت‌ها را به روز کنید
       setUsername(currentUsername);
       setUserRoles(rolesFromToken);
       setActiveRoleName(roleToActivate?.name || null);
@@ -473,15 +395,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setAllowedOperations(ops);
 
       const filteredMenus = mapApiDataToMenuItems(rawMenus, ops);
-      const finalMenuItems = filteredMenus.sort((a, b) => a.order - b.order); // ترتیب دهی نهایی
+      const finalMenuItems = filteredMenus.sort((a, b) => a.order - b.order);
       setMenuItems(finalMenuItems);
 
       setIsAuth(true);
       localStorage.setItem('lastLoggedInUsername', currentUsername);
 
     } catch (e) {
-      // console.error("Failed to load auth data:", e);
-      // در صورت بروز خطا، همه چیز را به حالت اولیه برگردانید
       setUsername('Guest');
       setUserRoles([]);
       setActiveRoleName(null);
@@ -492,7 +412,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.removeItem('authToken');
 
     } finally {
-      setIsAuthDataLoading(false); // ✅ پایان حالت بارگذاری
+      setIsAuthDataLoading(false);
     }
   }, [mapApiDataToMenuItems, getRawMenusFromApi]);
 
@@ -513,7 +433,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const updateActiveRole = useCallback(async (newRoleName: string) => {
     const role = userRoles.find(r => r.name === newRoleName);
     if (role) {
-      // ✅ مرحله ۱: ابتدا وضعیت نقش‌های محلی را به‌روز کنید
       setActiveRoleName(role.name);
       setActiveRoleId(role.id);
       localStorage.setItem('activeUserRoleName', role.name);
@@ -521,10 +440,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       const { ops, rawMenus } = await updateMenuAndOperations(role.id);
 
-      // ✅ مرحله ۳: منوهای فیلتر شده را با داده‌های جدیدی که به دست آورده‌ایم، ایجاد کنید
       const newFilteredMenus = mapApiDataToMenuItems(rawMenus, ops);
 
-      // ✅ مرحله ۴: دسترسی به مسیر فعلی را با استفاده از منوهای جدید بررسی کنید
       const currentPath = location.pathname;
       const hasPermissionToCurrentPath = newFilteredMenus.some(item => {
         const findPath = (menu: any): boolean => {
@@ -537,12 +454,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return findPath(item);
       });
 
-      // ✅ مرحله ۵: اگر دسترسی وجود ندارد، کاربر را به داشبورد هدایت کنید
       if (!hasPermissionToCurrentPath) {
         navigate('/dashboards/dashboard');
       }
     } else {
-      // console.warn(`Attempted to set an invalid role: ${newRoleName}.`);
     }
   }, [userRoles, navigate, location, updateMenuAndOperations, mapApiDataToMenuItems]);
 

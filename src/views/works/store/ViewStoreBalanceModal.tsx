@@ -10,7 +10,6 @@ import { useNavigate } from 'react-router-dom';
 import { IconFileText, IconFileSpreadsheet } from '@tabler/icons-react';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// Import PDF and Excel libraries
 import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import Excel from 'exceljs';
@@ -20,7 +19,6 @@ import Logo from 'src/assets/images/logos/logo.png';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 
-// Type Definitions
 interface ItemBalanceType {
     itemId: string;
     code: string | null;
@@ -35,7 +33,6 @@ interface ApiResponse<T> {
     data: T;
 }
 
-// Utility functions for PDF and Excel (can be moved to a separate file)
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
     try {
@@ -54,10 +51,10 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -67,7 +64,7 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
@@ -75,8 +72,6 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     doc.setFont('NotoSans', 'normal');
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -142,7 +137,6 @@ const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, colum
     });
 };
 
-// Main Component
 interface ViewStoreBalanceModalProps {
     open: boolean;
     onClose: () => void;
@@ -194,14 +188,12 @@ const ViewStoreBalanceModal: React.FC<ViewStoreBalanceModalProps> = ({ open, onC
     const handleDownloadPDFClick = () => {
 
         if (itemsBalance.length === 0 || !storeName) {
-            // می‌توانید یک پیام هشدار به کاربر نمایش دهید
             return;
         }
 
         const doc = new jsPDF();
         const docAny = doc as any;
 
-        // تنظیم فونت
         docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
@@ -215,19 +207,17 @@ const ViewStoreBalanceModal: React.FC<ViewStoreBalanceModalProps> = ({ open, onC
         const totalRows = [['Toplam Mevcut', totalBalance.toFixed(2)]];
 
         const addPageHeader = (title: string, data: any) => {
-            // اگر صفحه اول بود، عنوان اصلی و اطلاعات انبار را نمایش می‌دهد
             if (data.pageNumber === 1) {
                 addPdfHeader(doc, title);
                 doc.setFontSize(12);
                 doc.text(`Depo Adı: ${storeName}`, 15, 45);
             } else {
-                // در صفحات بعدی فقط عنوان اصلی را نمایش می‌دهد
                 addPdfHeader(doc, title);
             }
         };
 
         autoTable(docAny, {
-            startY: 55, // شروع جدول از پایین هدر
+            startY: 55,
             head: [columns],
             body: rows,
             theme: 'grid',
@@ -257,21 +247,18 @@ const ViewStoreBalanceModal: React.FC<ViewStoreBalanceModalProps> = ({ open, onC
 
     const handleDownloadExcelClick = async () => {
         if (itemsBalance.length === 0 || !storeName) {
-            // می‌توانید یک پیام هشدار به کاربر نمایش دهید
             return;
         }
 
         const workbook = new Excel.Workbook();
-        // نام ورک‌شیت را تمیز می‌کند تا کاراکترهای غیرمجاز حذف شوند
         const safeSheetName = `${storeName} Envanter`.replace(/[\\/*?[\]:]/g, '_');
         const worksheet = workbook.addWorksheet(safeSheetName);
 
         const columns = ["Malzeme Adı", "Mevcut Miktar"];
         addExcelHeader(worksheet, `${storeName} Envanter Raporu`, columns.length);
 
-        // افزودن اطلاعات انبار
         worksheet.addRow(['Depo Adı:', storeName]).font = { bold: true };
-        worksheet.addRow([]); // یک ردیف خالی برای فاصله
+        worksheet.addRow([]);
 
         const headerRow = worksheet.addRow(columns);
         headerRow.font = { name: 'NotoSans', bold: true };
@@ -283,7 +270,7 @@ const ViewStoreBalanceModal: React.FC<ViewStoreBalanceModalProps> = ({ open, onC
             worksheet.addRow([item.name, Number(item.balance).toFixed(2)]);
         });
 
-        worksheet.addRow([]); // یک ردیف خالی برای فاصله
+        worksheet.addRow([]);
         const totalBalance = itemsBalance.reduce((sum, item) => sum + Number(item.balance), 0);
         const totalRow = worksheet.addRow(['Toplam Mevcut', totalBalance.toFixed(2)]);
         totalRow.font = { bold: true };

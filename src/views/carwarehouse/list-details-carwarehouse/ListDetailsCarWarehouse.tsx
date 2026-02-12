@@ -663,8 +663,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
 
     const validateForm = (): boolean => {
         let ok = true;
-        setBrandError(false); setModelError(false); setPlaqueError(false); setDateError(false); setWarehouseError(false); // ⭐️ خطای انبار اضافه شد
-
+        setBrandError(false); setModelError(false); setPlaqueError(false); setDateError(false); setWarehouseError(false);
         if (!selectedCarWarehouse) { setWarehouseError(true); ok = false; }
         if (!brand.trim()) { setBrandError(true); ok = false; }
         if (!model.trim()) { setModelError(true); ok = false; }
@@ -686,7 +685,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
         setDescription('');
         setSelectedFiles([]);
         setCurrentAttachments([]);
-        setBrandError(false); setModelError(false); setPlaqueError(false); setDateError(false); setWarehouseError(false); // ⭐️ خطای انبار اضافه شد
+        setBrandError(false); setModelError(false); setPlaqueError(false); setDateError(false); setWarehouseError(false);
         setIsFormVisible(false);
         setFuelType('');
         setFuelTypeError(false);
@@ -877,7 +876,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
         setOpenDeleteModal(true);
         handleCloseMenu();
     };
-    const handleCloseDeleteModal = () => { setOpenDeleteModal(false); setDeleteId(null); setDeleteName(''); fetchCarDetails(selectedCarWarehouse!.id); }; // ⭐️ واکشی مجدد داده‌ها
+    const handleCloseDeleteModal = () => { setOpenDeleteModal(false); setDeleteId(null); setDeleteName(''); fetchCarDetails(selectedCarWarehouse!.id); };
 
     const exportDetailsToPdf = (data: CarDetail[], title: string) => {
         if (!data || data.length === 0) { showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning'); return; }

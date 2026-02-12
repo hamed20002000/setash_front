@@ -1,17 +1,14 @@
 // src/layouts/full/shared/sidebar/NavCollapse/NavCollapse.tsx
 
-import React from 'react'; // ✅ Import useRef
+import React from 'react';
 import { useTheme } from '@mui/material/styles';
 import { useLocation } from 'react-router-dom';
 
-// mui imports
 import { ListItemIcon, styled, ListItemText, ListItemButton, Collapse, List } from '@mui/material';
 import { useSelector } from 'src/store/Store';
 
-// custom imports
 import NavItem from '../NavItem/NavItem';
 
-// plugins
 import { IconChevronDown } from '@tabler/icons-react';
 import { AppState } from 'src/store/Store';
 
@@ -51,31 +48,24 @@ const NavCollapse = ({ menu, level, pathWithoutLastPart, pathDirect, hideMenu, o
   const menuIcon =
     level > 1 ? <IconComponent stroke={1.5} size="1rem" /> : <IconComponent stroke={1.5} size="1.1rem" />;
 
-  // ✅ NEW: useRef to reference the menu element for click outside detection
-  const menuRef = React.useRef<HTMLLIElement>(null); // ✅ Type it correctly
-
-  // ✅ NEW: handleClickOutside function
+  const menuRef = React.useRef<HTMLLIElement>(null);
   const handleClickOutside = (event: MouseEvent) => {
     if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
       setOpen(false);
     }
   };
 
-  // ✅ NEW: useEffect for adding/removing click event listener
   React.useEffect(() => {
-    // Add event listener when menu is open
     if (open) {
       document.addEventListener('mousedown', handleClickOutside);
     } else {
-      // Clean up event listener when menu is closed or unmounted
       document.removeEventListener('mousedown', handleClickOutside);
     }
 
-    // Cleanup function: this runs when the component unmounts or when 'open' changes to false
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [open]); // Re-run effect when 'open' state changes
+  }, [open]);
 
   const ListItemStyled = styled(ListItemButton)(() => ({
     width: 'auto',
@@ -128,13 +118,6 @@ const NavCollapse = ({ menu, level, pathWithoutLastPart, pathDirect, hideMenu, o
     zIndex: theme.zIndex.appBar + 1,
   };
 
-  // const listItemProps: {
-  //   component: string;
-  //   onClick?: React.MouseEventHandler<HTMLElement>;
-  // } = {
-  //   component: 'li',
-  // };
-
   const submenus = menu.children?.map((item: NavGroupProps) => {
     if (item.children && item.children.length > 0) {
       return (
@@ -156,7 +139,7 @@ const NavCollapse = ({ menu, level, pathWithoutLastPart, pathDirect, hideMenu, o
           level={level + 1}
           pathDirect={pathDirect}
           hideMenu={hideMenu}
-          onClick={onClick} // This onClick could be used to close the whole sidebar (e.g., on mobile)
+          onClick={onClick}
         />
       );
     }
@@ -164,9 +147,7 @@ const NavCollapse = ({ menu, level, pathWithoutLastPart, pathDirect, hideMenu, o
 
   return (
     <React.Fragment key={menu.id}>
-      {/* ✅ NEW: Attach menuRef to the main container element for this menu item */}
-      {/* We are attaching it to the List component that wraps ListItemStyled to capture clicks within the whole menu item */}
-      <List component="li" disablePadding key={menu.id} ref={menuRef}> {/* ✅ menuRef attached here */}
+      <List component="li" disablePadding key={menu.id} ref={menuRef}>
         <ListItemStyled
           onClick={() => setOpen(!open)}
           selected={pathWithoutLastPart === String(menu.href) || pathDirect === String(menu.href)}
@@ -191,7 +172,6 @@ const NavCollapse = ({ menu, level, pathWithoutLastPart, pathDirect, hideMenu, o
           />
 
           <Collapse in={open} timeout="auto" unmountOnExit>
-            {/* The List inside Collapse doesn't need a separate ref, as its parent 'List' has the ref */}
             <List component="div" disablePadding sx={subMenuContainerStyle}>
               {submenus}
             </List>

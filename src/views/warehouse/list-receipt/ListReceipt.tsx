@@ -48,7 +48,6 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     },
 }));
 
-// اصلاح: کلید مرتب‌سازی تودرتو برای انبار
 type SortableReceiptKeys = 'code' | 'docDate' | 'warehouse.id';
 
 const blinkAnimation = keyframes`
@@ -145,21 +144,11 @@ const ListReceipts = () => {
 
     const nameInputRef = useRef<HTMLInputElement>(null);
 
-    // const { allowedOperations } = useAuth();
-    // const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
-    // const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
-    // const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
-
-
-
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -167,25 +156,18 @@ const ListReceipts = () => {
         }
         return null;
     };
-
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
 
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
-
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -197,8 +179,6 @@ const ListReceipts = () => {
     const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
-
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
 
     const formatDateDisplay = (dateString: string | null): string => {
         if (!dateString) return "N/A";
@@ -373,8 +353,6 @@ const ListReceipts = () => {
         setIsInvoiceComboDisabled(false);
         clearAlert();
     };
-
-    // API جدید: پایان/بازگشایی فاکتور
     const updateInvoiceIsEnd = async (invoiceId: number, isEnd: boolean) => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
@@ -399,7 +377,6 @@ const ListReceipts = () => {
 
     const handleInitialSaveClick = () => {
         if (!validateForm()) return;
-        // مودال جدید:
         setOpenIgnoreInvoiceModal(true);
     };
 
@@ -408,7 +385,6 @@ const ListReceipts = () => {
 
         const finalReceiptItems = [
             ...receiptItems,
-            // ...deletedItems.map(item => ({ ...item, recordStatus: 1 }))
         ];
 
         const receiptData = {
@@ -457,7 +433,6 @@ const ListReceipts = () => {
         if (!validateForm() || !editingReceiptId) return;
         const finalReceiptItems = [
             ...receiptItems,
-            // ...deletedItems.map(item => ({ ...item, recordStatus: 1 }))
         ];
         const receiptData = {
             id: Number(editingReceiptId),
@@ -547,12 +522,9 @@ const ListReceipts = () => {
     };
 
     const handleOpenModal = (row: ReceiptType) => {
-        // ذخیره کل رسید برای استفاده در دکمه‌های دانلود
         setViewedReceipt(row);
 
-        const details = row.receiptDetails; // استخراج جزئیات برای نمایش در جدول
-
-        // همان منطق قبلی برای پردازش آیتم‌ها
+        const details = row.receiptDetails;
         const processedDetails: ProcessedReceiptItem[] = details.map(detail => ({
             id: Number(detail.id),
             item: detail.item.id,
@@ -672,31 +644,6 @@ const ListReceipts = () => {
         return isFiltered ? startY + 40 : startY + 30;
     };
 
-    // const getPdfFooter = (doc: jsPDF) => {
-    //     const pageWidth = doc.internal.pageSize.getWidth();
-    //     const pageHeight = doc.internal.pageSize.getHeight();
-    //     const docAny = doc as any;
-    //     doc.setFont('NotoSans', 'normal');
-    //     doc.setFontSize(8);
-    //     doc.setTextColor(0);
-    //     const companyInfo = [
-    //         'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-    //         'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-    //         'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
-    //     ];
-    //     let footerY = pageHeight - 30;
-    //     companyInfo.forEach(line => {
-    //         doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-    //         footerY += 4;
-    //     });
-    //     const pageNumber = docAny.internal.getCurrentPageInfo().pageNumber;
-    //     const pageCount = docAny.internal.getNumberOfPages();
-    //     doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-    //     doc.setFont('NotoSans', 'normal');
-    //     doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-    //     doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-    // };
-
     const getPdfFooter = (pdfDoc: jsPDF) => {
 
         const pageWidth = pdfDoc.internal.pageSize.getWidth();
@@ -706,11 +653,10 @@ const ListReceipts = () => {
         pdfDoc.setTextColor(100);
 
         const companyInfo = [
-            'SETAŞ SİSTEM BİLİŞİM İنŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
-            'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
+            'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+            'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
         ];
-
         let footerY = pageHeight - 20;
         companyInfo.forEach(line => {
             pdfDoc.text(line, pageWidth / 2, footerY, { align: 'center' });
@@ -771,11 +717,10 @@ const ListReceipts = () => {
                 pdfDoc.setTextColor(100);
 
                 const companyInfo = [
-                    'SETAŞ SİSTEM BİLİŞİM İنŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
-                    'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
+                    'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                    'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
                 ];
-
                 let footerY = pageHeight - 20;
                 companyInfo.forEach(line => {
                     pdfDoc.text(line, pageWidth / 2, footerY, { align: 'center' });
@@ -1157,7 +1102,7 @@ const ListReceipts = () => {
             saveAs(new Blob([buffer]), `${fileNamePrefix}_Raporu_${new Date().toLocaleDateString('tr-TR')}.xlsx`);
             showAlert('Excel başarıyla oluşturuldu و indiriliyor.', 'success');
         } catch {
-            showAlert('Excel oluşturulurken یک hata oluştu.', 'error');
+            showAlert('Excel oluşturulurken bir hata oluştu.', 'error');
         }
     };
 
@@ -1273,8 +1218,8 @@ const ListReceipts = () => {
                                     multiline
                                     rows={3}
                                     variant="outlined"
-                                    value={generalDescription} // ⬅️ استفاده از نام جدید
-                                    onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                    value={generalDescription}
+                                    onChange={(e) => setGeneralDescription(e.target.value)}
                                 />
                             </Grid>
                         </Grid>
@@ -1289,8 +1234,6 @@ const ListReceipts = () => {
                             onRestoreItem={handleRestoreItem}
                             showAlert={showAlert}
                             onInvoiceSelect={setSelectedInvoice}
-
-                            // props زیر برای سازگاری با types فعلی نگه‌داشته شده‌اند اما دیگر استفاده عملی ندارند
                             endedInvoiceIds={[]}
                             getReceipts={getReceipts}
                             endedInvoiceReceiptMap={{}}
@@ -1335,7 +1278,6 @@ const ListReceipts = () => {
                 </Stack>
             )}
 
-            {/* مودال جدید: نادیده گرفتن (sonlandır) فاکتور کمبو */}
             <Dialog open={openIgnoreInvoiceModal} onClose={() => setOpenIgnoreInvoiceModal(false)}>
                 <DialogTitle>Fatura Onayı</DialogTitle>
                 <DialogContent>
@@ -1362,7 +1304,6 @@ const ListReceipts = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* جدول و اکشن‌ها */}
             <BlankCard>
                 <Grid item xs={12} mt={2} mr={2}>
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
@@ -1475,7 +1416,6 @@ const ListReceipts = () => {
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 {row.description && row.description.trim().length > 0 ? (
-                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button
 
@@ -1487,7 +1427,6 @@ const ListReceipts = () => {
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (
-                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
                                                     <Typography variant="body2" align="center">
                                                         -
                                                     </Typography>
@@ -1497,7 +1436,7 @@ const ListReceipts = () => {
                                                 <Button
                                                     variant="outlined"
                                                     startIcon={<IconEye />}
-                                                    onClick={() => handleOpenModal(row)} // ✅ تغییر: ارسال کل row بجای row.receiptDetails
+                                                    onClick={() => handleOpenModal(row)}
                                                 >
                                                     Görünüm
                                                 </Button>
@@ -1570,7 +1509,6 @@ const ListReceipts = () => {
             <Dialog open={openModal} onClose={handleCloseModal} maxWidth="md" fullWidth>
                 <DialogTitle>Fiş Detayları</DialogTitle>
                 <DialogContent dividers>
-                    {/* جدول لیست آیتم‌ها */}
                     <TableContainer component={Paper}>
                         <Table size="small" aria-label="Ürün detayları tablosu">
                             <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
@@ -1610,7 +1548,6 @@ const ListReceipts = () => {
                         </Table>
                     </TableContainer>
 
-                    {/* ✅ بخش جدید: جدول خلاصه جمع‌ها بر اساس واحد */}
                     {modalDetails.length > 0 && (
                         <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
                             <TableContainer component={Paper} variant="outlined" sx={{ width: 'auto', minWidth: '300px' }}>
@@ -1643,14 +1580,14 @@ const ListReceipts = () => {
                 <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
 
                     <Stack
-                        direction={{ xs: 'column', sm: 'row' }} // در موبایل ستونی، در دسکتاپ ردیفی
-                        spacing={2} // فاصله یکسان بین تمام دکمه‌ها
-                        sx={{ width: '100%' }} // اشغال تمام عرض کادر
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={2}
+                        sx={{ width: '100%' }}
                     >
                         <Button
                             variant="contained"
-                            color="error" // قرمز برای PDF
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            color="error"
+                            fullWidth
                             sx={{ flex: 1 }}
                             startIcon={<IconFileDownload />}
                             onClick={() => {
@@ -1664,8 +1601,8 @@ const ListReceipts = () => {
                         </Button>
                         <Button
                             variant="contained"
-                            color="success" // سبز برای اکسل
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            color="success"
+                            fullWidth
                             sx={{ flex: 1 }}
                             startIcon={<IconFileDownload />}
                             onClick={() => {
@@ -1677,9 +1614,8 @@ const ListReceipts = () => {
                         >
                             Excel İndir
                         </Button>
-                        {/* دکمه بستن سمت راست */}
                         <Button onClick={handleCloseModal} color="secondary" variant="outlined"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }} >
                             Kapat
                         </Button>
@@ -1696,8 +1632,6 @@ const ListReceipts = () => {
                 onDeleteSuccess={getReceipts}
                 showAlert={showAlert}
             />
-
-            {/* Modal’های دانلود */}
             <Dialog open={openAllDownloadModal} onClose={() => setOpenAllDownloadModal(false)}>
                 <DialogTitle>Tüm Fişler İçin Format Seçin</DialogTitle>
                 <DialogContent>

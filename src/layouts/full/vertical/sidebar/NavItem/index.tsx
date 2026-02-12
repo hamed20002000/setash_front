@@ -3,7 +3,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 
-// mui imports
 import {
   ListItemIcon,
   List,

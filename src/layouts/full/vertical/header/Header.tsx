@@ -20,7 +20,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import {
   // useTooltip, 
   CustomTooltip
-} from '../../../../context/TooltipContext'; // **ایمپورت useTooltip و CustomTooltip**
+} from '../../../../context/TooltipContext';
 import ChangeUserRoleModal from './ChangeUserRoleModal';
 
 import Notifications from 'src/layouts/full/vertical/header/Notification';
@@ -32,11 +32,8 @@ const Header = () => {
   const dispatch = useDispatch();
 
   const { userRoles, activeRoleName, updateActiveRole } = useAuth();
-  // const { isTooltipGloballyEnabled, toggleTooltipGlobal } = useTooltip();
 
-  const [openRoleSelectionModal, setOpenRoleSelectionModal] = React.useState(false); // از React.useState استفاده کنید
-  // const [isTooltipGloballyEnabled, setIsTooltipGloballyEnabled] = useState(true); // این state حذف می‌شود
-
+  const [openRoleSelectionModal, setOpenRoleSelectionModal] = React.useState(false);
   const [headerAlertMessage, setHeaderAlertMessage] = React.useState<string | null>(null);
   const [headerAlertSeverity, setHeaderAlertSeverity] = React.useState<'success' | 'error' | 'warning' | 'info'>('info');
 
@@ -45,10 +42,6 @@ const Header = () => {
     setHeaderAlertSeverity(severity);
     setTimeout(() => setHeaderAlertMessage(null), 5000);
   };
-
-  // useEffect که قبلاً وضعیت Tooltip را از localStorage می‌خواند، حالا توسط TooltipProvider مدیریت می‌شود.
-  // const [isTooltipGloballyEnabled, setIsTooltipGloballyEnabled] = useState(true); // این دیگر لازم نیست
-
   const handleOpenRoleSelectionModal = () => {
     if (userRoles.length > 1) {
       setOpenRoleSelectionModal(true);
@@ -62,10 +55,6 @@ const Header = () => {
   const handleCloseRoleSelectionModal = () => {
     setOpenRoleSelectionModal(false);
   };
-
-  // const handleTooltipToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
-  //   toggleTooltipGlobal(event.target.checked); 
-  // };
 
 
   const AppBarStyled = styled(AppBar)(({ theme }) => ({
@@ -96,7 +85,6 @@ const Header = () => {
         <Search />
         {lgUp ? (
           <>
-            {/* <Navigation /> */}
           </>
         ) : null}
 
@@ -118,24 +106,6 @@ const Header = () => {
             </CustomTooltip>
           )}
 
-          {/* <CustomTooltip title="Araç İpuçlarını Etkinleştir/Devre Dışı Bırak"> 
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={isTooltipGloballyEnabled}
-                  onChange={handleTooltipToggle}
-                  name="tooltip-toggle"
-                  color="primary"
-                />
-              }
-              label={
-                <IconButton color="inherit" size="small">
-                  <IconInfoSquare size={20} />
-                </IconButton>
-              }
-              labelPlacement="start"
-            />
-          </CustomTooltip> */}
           <Profile />
         </Stack>
       </ToolbarStyled>

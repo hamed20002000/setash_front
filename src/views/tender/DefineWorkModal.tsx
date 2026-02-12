@@ -215,36 +215,7 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
                                     />
                                 )}
                             />
-                            {/* <DatePicker
-                                label="Bitiş Tarihi"
-                                value={endDate}
-                                onChange={(newValue) => {
-                                    setEndDate(newValue);
-                                    if (endDateError && newValue) {
-                                        setEndDateError(false);
-                                    }
-                                    if (startDate && newValue && newValue < startDate) {
-                                        setEndDateError(true);
-                                        setFormError("Bitiş tarihi başlangıç tarihinden önce olamaz.");
-                                    } else {
-                                        setEndDateError(false);
-                                        setFormError(null);
-                                    }
-                                }}
-                                inputFormat="dd/MM/yyyy"
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
-                                        fullWidth
-                                        error={endDateError}
-                                        helperText={
-                                            endDateError
-                                                ? formError || "Bitiş tarihi boş bırakılamaz"
-                                                : ""
-                                        }
-                                    />
-                                )}
-                            /> */}
+
                         </LocalizationProvider>
                         {formError && (
                             <Alert severity="error" sx={{ mt: 2 }}>

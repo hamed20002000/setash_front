@@ -56,9 +56,6 @@ export interface RentalRequestType {
 
 export type CommonRequestType = MaterialRequestType | WorkhouseRentRequest;
 
-// ==============================================================================
-// 2. UTILITIES (Exported)
-// ==============================================================================
 export const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans', fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: { fontSize: '1rem', },
@@ -83,17 +80,16 @@ export const stripHtml = (htmlString: string): string => {
 
 const cleanPrice = (priceString: string | null | undefined): string => {
     if (!priceString) return '-';
-    // حذف هر کاراکتر غیر عددی به جز نقطه (که قیمت را جدا می‌کند)
     const numericPart = String(priceString).replace(/[^0-9.]/g, '');
-    return numericPart + ' TL'; // ⬅️ نماد TL اضافه شد
+    return numericPart + ' TL';
 };
 
 const addPdfHeader = (doc: jsPDF, title: string) => {
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -147,13 +143,11 @@ const addPdfFooter = (doc: jsPDF) => {
 };
 
 
-// --- Single Row Download (PDF) ---
 export const exportRequestPdf = (requestData: CommonRequestType, title: string) => {
     const doc = new jsPDF();
     // @ts-ignore
     doc.addFileToVFS('Arial.ttf', ArialFont); doc.addFont('Arial.ttf', 'Arial', 'normal'); doc.setFont('Arial');
 
-    // ⬅️ تشخیص نوع درخواست
     const isMaterial = (requestData as MaterialRequestType).subject !== undefined;
     const isRental = !isMaterial;
     const rentalData = requestData as WorkhouseRentRequest;
@@ -165,11 +159,10 @@ export const exportRequestPdf = (requestData: CommonRequestType, title: string) 
         ['Tarih', new Date(requestData.createAt).toLocaleDateString('tr-TR')],
         ['Açıklama', stripHtml(requestData.description) || '-'],
 
-        // ⬅️ فیلدهای اختصاصی اجاره
         ...(isRental ? [
             ['Şantiye', rentalData.workhouseName || rentalData.workhouse?.name || '-'],
             ['Başlangıç Tarihi', formatDateDisplay(rentalData.rentStartDate)],
-            ['Bitiş Tarihi', formatDateDisplay(rentalData.rentEndDate)], // ⬅️ اضافه شد
+            ['Bitiş Tarihi', formatDateDisplay(rentalData.rentEndDate)],
             ['Fiyat', cleanPrice(rentalData.price)],
             ['Şirket', rentalData.company || '-'],
             ['Şoför Bilgisi', rentalData.driverInfo || '-'],
@@ -185,14 +178,12 @@ export const exportRequestPdf = (requestData: CommonRequestType, title: string) 
             addPdfHeader(doc, title); addPdfFooter(doc);
             // @ts-ignore
             doc.setFont('Arial', 'normal');
-            //  doc.text(`Talep ID: ${requestData.id}`, 15, 32);
         },
         margin: { top: 40, bottom: 45 },
     });
     doc.save(`${title.replace(/ /g, '_')}_Raporu_${requestData.id}.pdf`);
 };
 
-// --- Single Row Download (Excel) ---
 export const exportRequestExcel = async (requestData: CommonRequestType, title: string) => {
     const workbook = new Excel.Workbook();
     const worksheet = workbook.addWorksheet(title);
@@ -206,20 +197,18 @@ export const exportRequestExcel = async (requestData: CommonRequestType, title: 
     worksheet.columns = [{ header: 'Özellik', key: 'key', width: 25 }, { header: 'Değer', key: 'value', width: 60 }];
     const isMaterial = (requestData as MaterialRequestType).subject !== undefined;
 
-    // worksheet.addRow({ key: 'Talep ID', value: requestData.id });
     worksheet.addRow({ key: 'Başlık', value: isMaterial ? (requestData as MaterialRequestType).subject : (requestData as WorkhouseRentRequest).title });
     worksheet.addRow({ key: 'Talep Eden', value: requestData.user?.username || '-' });
     worksheet.addRow({ key: 'Durum', value: statusToLabel(requestData.status) });
     worksheet.addRow({ key: 'Tarih', value: new Date(requestData.createAt).toLocaleDateString('tr-TR') });
     worksheet.addRow({ key: 'Açıklama', value: stripHtml(requestData.description) || '-' });
 
-    // ⬅️ فیلدهای اختصاصی اجاره
     if (!isMaterial) {
         const rentalData = requestData as WorkhouseRentRequest;
         const cleanedPriceValue = rentalData.price ? String(rentalData.price).replace(/[^0-9.]/g, '') : '';
         worksheet.addRow({ key: 'Şantiye', value: rentalData.workhouseName || rentalData.workhouse?.name || '-' });
         worksheet.addRow({ key: 'Başlangıç', value: formatDateDisplay(rentalData.rentStartDate) });
-        worksheet.addRow({ key: 'Bitiş', value: formatDateDisplay(rentalData.rentEndDate) }); // ⬅️ اضافه شد
+        worksheet.addRow({ key: 'Bitiş', value: formatDateDisplay(rentalData.rentEndDate) });
         worksheet.addRow({ key: 'Fiyat', value: cleanedPriceValue + ' TL' });
         worksheet.addRow({ key: 'Şirket', value: rentalData.company || '-' });
         worksheet.addRow({ key: 'Şoför Bilgisi', value: rentalData.driverInfo || '-' });
@@ -238,34 +227,19 @@ export const exportRequestExcel = async (requestData: CommonRequestType, title: 
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `${title.replace(/ /g, '_')}_Raporu_${requestData.id}.xlsx`);
 };
-
-// --- Batch Download (PDF) ---
-// ⚠️ توجه: این تابع در حال حاضر در هیچ Menu/Buttonی در UI شما استفاده نشده است.
-// ... (exportAllRequestsPdf) ...
-
-
-// ==============================================================================
-// 3. MAIN COMPONENT
-// ==============================================================================
-
 const RequestReceiptTabs: React.FC = () => {
     const navigate = useNavigate();
-
-    // --- States ---
     const [currentTab, setCurrentTab] = useState('material');
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
     const [loadingData, setLoadingData] = useState<boolean>(true);
 
-    // Data States
     const [materialRequests, setMaterialRequests] = useState<MaterialRequestType[]>([]);
     const [rentalRequests, setRentalRequests] = useState<WorkhouseRentRequest[]>([]);
 
-    // ⬅️ Workhouse States (برای Tab اجاره)
     const [workhouses, setWorkhouses] = useState<Workhouse[]>([]);
     const [selectedRentalWorkhouseId, setSelectedRentalWorkhouseId] = useState<string | number>('');
 
-    // Modal Shared States (این‌ها در والد تعریف می‌شوند و Handlers آن‌ها به فرزندان ارسال می‌شوند)
     const [openHistoryModal, setOpenHistoryModal] = useState(false);
     const [historyData, setHistoryData] = useState<RequestStatusHistory[]>([]);
     const [openAttachmentsModal, setOpenAttachmentsModal] = useState(false);
@@ -274,18 +248,15 @@ const RequestReceiptTabs: React.FC = () => {
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
 
-    // --- Auth & Permissions ---
     const { allowedOperations } = useAuth();
     const hasStatusUpdatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
     const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
 
-    // --- Utils & UX ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message); setAlertSeverity(severity);
     }, []);
     const clearAlert = () => setAlertMessage(null);
 
-    // ⬅️ Shared Modal Handlers
     const handleOpenHistoryModal = useCallback((history: RequestStatusHistory[]) => {
         setHistoryData(history);
         setOpenHistoryModal(true);
@@ -305,7 +276,6 @@ const RequestReceiptTabs: React.FC = () => {
         showAlert(`"${fileUrl.split('/').pop()}" dosyası indiriliyor.`, 'info');
     };
 
-    // --- FETCH LOGIC ---
     const fetchMaterialRequests = useCallback(async () => {
         if (currentTab !== 'material') return;
         setLoadingData(true);
@@ -344,7 +314,6 @@ const RequestReceiptTabs: React.FC = () => {
         } catch (e) { }
     }, []);
 
-    // ⬅️ fetchRentalRequests: داده‌ها را بر اساس WorkhouseId فچ می‌کند.
     const fetchRentalRequests = useCallback(async (workhouseId: string | number) => {
         if (!workhouseId) { setRentalRequests([]); setLoadingData(false); return; }
 
@@ -369,19 +338,16 @@ const RequestReceiptTabs: React.FC = () => {
                 });
 
             if (response.data.httpStatusCode === 200 && response.data.data) {
-                // ⬅️ Mapping داده‌ها (از خروجی API شما)
                 const mappedData: WorkhouseRentRequest[] = response.data.data.map((r: any) => ({
                     ...r,
                     workhouseName: r.workhouse?.name || '-',
                     workhouse: r.workhouse,
-                    // فرض می‌کنیم user/history در API دیگری Map می‌شود یا به صورت Optional باقی می‌ماند
                 }));
                 setRentalRequests(mappedData);
             } else { setRentalRequests([]); showAlert(response.data.message || 'Kiralama talepleri alınamadı.', 'error'); }
         } catch (e: any) { setRentalRequests([]); showAlert('Kiralama talepleri yüklenirken bir hata oluştu.', 'error'); } finally { setLoadingData(false); }
     }, [showAlert]);
 
-    // ... (useEffect برای کنترل فچ داده‌ها هنگام تعویض تب) ...
     useEffect(() => {
         if (currentTab === 'material') {
             fetchMaterialRequests();
@@ -422,7 +388,6 @@ const RequestReceiptTabs: React.FC = () => {
     return (
         <Box sx={{ p: 3, position: 'relative' }}>
             <TabContext value={currentTab}>
-                {/* 1. Header & Tabs */}
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap">
                     <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center' }}><IconInbox style={{ marginRight: 8 }} /> Talep Onay Yönetimi</Typography>
                     <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: { xs: 2, sm: 0 } }}>
@@ -439,7 +404,6 @@ const RequestReceiptTabs: React.FC = () => {
                     </Stack>
                 )}
 
-                {/* 2. Tab Contents - استفاده از کامپوننت‌های لیست جدا شده */}
                 <TabPanel value="material" sx={{ p: 0 }}>
                     <MaterialReceiptList
                         requestsList={materialRequests} loadingData={loadingData && currentTab === 'material'}
@@ -465,10 +429,6 @@ const RequestReceiptTabs: React.FC = () => {
                     />
                 </TabPanel>
             </TabContext>
-
-            {/* ⬅️ Modalهای مشترک (History, Description, Attachments) */}
-
-            {/* History Modal */}
             <Dialog open={openHistoryModal} onClose={() => setOpenHistoryModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Talep Durum Geçmişi</DialogTitle>
                 <DialogContent dividers>
@@ -491,17 +451,14 @@ const RequestReceiptTabs: React.FC = () => {
                 <DialogActions><Button onClick={() => setOpenHistoryModal(false)}>Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* Description Modal */}
             <Dialog open={openDescriptionModal} onClose={() => setOpenDescriptionModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Açıklamanın Tamamı</DialogTitle>
                 <DialogContent dividers>
-                    {/* ⚠️ توجه: از dangerouslySetInnerHTML در کد اصلی شما برای محتوای HTML استفاده شده بود. */}
                     <DialogContentText><div dangerouslySetInnerHTML={{ __html: fullDescriptionContent || '' }} /></DialogContentText>
                 </DialogContent>
                 <DialogActions><Button onClick={() => setOpenDescriptionModal(false)} color="primary">Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* Attachments Modal */}
             <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Ekler</DialogTitle>
                 <DialogContent dividers>

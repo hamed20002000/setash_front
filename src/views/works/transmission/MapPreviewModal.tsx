@@ -1263,7 +1263,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
 
         worksheet.addRow([]);
         const grandTotalRow = worksheet.addRow(['GENEL TOPLAM', '', '', calculatedTotals.grandTotalWeight]);
-        grandTotalRow.font = { bold: true, size: 12, color: { argb: 'FF006400' } }; // سبز
+        grandTotalRow.font = { bold: true, size: 12, color: { argb: 'FF006400' } };
 
         worksheet.addRow([]);
         const lastRowIdx = worksheet.rowCount + 1;

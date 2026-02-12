@@ -1470,7 +1470,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
                                 <TableRow>
                                     <StyledTableCell><TableSortLabel active={orderBy === 'date'} direction={orderBy === 'date' ? order : 'asc'} onClick={() => handleRequestSort('date')}><Typography variant="h6">Tarih</Typography></TableSortLabel></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Plaka</Typography></StyledTableCell>
-                                    <StyledTableCell><Typography variant="h6">Şantiye</Typography></StyledTableCell> {/* ⭐ NEW COLUMN HEADER ⭐ */}
+                                    <StyledTableCell><Typography variant="h6">Şantiye</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Personel</Typography></StyledTableCell>
                                     <StyledTableCell><TableSortLabel active={orderBy === 'kilometer'} direction={orderBy === 'kilometer' ? order : 'asc'} onClick={() => handleRequestSort('kilometer')}><Typography variant="h6">Kilometre</Typography></TableSortLabel></StyledTableCell>
 

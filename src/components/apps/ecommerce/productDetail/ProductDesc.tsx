@@ -95,9 +95,6 @@ const ProductDesc = () => {
             <Tab label="Reviews" {...a11yProps(1)} />
           </Tabs>
         </Box>
-        {/* ------------------------------------------- */}
-        {/* Decription */}
-        {/* ------------------------------------------- */}
         <TabPanel value={value} index={0}>
           <Typography variant="h5">
             Sed at diam elit. Vivamus tortor odio, pellentesque eu tincidunt a, aliquet sit amet
@@ -115,14 +112,8 @@ const ProductDesc = () => {
             primis in faucibus orci luctus et ultrices posuere cubilia curae;
           </Typography>
         </TabPanel>
-        {/* ------------------------------------------- */}
-        {/* Reviews Tab */}
-        {/* ------------------------------------------- */}
         <TabPanel value={value} index={1}>
           <Grid container spacing={3}>
-            {/* ------------------------------------------- */}
-            {/* Average Rate Tab */}
-            {/* ------------------------------------------- */}
             <Grid item xs={12} lg={4}>
               <Paper variant="outlined" sx={{ height: '100%', p: 3 }}>
                 <Stack
@@ -139,9 +130,6 @@ const ProductDesc = () => {
                 </Stack>
               </Paper>
             </Grid>
-            {/* ------------------------------------------- */}
-            {/* Progrees Rate Tab */}
-            {/* ------------------------------------------- */}
             <Grid item xs={12} lg={4}>
               <Paper variant="outlined" sx={{ p: 3 }}>
                 <Grid container alignItems="center" justifyContent="space-between" spacing={2}>
@@ -163,9 +151,6 @@ const ProductDesc = () => {
                 </Grid>
               </Paper>
             </Grid>
-            {/* ------------------------------------------- */}
-            {/* Button */}
-            {/* ------------------------------------------- */}
             <Grid item xs={12} lg={4}>
               <Paper sx={{ height: '100%', p: 3 }} variant="outlined">
                 <Stack

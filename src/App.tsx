@@ -10,14 +10,11 @@ import ScrollToTop from "./components/shared/ScrollToTop";
 import Router from "./routes/Router";
 import { AppState } from "./store/Store";
 
-// --- Redux-Persist Imports ---
-import { Provider } from 'react-redux'; // Already used implicitly via useSelector/useDispatch, but good to have explicit
-import { PersistGate } from 'redux-persist/integration/react'; // The component to wrap your app
-import { store, persistor } from './store/Store'; // Import both store and persistor from your Redux store setup
+import { Provider } from 'react-redux';
+import { PersistGate } from 'redux-persist/integration/react';
+import { store, persistor } from './store/Store';
 
-// --- Your Context Providers ---
 import { AuthProvider } from './context/AuthContext';
-// import { LayoutProvider } from './context/LayoutContext';
 import { TooltipProvider } from './context/TooltipContext';
 
 

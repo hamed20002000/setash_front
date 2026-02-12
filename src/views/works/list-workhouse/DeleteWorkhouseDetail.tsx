@@ -14,7 +14,6 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import server from '../../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// تعریف interface برای آیتمی که قرار است حذف شود
 interface ItemToDelete {
     id: string | number;
     owner: string;

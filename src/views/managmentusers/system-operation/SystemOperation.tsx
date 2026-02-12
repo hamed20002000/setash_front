@@ -1,7 +1,7 @@
 // SystemOperation.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState, useRef } from "react"; // useRef را اضافه کنید
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,

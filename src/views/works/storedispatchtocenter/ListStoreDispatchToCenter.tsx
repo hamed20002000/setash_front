@@ -1658,7 +1658,7 @@ const ListStoreDispatchToCenter = () => {
                                                                     Açıklamayı Oku
                                                                 </Button>
                                                             </CustomTooltip>
-                                                        ) : (                                                            // حالت دوم: اگر توضیحات نال یا خالی بود
+                                                        ) : (
                                                             <Typography variant="body2" align="center">
                                                                 -
                                                             </Typography>

@@ -13,9 +13,6 @@ const Navigation = () => {
   if (lgUp) {
     return (
       <Box sx={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }} py={2}>
-        {/* ------------------------------------------- */}
-        {/* Sidebar for desktop */}
-        {/* ------------------------------------------- */}
         <Container
           sx={{
             maxWidth: customizer.isLayout === 'boxed' ? 'lg' : '100%!important',
@@ -41,16 +38,9 @@ const Navigation = () => {
         },
       }}
     >
-      {/* ------------------------------------------- */}
-      {/* Logo */}
-      {/* ------------------------------------------- */}
       <Box px={2}>
-        {/* <Logo /> */}
         <h2>Setah</h2>
       </Box>
-      {/* ------------------------------------------- */}
-      {/* Sidebar For Mobile */}
-      {/* ------------------------------------------- */}
       <SidebarItems />
     </Drawer>
   );

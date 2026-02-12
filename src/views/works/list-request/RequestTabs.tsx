@@ -23,25 +23,19 @@ import DeleteRequest from './DeleteRequest';
 import DeleteWorkhouseRent from './DeleteWorkhouseRent';
 import { useAuth } from "src/context/AuthContext";
 
-// --- گزارش‌گیری و تاریخ ---
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
-import { ArialFont } from 'src/assets/fonts/Arial'; // فرض بر وجود
+import { ArialFont } from 'src/assets/fonts/Arial';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
-import Logo from 'src/assets/images/logos/logo.png'; // فرض بر وجود
-
-// --- کامپوننت‌های فرم تفکیک‌شده (برای حل مشکل فوکوس) ---
+import Logo from 'src/assets/images/logos/logo.png';
 import MaterialRequestForm from "./MaterialRequestForm";
 import RentalRequestForm from "./RentalRequestForm";
 import ActionMenu from "./ActionMenu";
 
-// ==============================================================================
-// 1. INTERFACES (Common for both modules)
-// ==============================================================================
 interface Attachment { fileUrl: string; }
 interface User { username: string; }
 interface RequestStatusHistory {
@@ -69,11 +63,6 @@ export interface WorkhouseRentRequest {
 type MaterialOrder = 'asc' | 'desc';
 type MaterialOrderBy = keyof MaterialRequestType | 'id' | 'subject' | 'status' | 'createAt';
 
-// ==============================================================================
-// 2. STYLED COMPONENTS & UTILS
-// ==============================================================================
-
-// --- Styled Components (بدون تغییر) ---
 const StyledToggleButton = styled(MuiToggleButton)(({ theme }) => ({
     fontSize: '0.7rem', padding: '10px 4px', lineHeight: 1.2,
     [theme.breakpoints.up('md')]: { fontSize: '0.75rem', padding: '14px 12px', },
@@ -102,7 +91,7 @@ const borderBlink = keyframes`
   50% { border-color: #673ab7; box-shadow: 0 0 8px 2px rgba(103, 58, 183, 0.5); }
   100% { border-color: rgba(0, 0, 0, 0.23); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0); }
 `;
-// --- توابع کمکی عمومی (بدون تغییر) ---
+
 const descendingComparator = <T, K extends keyof T>(a: T, b: T, orderBy: K) => {
     const va = a[orderBy] as any;
     const vb = b[orderBy] as any;
@@ -135,7 +124,6 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilized.map((el) => el[0]);
 };
 
-// --- توابع وضعیت و تاریخ (بدون تغییر) ---
 const statusToLabel = (s: number) => {
     switch (s) { case 0: return "Beklemede"; case 1: return "Onaylandı"; case 2: return "Reddedildi"; default: return "-"; }
 };
@@ -164,10 +152,10 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
     const pageWidth = doc.internal.pageSize.getWidth();
-    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoWidth = 35;
     const logoHeight = 18;
     const margin = 15;
-    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+    const logoX = pageWidth - logoWidth - margin;
 
     try {
         doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
@@ -177,7 +165,7 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
 
     doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('NotoSans', 'bold');
@@ -185,8 +173,6 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     doc.setFont('NotoSans', 'normal');
     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
 
-    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
-    // doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
     doc.line(15, 40, pageWidth - 15, 40);
 };
@@ -222,9 +208,6 @@ const addPdfFooter = (doc: jsPDF) => {
 };
 
 
-// ==============================================================================
-// 3. MAIN COMPONENT: RequestTabs
-// ==============================================================================
 
 const RequestTabs: React.FC = () => {
     const navigate = useNavigate();
@@ -232,16 +215,12 @@ const RequestTabs: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const location = useLocation();
 
-    // --- State مدیریت Tab و UI ---
     const [currentTab, setCurrentTab] = useState('material');
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
     const [loadingData, setLoadingData] = useState<boolean>(true);
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    // const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-
-    // --- استیت‌های لیست‌ها و ردیف‌های انتخاب شده ---
     const [requestsList, setRequestsList] = useState<MaterialRequestType[]>([]);
     const [rentalRequestsList, setRentalRequestsList] = useState<WorkhouseRentRequest[]>([]);
     const [workhouses, setWorkhouses] = useState<Workhouse[]>([]);
@@ -250,7 +229,6 @@ const RequestTabs: React.FC = () => {
     const [materialItemToEdit, setMaterialItemToEdit] = useState<MaterialRequestType | null>(null);
     const [rentalItemToEdit, setRentalItemToEdit] = useState<WorkhouseRentRequest | null>(null);
 
-    // --- استیت‌های Modal ---
     const [openDeleteMaterialModal, setOpenDeleteMaterialModal] = useState(false);
     const [openDeleteRentalModal, setOpenDeleteRentalModal] = useState(false);
     const [openDownloadSingleModal, setOpenDownloadSingleModal] = useState(false);
@@ -262,8 +240,6 @@ const RequestTabs: React.FC = () => {
     const [historyData, setHistoryData] = useState<RequestStatusHistory[]>([]);
 
 
-    // --- استیت‌های فیلترینگ و Pagination ---
-    // Material Table States
     const [materialSearchTerm, setMaterialSearchTerm] = useState('');
     const [materialStatusFilter, setMaterialStatusFilter] = useState<'all' | 0 | 1 | 2>('all');
     const [materialOrderBy, setMaterialOrderBy] = useState<MaterialOrderBy>('createAt');
@@ -271,7 +247,6 @@ const RequestTabs: React.FC = () => {
     const [materialPage, setMaterialPage] = useState(0);
     const [materialRowsPerPage, setMaterialRowsPerPage] = useState(5);
 
-    // Rental Table States
     const [rentalSearchTerm, setRentalSearchTerm] = useState('');
     const [rentalStatusFilter, setRentalStatusFilter] = useState<'all' | 0 | 1 | 2>('all');
     const [selectedRentalWorkhouseId, setSelectedRentalWorkhouseId] = useState<string | number>('');
@@ -282,24 +257,12 @@ const RequestTabs: React.FC = () => {
 
 
     const [isBlinking, setIsBlinking] = useState(true);
-    // ==============================================================================
-    // 4. UTILS & AUTH
-    // ==============================================================================
-    // const { allowedOperations } = useAuth();
-    // const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
-    // const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
-    // const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
-
-
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -308,24 +271,19 @@ const RequestTabs: React.FC = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
 
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -337,8 +295,6 @@ const RequestTabs: React.FC = () => {
     const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
-
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
 
     const idsFromState = ((location.state as { notifIds?: string[] } | undefined)?.notifIds) ?? [];
     const idsFromSingleParam = (searchParams.get('ids') ?? '').split(',').map(s => s.trim()).filter(Boolean);
@@ -367,8 +323,6 @@ const RequestTabs: React.FC = () => {
         return () => { if (timer) clearTimeout(timer); };
     }, [alertMessage]);
 
-    // Handlers
-    // const handleCloseMenu = () => { setAnchorEl(null); };
     const handleOpenAttachmentsModal = (attachments: Attachment[]) => {
         setCurrentAttachments(attachments);
         setOpenAttachmentsModal(true);
@@ -443,7 +397,6 @@ const RequestTabs: React.FC = () => {
                 setWorkhouses(response.data.data.map((w: any) => ({ id: w.id, name: w.name, code: w.code })));
             }
         } catch (e) {
-            // Error handling for workhouses fetch (silent if not in rental tab)
         }
     }, []);
 
@@ -500,7 +453,6 @@ const RequestTabs: React.FC = () => {
         }
     }, [navigate, showAlert]);
 
-    // Initial Data Fetch & Tab Changes Effects
     useEffect(() => {
         if (currentTab === 'material') {
             fetchMaterialRequests();
@@ -521,7 +473,6 @@ const RequestTabs: React.FC = () => {
     const exportRequestPdf = (requestData: MaterialRequestType | WorkhouseRentRequest, title: string) => {
         const doc = new jsPDF();
 
-        // --- تنظیمات فونت و زبان ---
         // @ts-ignore
         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         // @ts-ignore
@@ -532,7 +483,6 @@ const RequestTabs: React.FC = () => {
         doc.addFont('Arial.ttf', 'Arial', 'normal');
         // @ts-ignore
         doc.setFont('Arial');
-        // ----------------------------
 
         const isMaterial = (requestData as MaterialRequestType).subject !== undefined;
         const tableData = [
@@ -564,7 +514,6 @@ const RequestTabs: React.FC = () => {
                 doc.setFontSize(10);
                 // @ts-ignore
                 doc.setFont('Arial', 'normal');
-                // doc.text(`Talep ID: ${requestData.id}`, 15, 32);
             },
             margin: { top: 40, bottom: 45 },
         });
@@ -576,13 +525,11 @@ const RequestTabs: React.FC = () => {
         const worksheet = workbook.addWorksheet(title);
         worksheet.views = [{ rightToLeft: false }];
 
-        // ⬅️ هدر اطلاعات شرکت در اکسل
         worksheet.addRow(['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.']).font = { bold: true, size: 12 };
         worksheet.addRow(['Rapor Başlığı:', title]).font = { bold: true };
         worksheet.addRow(['Rapor Tarihi:', new Date().toLocaleDateString('tr-TR')]);
         worksheet.addRow([]);
         worksheet.addRow([]);
-        // ---------------------------------------------
 
         worksheet.columns = [
             { header: 'Özellik', key: 'key', width: 25 },
@@ -630,7 +577,6 @@ const RequestTabs: React.FC = () => {
         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         // @ts-ignore
         doc.setFont('Arial');
-        // ----------------------------
 
         const materialColumns = ['ID', 'Başlık', 'Şantiye', 'Durum', 'Tarih', 'Açıklama'];
         const rentalColumns = ['ID', 'Başlık', 'Şantiye', 'Başlangıç', 'Bitiş', 'Fiyat', 'Durum', 'Kiralandığı Şirket'];
@@ -656,7 +602,6 @@ const RequestTabs: React.FC = () => {
 
                 return [
                     rRow.id,
-                    // rRow.title,
                     rRow.workhouseName || '-',
                     formatDateDisplay(rRow.rentStartDate),
                     formatDateDisplay(rRow.rentEndDate),
@@ -676,14 +621,13 @@ const RequestTabs: React.FC = () => {
             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 8, cellPadding: 1, overflow: 'linebreak' },
             headStyles: { fillColor: [149, 147, 125], textColor: [255, 255, 255] },
 
-            // ⬅️ فراخوانی Header و Footer در هر صفحه جدید
             didDrawPage: (_data: any) => {
                 addPdfHeader(doc, title);
                 addPdfFooter(doc);
                 // @ts-ignore
                 doc.setFont('NotoSans', 'normal');
                 doc.setFontSize(10);
-                doc.text('', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' }); // عنوان اصلی در بالاترین نقطه
+                doc.text('', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
             },
         });
 
@@ -695,13 +639,11 @@ const RequestTabs: React.FC = () => {
         const worksheet = workbook.addWorksheet(title);
         worksheet.views = [{ rightToLeft: false }];
 
-        // ⬅️ هدر اطلاعات شرکت در اکسل
         worksheet.addRow(['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.']).font = { bold: true, size: 12 };
         worksheet.addRow(['Rapor Başlığı:', title]).font = { bold: true };
         worksheet.addRow(['Rapor Tarihi:', new Date().toLocaleDateString('tr-TR')]);
         worksheet.addRow([]);
         worksheet.addRow([]);
-        // ---------------------------------------------
 
         if (isMaterial) {
             worksheet.columns = [
@@ -767,7 +709,6 @@ const RequestTabs: React.FC = () => {
         , [sortedMaterialRequests, materialPage, materialRowsPerPage]);
 
 
-    // Rental Table Logic
     const filteredRentalRequests = useMemo(() => {
         const q = rentalSearchTerm.trim().toLowerCase();
         return rentalRequestsList.filter((r) => {
@@ -789,7 +730,6 @@ const RequestTabs: React.FC = () => {
         , [sortedRentalRequests, rentalPage, rentalRowsPerPage]);
 
 
-    // Table Handlers
     const handleTabChange = (_event: React.SyntheticEvent, newValue: string) => {
         setCurrentTab(newValue);
         setIsFormVisible(false);
@@ -797,25 +737,20 @@ const RequestTabs: React.FC = () => {
         clearAlert();
     };
 
-    // Edit Click Handlers (Passed to Forms to pre-fill and trigger update mode)
     const handleMaterialEditClick = (row: MaterialRequestType) => {
         setIsEditing(true);
         setMaterialItemToEdit(row);
         setRentalItemToEdit(null);
         setIsFormVisible(true);
-        // handleCloseMenu();
     };
     const handleRentalEditClick = (row: WorkhouseRentRequest) => {
         setIsEditing(true);
         setRentalItemToEdit(row);
         setMaterialItemToEdit(null);
         setIsFormVisible(true);
-        // handleCloseMenu();
     };
 
-    // Delete Click Handlers
     const handleClickOpenDeleteModal = (row: MaterialRequestType | WorkhouseRentRequest) => {
-        // handleCloseMenu();
         if (currentTab === 'material') {
             setMaterialSelectedRowForMenu(row as MaterialRequestType);
             setOpenDeleteMaterialModal(true);
@@ -850,9 +785,6 @@ const RequestTabs: React.FC = () => {
         }
     };
 
-
-    // --- Table UI Builders ---
-
     const MaterialTable = () => (
         <>
 
@@ -865,7 +797,7 @@ const RequestTabs: React.FC = () => {
                                 <Button
                                     variant="outlined"
                                     color="secondary"
-                                    onClick={() => setOpenDownloadSingleModal(true)} // استفاده مجدد از همین Modal برای انتخاب نوع فایل
+                                    onClick={() => setOpenDownloadSingleModal(true)}
                                     startIcon={<IconFileDownload size={20} />}
                                 >
                                     Tümünü İndir
@@ -936,27 +868,14 @@ const RequestTabs: React.FC = () => {
                                     <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                         <StyledTableCell>
                                             <Typography variant="body1">
-                                                {/* اضافه کردن ID قبل از عنوان */}
                                                 <span style={{ color: '#9e9e9e', marginRight: '8px' }}>#{row.id}</span>
                                                 {row.subject}
                                             </Typography>
                                         </StyledTableCell>
-                                        {/* <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
-                                            <Typography variant="body1" noWrap title={row.description || ''}>{row.description || '-'}</Typography>
-                                            {row.description != null && row.description.length > 50 && (
-                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                    <Button variant="text" 
-                                                    style={{ fontSize: "10px", padding: "2px 5px" }}
-                                                     onClick={() => { setFullDescriptionContent(row.description);
-                                                      setOpenDescriptionModal(true); }}>Açıklamanı Oku</Button>
-                                                </CustomTooltip>
-                                            )}
-                                        </StyledTableCell> */}
                                         <StyledTableCell>
                                             <Typography variant="body1">
                                                 {getWorkhouseNameFromRow(row)}
                                             </Typography>
-                                            {/* نمایش کد شانتيه به صورت کوچک زیر نام (اختیاری برای زیبایی) */}
                                             {row.workhouse?.code && (
                                                 <Typography variant="caption" color="textSecondary" display="block">
                                                     Kod: {row.workhouse.code}
@@ -966,7 +885,6 @@ const RequestTabs: React.FC = () => {
 
                                         <StyledTableCell sx={{ maxWidth: 150 }}>
                                             {row.description && row.description.trim().length > 0 ? (
-                                                // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                     <Button
 
@@ -981,7 +899,6 @@ const RequestTabs: React.FC = () => {
                                                     </Button>
                                                 </CustomTooltip>
                                             ) : (
-                                                // حالت دوم: اگر توضیحات نال یا خالی بود
                                                 <Typography variant="body2" align="center">
                                                     -
                                                 </Typography>
@@ -1022,14 +939,6 @@ const RequestTabs: React.FC = () => {
                                                 Detay
                                             </Button>
                                         </StyledTableCell>
-                                        {/* <StyledTableCell>
-                                            <IconButton onClick={(event) => handleClickMenu(event, row)}><IconDots width={18} /></IconButton>
-                                            <Menu anchorEl={anchorEl} open={openMenu && materialSelectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
-                                                {hasEditPermission && (<MuiMenuItem onClick={() => handleMaterialEditClick(row)} disabled={row.status !== 0}><ListItemIcon><IconEdit width={18} /></ListItemIcon> Düzenle</MuiMenuItem>)}
-                                                {hasDeletePermission && (<MuiMenuItem onClick={() => handleClickOpenDeleteModal(row)} disabled={row.status !== 0}><ListItemIcon><IconTrash width={18} /></ListItemIcon> Silmek</MuiMenuItem>)}
-                                                {hasDownloadPermission && (<MuiMenuItem onClick={() => { setMaterialSelectedRowForMenu(row); setOpenDownloadSingleModal(true); }}><ListItemIcon><IconFileDownload width={18} /></ListItemIcon> Bu satırı indir</MuiMenuItem>)}
-                                            </Menu>
-                                        </StyledTableCell> */}
 
                                         <StyledTableCell>
                                             <ActionMenu
@@ -1075,7 +984,7 @@ const RequestTabs: React.FC = () => {
                             <Button
                                 variant="outlined"
                                 color="secondary"
-                                onClick={() => setOpenDownloadSingleModal(true)} // استفاده مجدد از همین Modal برای انتخاب نوع فایل
+                                onClick={() => setOpenDownloadSingleModal(true)}
                                 startIcon={<IconFileDownload size={20} />}
                             >
                                 Tümünü İndir
@@ -1111,7 +1020,6 @@ const RequestTabs: React.FC = () => {
                                             variant="outlined"
                                             size="small"
                                             sx={{
-                                                // ⬅️ اگر شانتيه انتخاب نشده باشد، حاشیه چشمک می‌زند
                                                 '& .MuiOutlinedInput-root': {
                                                     animation: !selectedRentalWorkhouseId
                                                         ? `${borderBlink} 2s infinite ease-in-out`
@@ -1123,8 +1031,6 @@ const RequestTabs: React.FC = () => {
                                     )}
                                 />
                             </FormControl>
-
-                            {/* ⬅️ آیکون راهنما با تولتیپ */}
                             <CustomTooltip
                                 title={isTooltipGloballyEnabled ? "Tablo verilerini görüntülemek için lütfen listeden bir şantiye seçiniz." : ""}
                             >
@@ -1190,7 +1096,6 @@ const RequestTabs: React.FC = () => {
                                     <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                         <StyledTableCell>
                                             <Typography variant="body1">
-                                                {/* اضافه کردن ID قبل از عنوان */}
                                                 <span style={{ color: '#9e9e9e', marginRight: '8px' }}>#{row.id}</span>
                                                 {row.title}
                                             </Typography>
@@ -1228,14 +1133,6 @@ const RequestTabs: React.FC = () => {
                                                 Detay
                                             </Button>
                                         </StyledTableCell>
-                                        {/* <StyledTableCell>
-                                            <IconButton onClick={(event) => handleClickMenu(event, row)}><IconDots width={18} /></IconButton>
-                                            <Menu anchorEl={anchorEl} open={openMenu && rentalSelectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
-                                                {hasEditPermission && (<MuiMenuItem onClick={() => handleRentalEditClick(row)} disabled={row.status !== 0}><ListItemIcon><IconEdit width={18} /></ListItemIcon> Düzenle</MuiMenuItem>)}
-                                                {hasDeletePermission && (<MuiMenuItem onClick={() => handleClickOpenDeleteModal(row)} disabled={row.status !== 0}><ListItemIcon><IconTrash width={18} /></ListItemIcon> Silmek</MuiMenuItem>)}
-                                                {hasDownloadPermission && (<MuiMenuItem onClick={() => { setRentalSelectedRowForMenu(row); setOpenDownloadSingleModal(true); }}><ListItemIcon><IconFileDownload width={18} /></ListItemIcon> Bu satırı indir</MuiMenuItem>)}
-                                            </Menu>
-                                        </StyledTableCell> */}
                                         <StyledTableCell>
                                             <ActionMenu
                                                 row={row}
@@ -1269,14 +1166,9 @@ const RequestTabs: React.FC = () => {
     );
 
 
-    // ==============================================================================
-    // 7. RENDER
-    // ==============================================================================
-
     return (
         <Box sx={{ p: 3, position: 'relative' }}>
             <TabContext value={currentTab}>
-                {/* 1. Header & Tabs */}
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap">
                     <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center' }}><IconFileText style={{ marginRight: 8 }} /> Talep Yönetimi</Typography>
                     <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: { xs: 2, sm: 0 } }}>
@@ -1293,7 +1185,6 @@ const RequestTabs: React.FC = () => {
                             <BlinkingButton
                                 variant="contained" color="primary"
                                 onClick={() => { setIsFormVisible(true); setIsEditing(false); setMaterialItemToEdit(null); setRentalItemToEdit(null); }}
-                                // isBlinking={currentTab === 'material' && !isFormVisible}
                                 isBlinking={isBlinking}
                                 fullWidth={false} startIcon={<IconPlus size={20} />}
                                 disabled={!hasCreatePermission}
@@ -1316,7 +1207,6 @@ const RequestTabs: React.FC = () => {
                     )}
                 </Stack>
 
-                {/* 2. Form Bölümü (استفاده از کامپوننت‌های جدا شده) */}
                 <Box>
                     {(isFormVisible && currentTab === 'material') && (
                         <MaterialRequestForm
@@ -1345,7 +1235,6 @@ const RequestTabs: React.FC = () => {
                     </Stack>
                 )}
 
-                {/* 3. Tab Contents */}
                 <TabPanel value="material" sx={{ p: 0 }}><MaterialTable /></TabPanel>
                 <TabPanel value="rental" sx={{ p: 0 }}><RentalTable /></TabPanel>
             </TabContext>
@@ -1354,14 +1243,14 @@ const RequestTabs: React.FC = () => {
                 <DialogTitle>
                     {materialSelectedRowForMenu || rentalSelectedRowForMenu
                         ? (currentTab === 'material' ? 'Malzeme Talep Raporunu İndir' : 'Kiralama Talep Raporunu İndir')
-                        : (currentTab === 'material' ? 'Tüm Malzeme Taleplerini İndir' : 'Tüm Kiralama Taleplerini İndir') // عنوان برای دانلود کلی
+                        : (currentTab === 'material' ? 'Tüm Malzeme Taleplerini İndir' : 'Tüm Kiralama Taleplerini İndir')
                     }
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText sx={{ mb: 2 }}>
                         {materialSelectedRowForMenu || rentalSelectedRowForMenu
                             ? "Seçilen kaydın detaylı raporunu indirin."
-                            : "Tablodaki tüm filtrelenmiş kayıtların toplu raporunu indirin." // متن برای دانلود کلی
+                            : "Tablodaki tüm filtrelenmiş kayıtların toplu raporunu indirin."
                         }
                     </DialogContentText>
                     <Stack direction="column" spacing={2} sx={{ mt: 1 }}>
@@ -1372,14 +1261,13 @@ const RequestTabs: React.FC = () => {
                                 if (row) {
                                     exportRequestPdf(row, currentTab === 'material' ? 'Malzeme Talep Detay Raporu' : 'Kiralama Talep Detay Raporu');
                                 } else if (currentTab === 'material') {
-                                    exportAllRequestsPdf(filteredMaterialRequests, 'Tüm Malzeme Talepleri Raporu', true); // فراخوانی تابع کلی
+                                    exportAllRequestsPdf(filteredMaterialRequests, 'Tüm Malzeme Talepleri Raporu', true);
                                 } else {
-                                    exportAllRequestsPdf(filteredRentalRequests, 'Tüm Kiralama Talepleri Raporu', false); // فراخوانی تابع کلی
+                                    exportAllRequestsPdf(filteredRentalRequests, 'Tüm Kiralama Talepleri Raporu', false);
                                 }
                                 setOpenDownloadSingleModal(false);
                                 setMaterialSelectedRowForMenu(null);
                                 setRentalSelectedRowForMenu(null);
-                                // handleCloseMenu();
                             }}
                             startIcon={<IconFileDownload />}
                         >
@@ -1392,14 +1280,13 @@ const RequestTabs: React.FC = () => {
                                 if (row) {
                                     exportRequestExcel(row, currentTab === 'material' ? 'Malzeme Talep Detayları' : 'Kiralama Talep Detayları');
                                 } else if (currentTab === 'material') {
-                                    exportAllRequestsExcel(filteredMaterialRequests, 'Tüm Malzeme Talepleri Detayları', true); // فراخوانی تابع کلی
+                                    exportAllRequestsExcel(filteredMaterialRequests, 'Tüm Malzeme Talepleri Detayları', true);
                                 } else {
-                                    exportAllRequestsExcel(filteredRentalRequests, 'Tüm Kiralama Talepleri Detayları', false); // فراخوانی تابع کلی
+                                    exportAllRequestsExcel(filteredRentalRequests, 'Tüm Kiralama Talepleri Detayları', false);
                                 }
                                 setOpenDownloadSingleModal(false);
                                 setMaterialSelectedRowForMenu(null);
                                 setRentalSelectedRowForMenu(null);
-                                // handleCloseMenu();
                             }}
                             startIcon={<IconFileDownload />}
                         >
@@ -1410,7 +1297,6 @@ const RequestTabs: React.FC = () => {
                 <DialogActions><Button onClick={() => { setOpenDownloadSingleModal(false); setMaterialSelectedRowForMenu(null); setRentalSelectedRowForMenu(null); }} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* History Modal (بازیابی شده) */}
             <Dialog open={openHistoryModal} onClose={() => setOpenHistoryModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Talep Durum Geçmişi</DialogTitle>
                 <DialogContent dividers>
@@ -1433,7 +1319,6 @@ const RequestTabs: React.FC = () => {
                 <DialogActions><Button onClick={() => setOpenHistoryModal(false)}>Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* Description Modal (بازیابی شده) */}
             <Dialog open={openDescriptionModal} onClose={() => setOpenDescriptionModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Açıklamanın Tamamı</DialogTitle>
                 <DialogContent dividers>
@@ -1442,7 +1327,6 @@ const RequestTabs: React.FC = () => {
                 <DialogActions><Button onClick={() => setOpenDescriptionModal(false)} color="primary">Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* Attachments Modal */}
             <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Ekler</DialogTitle>
                 <DialogContent dividers>
@@ -1472,7 +1356,6 @@ const RequestTabs: React.FC = () => {
                 </DialogContent>
                 <DialogActions><Button onClick={() => setOpenAttachmentsModal(false)} color="primary">Kapat</Button></DialogActions>
             </Dialog>
-            {/* --- Details Modal --- */}
             <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle sx={{ bgcolor: 'info.main', color: 'white' }}>
                     Talep Detay Bilgileri
@@ -1480,7 +1363,6 @@ const RequestTabs: React.FC = () => {
                 <DialogContent dividers>
                     {viewingRow && (
                         <Stack spacing={2} sx={{ mt: 1 }}>
-                            {/* بخش مشترک */}
                             <Box display="flex" justifyContent="space-between">
                                 <Typography fontWeight="bold">Başlık:</Typography>
                                 <Typography>{(viewingRow as MaterialRequestType).subject || (viewingRow as WorkhouseRentRequest).title}</Typography>
@@ -1489,7 +1371,6 @@ const RequestTabs: React.FC = () => {
                                 <Typography fontWeight="bold">Şantiye:</Typography>
                                 <Typography>{getWorkhouseNameFromRow(viewingRow as MaterialRequestType)}</Typography>
                             </Box>
-                            {/* فیلدهای اختصاصی اجاره (Rental) */}
                             {currentTab === 'rental' && (
                                 <>
                                     <Box display="flex" justifyContent="space-between">
@@ -1519,7 +1400,6 @@ const RequestTabs: React.FC = () => {
 
                             <Divider />
 
-                            {/* توضیحات کامل */}
                             <Typography fontWeight="bold">Açıklama:</Typography>
                             <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f9f9f9' }}>
                                 <div dangerouslySetInnerHTML={{ __html: viewingRow.description || 'Açıklama belirtilmemiş.' }} />
@@ -1527,7 +1407,6 @@ const RequestTabs: React.FC = () => {
 
                             <Divider sx={{ my: 2 }} />
 
-                            {/* دکمه‌های دانلود داخل مودال */}
                             <Stack direction="row" spacing={2} justifyContent="center">
                                 <Button
                                     variant="outlined"
@@ -1554,7 +1433,6 @@ const RequestTabs: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Delete Modals */}
             <DeleteRequest
                 openModal={openDeleteMaterialModal} itemToDelete={materialSelectedRowForMenu}
                 onClose={() => setOpenDeleteMaterialModal(false)} onDeleteSuccess={fetchMaterialRequests} showAlert={showAlert}

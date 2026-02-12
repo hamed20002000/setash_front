@@ -53,11 +53,10 @@ const formatDateDisplay = (dateString: string | null): string => {
 
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    fontFamily: 'NotoSans',
+    fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: {
-        fontSize: '1rem', // Masaüstünde daha büyük
+        fontSize: '1rem',
     },
 }));
 
@@ -186,7 +185,6 @@ const ListWorks = () => {
     const workTitleInputRef = useRef<HTMLInputElement>(null);
     const [titleError, setTitleError] = useState<boolean>(false);
     const [startDateError, setStartDateError] = useState<boolean>(false);
-    // const [endDateError, setEndDateError] = useState<boolean>(false);
     const [tenderIdError, setTenderIdError] = useState<boolean>(false);
     const [formErrors, setFormErrors] = useState<string | null>(null);
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -202,27 +200,11 @@ const ListWorks = () => {
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
 
-    // const { allowedOperations } = useAuth();
-    // const hasCreatePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-    // }, [allowedOperations]);
-
-    // const hasEditPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-    // }, [allowedOperations]);
-
-    // const hasDeletePermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-    // }, [allowedOperations]);
-
-
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -231,24 +213,19 @@ const ListWorks = () => {
         return null;
     };
 
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
 
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -259,10 +236,6 @@ const ListWorks = () => {
     const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
     const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
-    //   const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
-
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
-
 
     useEffect(() => {
         const params = new URLSearchParams(location.search);
@@ -337,17 +310,14 @@ const ListWorks = () => {
         if (selectedRowForMenu) {
             setTitle(selectedRowForMenu.title);
             setStartDate(new Date(selectedRowForMenu.startDate));
-            // setEndDate(new Date(selectedRowForMenu.endDate));
             const foundTender = tenderOptions.find(t => Number(t.id) === selectedRowForMenu.tenderId);
             setSelectedTenderOption(foundTender || null);
             setOriginalTitle(selectedRowForMenu.title);
             setOriginalStartDate(new Date(selectedRowForMenu.startDate));
-            // setOriginalEndDate(new Date(selectedRowForMenu.endDate));
             setOriginalSelectedTenderOption(foundTender || null);
             setEditingId(selectedRowForMenu.id);
             setTitleError(false);
             setStartDateError(false);
-            // setEndDateError(false);
             setTenderIdError(false);
             setFormErrors(null);
             setTimeout(() => {
@@ -365,7 +335,6 @@ const ListWorks = () => {
         clearAlert();
         setTitleError(false);
         setStartDateError(false);
-        // setEndDateError(false);
         setTenderIdError(false);
         setFormErrors(null);
     };
@@ -542,7 +511,6 @@ const ListWorks = () => {
         }
     };
 
-    // ListWorks.tsx - حدود خط 560
     const submitEndWork = async () => {
         if (!workForEnd || !endWorkDate) {
             setEndWorkError(true);
@@ -564,7 +532,6 @@ const ListWorks = () => {
         try {
             const payload = {
                 id: Number(workForEnd.id),
-                // فقط فیلدهای مورد نیاز
                 endDate: format(endWorkDate, 'yyyy-MM-dd')
             };
 
@@ -613,7 +580,6 @@ const ListWorks = () => {
         setOriginalSelectedTenderOption(null);
         setTitleError(false);
         setStartDateError(false);
-        // setEndDateError(false);
         setTenderIdError(false);
         setFormErrors(null);
         setStatusFilter('all');
@@ -809,7 +775,6 @@ const ListWorks = () => {
                                 variant="contained"
                                 color="error"
                                 onClick={resetFormAndState}
-                                // disabled={loadingButton}
                                 fullWidth={false}
                                 startIcon={<IconX size={20} />}
                             >
@@ -906,10 +871,8 @@ const ListWorks = () => {
                                         setStartDate(newValue);
                                         if (startDateError && newValue) setStartDateError(false);
                                         if (endDate && newValue && newValue > endDate) {
-                                            // setEndDateError(true);
                                             setFormErrors("Bitiş tarihi başlangıç tarihinden önce olamaz!");
                                         } else {
-                                            // setEndDateError(false);
                                             setFormErrors(null);
                                         }
                                     }}
@@ -927,39 +890,7 @@ const ListWorks = () => {
                                 />
                             </LocalizationProvider>
                         </Grid>
-                        {/* <Grid item xs={12} sm={3}>
-                            <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                                <CustomFormLabel htmlFor="end-date" required>
-                                    Bitiş Tarihi
-                                </CustomFormLabel>
-                                <DatePicker
-                                    label=""
-                                    value={endDate}
-                                    onChange={(newValue) => {
-                                        setEndDate(newValue);
-                                        if (endDateError && newValue) setEndDateError(false);
-                                        if (startDate && newValue && newValue < startDate) {
-                                            setEndDateError(true);
-                                            setFormErrors("Bitiş tarihi başlangıç tarihinden önce olamaz!");
-                                        } else {
-                                            setEndDateError(false);
-                                            setFormErrors(null);
-                                        }
-                                    }}
-                                    inputFormat="dd/MM/yyyy"
-                                    renderInput={(params) => (
-                                        <TextField
-                                            {...params}
 
-                                            size="small"
-                                            sx={{ width: '100%' }}
-                                            error={endDateError}
-                                            helperText={endDateError ? formErrors || "Bitiş tarihi boş olamaz!" : ""}
-                                        />
-                                    )}
-                                />
-                            </LocalizationProvider>
-                        </Grid> */}
                         <Grid item xs={12} sx={{ mt: { xs: 2, sm: 0 } }}>
                             <Stack direction="row" spacing={1} justifyContent="flex-end">
                                 {editingId !== null ? (
@@ -1081,7 +1012,6 @@ const ListWorks = () => {
                         <Table aria-label="iş tablosu">
                             <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                                 <TableRow>
-                                    {/* Sütun Başlıkları */}
                                     <StyledTableCell sx={{ color: "#171c23" }}>
                                         <TableSortLabel
                                             active={orderBy === 'title'}
@@ -1145,11 +1075,10 @@ const ListWorks = () => {
                                             sx={{
                                                 '&:last-child td, &:last-child th': { border: 0 },
                                                 ...(row.endDate && row.endDate !== "N/A"
-                                                    ? { backgroundColor: '#ffa7a76e' } // رنگ Hex مستقیم + Opacity
+                                                    ? { backgroundColor: '#ffa7a76e' }
                                                     : {}
                                                 )
                                             }}>
-                                            {/* سلول‌های اطلاعاتی */}
                                             <StyledTableCell>
                                                 <Typography variant="body1">{row.title}</Typography>
                                             </StyledTableCell>
@@ -1317,7 +1246,6 @@ const ListWorks = () => {
                                     value={endWorkDate}
                                     onChange={(v) => { setEndWorkDate(v); setEndWorkError(false); }}
                                     inputFormat="dd/MM/yyyy"
-                                    // اعتبارسنجی: تاریخ پایان نمی‌تواند قبل از تاریخ شروع باشد
                                     minDate={new Date(workForEnd.startDate)}
                                     renderInput={(params) => (
                                         <TextField {...params} size="small" fullWidth
@@ -1327,7 +1255,6 @@ const ListWorks = () => {
                                     )}
                                 />
                             </LocalizationProvider>
-                            {/* <Alert severity="info">Bu işlem işi pasif duruma alacaktır (Durum 1).</Alert> */}
                         </Stack>
                     )}
                 </DialogContent>

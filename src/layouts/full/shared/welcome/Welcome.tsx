@@ -17,7 +17,6 @@ const Welcome = () => {
     setOpen(false);
   };
   React.useEffect(() => {
-    // Update the document title using the browser API
     const timer = setTimeout(() => {
       handleClick();
     }, 1500);
@@ -32,7 +31,7 @@ const Welcome = () => {
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         autoHideDuration={6000}
         onClose={handleClose}
-        style={{top:"10%"}}
+        style={{ top: "10%" }}
       >
         <Alert
           onClose={handleClose}
@@ -41,7 +40,7 @@ const Welcome = () => {
           sx={{ width: '100%', color: 'white' }}
         >
           <AlertTitle>Setaş portalına hoş geldiniz.</AlertTitle>
-         
+
         </Alert>
       </Snackbar>
     </React.Fragment>

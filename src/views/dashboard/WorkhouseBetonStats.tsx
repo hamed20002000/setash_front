@@ -142,8 +142,21 @@ const WorkhouseBetonStats = () => {
                         </IconButton>
                     )}
                     <ToggleButtonGroup value={viewMode} exclusive onChange={(_, v) => v && setViewMode(v)} size="small">
-                        <ToggleButton value="chart"><IconChartBar size={18} /></ToggleButton>
-                        <ToggleButton value="cards"><IconLayoutGrid size={18} /></ToggleButton>
+                        <ToggleButton value="chart">
+
+                            <Stack direction="row" spacing={1} alignItems="center">
+
+                                <IconChartBar size={18} />
+                                <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>Grafik</Typography>
+
+                            </Stack>
+
+                        </ToggleButton>
+                        <ToggleButton value="cards">
+                            <Stack direction="row" spacing={1} alignItems="center">
+                                <IconLayoutGrid size={18} />
+                                <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>Liste</Typography>
+                            </Stack></ToggleButton>
                     </ToggleButtonGroup>
                 </Stack>
             </Stack>

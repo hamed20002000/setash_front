@@ -67,9 +67,6 @@ const ThirdStep = () => {
 
   return (
     <>
-      {/* ------------------------------------------- */}
-      {/* Delivery Option */}
-      {/* ------------------------------------------- */}
       <Paper variant="outlined" sx={{ p: 3, mt: 4 }}>
         <Typography variant="h6">Delivery Option</Typography>
         <Grid container spacing={3} mt={1}>
@@ -101,9 +98,6 @@ const ThirdStep = () => {
           ))}
         </Grid>
       </Paper>
-      {/* ------------------------------------------- */}
-      {/* Payment Option */}
-      {/* ------------------------------------------- */}
       <Paper variant="outlined" sx={{ p: 3, mt: 4 }}>
         <Typography variant="h6">Payment Option</Typography>
         <Grid container spacing={3} alignItems="center">

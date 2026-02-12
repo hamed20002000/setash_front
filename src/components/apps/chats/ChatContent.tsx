@@ -28,7 +28,7 @@ interface ChatContentProps {
   toggleChatSidebar: () => void;
 }
 
-  const ChatContent: React.FC<ChatContentProps> = ({ toggleChatSidebar }) => {
+const ChatContent: React.FC<ChatContentProps> = ({ toggleChatSidebar }) => {
   const [open, setOpen] = React.useState(true);
   const lgUp = useMediaQuery((theme: Theme) => theme.breakpoints.up('lg'));
 
@@ -40,9 +40,6 @@ interface ChatContentProps {
     <Box>
       {chatDetails ? (
         <Box>
-          {/* ------------------------------------------- */}
-          {/* Header Part */}
-          {/* ------------------------------------------- */}
           <Box>
             <Box display="flex" alignItems="center" p={2}>
               <Box
@@ -60,10 +57,10 @@ interface ChatContentProps {
                       chatDetails.status === 'online'
                         ? 'success'
                         : chatDetails.status === 'busy'
-                        ? 'error'
-                        : chatDetails.status === 'away'
-                        ? 'warning'
-                        : 'secondary'
+                          ? 'error'
+                          : chatDetails.status === 'away'
+                            ? 'warning'
+                            : 'secondary'
                     }
                     variant="dot"
                     anchorOrigin={{
@@ -94,14 +91,8 @@ interface ChatContentProps {
             </Box>
             <Divider />
           </Box>
-          {/* ------------------------------------------- */}
-          {/* Chat Content */}
-          {/* ------------------------------------------- */}
 
           <Box display="flex">
-            {/* ------------------------------------------- */}
-            {/* Chat msges */}
-            {/* ------------------------------------------- */}
 
             <Box width="100%">
               <Scrollbar sx={{ height: '650px', overflow: 'auto', maxHeight: '800px' }}>
@@ -191,18 +182,11 @@ interface ChatContentProps {
                 </Box>
               </Scrollbar>
             </Box>
-
-            {/* ------------------------------------------- */}
-            {/* Chat right sidebar Content */}
-            {/* ------------------------------------------- */}
             <ChatInsideSidebar isInSidebar={lgUp ? open : !open} chat={chatDetails} />
           </Box>
         </Box>
       ) : (
         <Box display="flex" alignItems="center" p={2} pb={1} pt={1}>
-          {/* ------------------------------------------- */}
-          {/* if No Chat Content */}
-          {/* ------------------------------------------- */}
           <Box
             sx={{
               display: { xs: 'flex', md: 'flex', lg: 'none' },

@@ -39,7 +39,6 @@ import DeleteBetweenReceipt from "./DeleteBetweenReceipt";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
-/* ---------------- Styled ---------------- */
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans',
     fontSize: '0.8rem',
@@ -71,7 +70,6 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
     },
 }));
 
-/* ---------------- Types ---------------- */
 interface ApiResponse<T> {
     success: boolean;
     httpStatusCode: number;
@@ -86,7 +84,7 @@ interface BetweenWarehouseDispatchForCombo {
     code: string;
     docDate: string;
     recordStatus: number;
-    isEnd?: boolean | null; // NEW
+    isEnd?: boolean | null;
     warehouseDispatchDetails: {
         id: string;
         quantity: string;
@@ -128,32 +126,22 @@ interface NewReceiptData {
 }
 interface EditReceiptData extends NewReceiptData { id: number; code: string; }
 
-/* ---------------- Helpers ---------------- */
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
     try { return format(new Date(dateString), 'dd MMMM yyyy', { locale: tr }); } catch { return "Geçersiz Tarih"; }
 };
 
-/* ---------------- Component ---------------- */
 const ListBetweenReceipt = () => {
     const navigate = useNavigate();
     const authToken = localStorage.getItem('authToken');
     const { isTooltipGloballyEnabled } = useTooltip();
-    // const { allowedOperations } = useAuth();
-
-    // const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
-    // const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
-    // const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
-    // const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
 
 
     const { menuItems, allowedOperations } = useAuth();
     const findMenuByHref = (items: any[], path: string): any => {
         for (const item of items) {
-            // اگر خود آیتم تطبیق داشت
             if (item.href === path) return item;
 
-            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
             if (item.children && item.children.length > 0) {
                 const found = findMenuByHref(item.children, path);
                 if (found) return found;
@@ -161,25 +149,19 @@ const ListBetweenReceipt = () => {
         }
         return null;
     };
-
-    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
     const currentMenu = useMemo(() => {
 
         return findMenuByHref(menuItems, location.pathname);
     }, [menuItems, location.pathname]);
 
-    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
     const currentMenuOpIds = useMemo(() => {
-        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
         if (!currentMenu || !currentMenu.menuOperations) return [];
 
         return currentMenu.menuOperations.map((op: any) => {
-            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
             return String(op.id);
         });
     }, [currentMenu]);
 
-    // ۴. تابع نهایی بررسی دسترسی
     const hasPermission = (opName: string) => {
         return allowedOperations.some((op: any) =>
             op.systemOperationName === opName &&
@@ -192,10 +174,7 @@ const ListBetweenReceipt = () => {
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
     const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
 
-    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
 
-
-    /* ---- State ---- */
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(null);
     const [selectedDispatchId, setSelectedDispatchId] = useState<string | null>(null);
@@ -237,7 +216,6 @@ const ListBetweenReceipt = () => {
     const nameInputRef = useRef<HTMLInputElement>(null);
 
 
-    /* ---- Download modals state (unchanged) ---- */
     const [openAllDownloadModal, setOpenAllDownloadModal] = useState(false);
     const [openFilteredDownloadModal, setOpenFilteredDownloadModal] = useState(false);
     const [openReceiptDetailsDownloadModal, setOpenReceiptDetailsDownloadModal] = useState(false);
@@ -247,19 +225,16 @@ const ListBetweenReceipt = () => {
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
     const [generalDescription, setGeneralDescription] = useState('');
-    // NEW: Sevk List modal & End-confirm modal (on save)
     const [openDispatchListModal, setOpenDispatchListModal] = useState(false);
     const [openEndDispatchConfirmModal, setOpenEndDispatchConfirmModal] = useState(false);
     const [lastSelectedDispatch, setLastSelectedDispatch] = useState<{ id: string; code: string } | null>(null);
 
-    /* ---- Utils ---- */
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
         setTimeout(() => { setAlertMessage(null); }, 5000);
     }, []);
 
-    /* ---- Fetchers ---- */
     const fetchWarehouses = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -302,7 +277,6 @@ const ListBetweenReceipt = () => {
                 { headers: { "Authorization": `Bearer ${authToken}` } }
             );
             if (r.data.httpStatusCode === 200) {
-                // keep items; if backend sends isEnd, use it; else default false
                 const normalized = (r.data.data || []).map(d => ({ ...d, isEnd: d.isEnd ?? false }));
                 setDispatchesForCombo(normalized.filter(d => d.recordStatus === 0));
             } else {
@@ -386,7 +360,6 @@ const ListBetweenReceipt = () => {
 
     useEffect(() => { fetchWarehouses(); fetchBetweenReceipts(); }, [fetchWarehouses, fetchBetweenReceipts]);
 
-    /* ---- Derived ---- */
     useEffect(() => {
         const isValid = !!selectedWarehouseId && !!selectedDispatchId && !!docDate && receiptDetails.length > 0 &&
             receiptDetails.every(d => !!d.itemId && Number(d.quantity) > 0);
@@ -424,7 +397,6 @@ const ListBetweenReceipt = () => {
         return () => clearTimeout(t);
     }, []);
 
-    /* ---- Form helpers ---- */
     const validateForm = (): boolean => {
         let ok = true;
         if (!selectedWarehouseId) { setWarehouseIdError(true); ok = false; } else setWarehouseIdError(false);
@@ -462,7 +434,6 @@ const ListBetweenReceipt = () => {
                 if (isNaN(num) || num < 0) {
                     showAlert('Miktar negatif olamaz veya geçersiz!', 'warning');
                 } else {
-                    // sum across rows for same origin id
                     const id = updatedDetail.originWarehouseDispatchDeatailId!;
                     const sumOther = newDetails
                         .filter((x, i) => i !== index && x.originWarehouseDispatchDeatailId === id)
@@ -497,7 +468,6 @@ const ListBetweenReceipt = () => {
         }
     };
 
-    /* ---- API Actions ---- */
     const insertReceipt = async () => {
         if (!validateForm()) return;
         setLoadingButton(true);
@@ -522,13 +492,11 @@ const ListBetweenReceipt = () => {
             if (resp.data.httpStatusCode === 201) {
                 showAlert('Yeni fiş başarıyla eklendi!', 'success');
 
-                // Open End-Dispatch modal (only for Sevk)
                 if (selectedDispatchId) {
                     const d = dispatchesForCombo.find(x => x.id === selectedDispatchId);
                     setLastSelectedDispatch(d ? { id: d.id, code: d.code } : { id: selectedDispatchId, code: 'N/A' });
                     setOpenEndDispatchConfirmModal(true);
                 } else {
-                    // fallback: just refresh lists
                     resetFormAndState();
                     fetchBetweenReceipts();
                 }
@@ -592,7 +560,6 @@ const ListBetweenReceipt = () => {
         }
     };
 
-    // NEW: API to end/un-end a dispatch
     const updateDispatchIsEnd = useCallback(async (id: string, isEnd: boolean) => {
         if (!authToken) { navigate("/"); return { ok: false }; }
         try {
@@ -616,7 +583,6 @@ const ListBetweenReceipt = () => {
         }
     }, [authToken, navigate, showAlert]);
 
-    /* ---- Menus/Modals ---- */
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
     const handleCancelEdit = () => { resetFormAndState(); };
 
@@ -630,7 +596,6 @@ const ListBetweenReceipt = () => {
     };
     const handleCloseDeleteModal = () => { setOpenDeleteModal(false); setReceiptIdToDelete(null); setReceiptCodeToDelete(''); };
 
-    /* ---- PDF/Excel helpers (unchanged core) ---- */
     const getDocFonts = (doc: jsPDF) => {
         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
@@ -643,14 +608,6 @@ const ListBetweenReceipt = () => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const startY = 15;
         doc.text(title, pageWidth / 2, startY + 1, { align: 'center' });
-        // If Logo is dataURL, use directly:
-        // @ts-ignore
-        // doc.addImage(Logo, 'PNG', pageWidth - 60, startY, 50, 25);
-        // doc.setFont('NotoSans', 'normal');
-        // doc.setFontSize(14);
-        // doc.setFontSize(10);
-        // doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, 15, startY + 25, { align: 'left' });
-
         doc.setFontSize(10);
         doc.setFont('NotoSans', 'bold');
         doc.text(`Rapor Tarihi:`, 15, 40);
@@ -685,9 +642,9 @@ const ListBetweenReceipt = () => {
         pdfDoc.setTextColor(100);
 
         const companyInfo = [
-            'SETAŞ SİSTEM BİLİŞİM İنŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
-            'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
+            'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+            'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
         ];
 
         let footerY = pageHeight - 20;
@@ -743,7 +700,6 @@ const ListBetweenReceipt = () => {
         return totals;
     };
 
-    /* ---- Downloads (same as قبل) ---- */
     const handleDownloadAllOrFilteredPDF = useCallback((data: BetweenReceiptType[], isFiltered: boolean) => {
         if (!data || data.length === 0) { showAlert('PDF oluşturulacak fiş bulunamadı.', 'warning'); return; }
         const doc = new jsPDF(); getDocFonts(doc);
@@ -977,7 +933,6 @@ const ListBetweenReceipt = () => {
         }, 100);
     }, [selectedRowForMenu, fetchDispatchesForCombo]);
 
-    /* ---- Handlers: Combos ---- */
     const onWarehouseChange = async (_: any, newValue: WarehouseType | null) => {
         setSelectedWarehouseId(newValue ? newValue.id : null);
         setSelectedDispatchId(null);
@@ -992,8 +947,6 @@ const ListBetweenReceipt = () => {
         else setReceiptDetails([]);
         if (dispatchIdError && newValue) setDispatchIdError(false);
     };
-
-    /* ---- NEW: End-Dispatch confirm after insert ---- */
     const handleConfirmEndDispatch = async (shouldEnd: boolean) => {
         if (!lastSelectedDispatch) { setOpenEndDispatchConfirmModal(false); resetFormAndState(); fetchBetweenReceipts(); return; }
         if (!shouldEnd) {
@@ -1006,22 +959,18 @@ const ListBetweenReceipt = () => {
         const res = await updateDispatchIsEnd(lastSelectedDispatch.id, true);
         if (res.ok) {
             showAlert(`Sevk Belgesi ${lastSelectedDispatch.code} sonlandırıldı.`, 'success');
-            // refresh combo list for current warehouse
             if (selectedWarehouseId) await fetchDispatchesForCombo(selectedWarehouseId);
             setOpenEndDispatchConfirmModal(false);
             resetFormAndState();
             fetchBetweenReceipts();
         }
     };
-
-    /* ---- NEW: Dispatch List modal toggle handler ---- */
     const handleToggleDispatchRow = async (row: BetweenWarehouseDispatchForCombo, value: 'open' | 'ended') => {
         const targetIsEnd = value === 'ended';
         const res = await updateDispatchIsEnd(row.id, targetIsEnd);
         if (res.ok) {
             setDispatchesForCombo(prev => prev.map(d => d.id === row.id ? { ...d, isEnd: targetIsEnd } : d));
             showAlert(`'${row.code}' ${targetIsEnd ? 'Sonlandırıldı' : 'Açıldı'}.`, 'success');
-            // if currently selected dispatch was ended, clear selection & details
             if (selectedDispatchId === row.id && targetIsEnd) {
                 setSelectedDispatchId(null);
                 setReceiptDetails([]);
@@ -1029,7 +978,6 @@ const ListBetweenReceipt = () => {
         }
     };
 
-    /* ---- Date filters ---- */
     const handleClearDateFilters = () => { setStartDate(null); setEndDate(null); };
 
 
@@ -1048,7 +996,6 @@ const ListBetweenReceipt = () => {
     return (
         <>
             <Box sx={{ p: 1 }}>
-                {/* Header */}
                 <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }} mb={3} spacing={2} flexWrap="wrap">
                     <Typography variant="h5" sx={{ mb: { xs: 2, md: 0 } }}>Depolar Arası Fişler</Typography>
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="stretch" flexGrow={1} justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}>
@@ -1069,7 +1016,6 @@ const ListBetweenReceipt = () => {
                     </Stack>
                 </Stack>
 
-                {/* Form */}
                 {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                         <Typography variant="h5" mb={2}>{editingId ? 'Depolar Arası Fiş Düzenle' : 'Yeni Depolar Arası Fiş'}</Typography>
@@ -1092,7 +1038,6 @@ const ListBetweenReceipt = () => {
                             <Grid item xs={12} sm={4}>
                                 <Stack direction="row" alignItems="center" justifyContent="space-between">
                                     <CustomFormLabel required>Depolar Arası Sevk</CustomFormLabel>
-                                    {/* NEW: Show list button */}
 
                                     <CustomTooltip title="Sevk Belgeleri listesi">
                                         <span>
@@ -1109,7 +1054,7 @@ const ListBetweenReceipt = () => {
                                 </Stack>
                                 <Autocomplete
                                     id="dispatch-select"
-                                    options={dispatchesForCombo.filter(d => !d.isEnd)} // hide ended ones from selection
+                                    options={dispatchesForCombo.filter(d => !d.isEnd)}
                                     getOptionLabel={(o) => `${o.code} — ${formatDateDisplay(o.docDate)}`}
                                     value={dispatchesForCombo.find(d => d.id === selectedDispatchId) || null}
                                     onChange={onDispatchChange}
@@ -1154,13 +1099,12 @@ const ListBetweenReceipt = () => {
                                     multiline
                                     rows={3}
                                     variant="outlined"
-                                    value={generalDescription} // ⬅️ استفاده از نام جدید
-                                    onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                    value={generalDescription}
+                                    onChange={(e) => setGeneralDescription(e.target.value)}
                                 />
                             </Grid>
                         </Grid>
 
-                        {/* Details */}
                         <Box mt={4}>
                             <Typography variant="h6">Fiş Detayları</Typography>
                             {removedReceiptDetails.length > 0 && (
@@ -1218,7 +1162,6 @@ const ListBetweenReceipt = () => {
                             </Grid>
                         </Box>
 
-                        {/* Actions */}
                         <Stack direction="row" spacing={1} justifyContent="flex-end" mt={3}>
                             {editingId ? (
                                 <>
@@ -1241,15 +1184,11 @@ const ListBetweenReceipt = () => {
                         </Stack>
                     </Paper>
                 )}
-
-                {/* Alerts */}
                 {alertMessage && (
                     <Stack sx={{ width: '100%', mb: 3 }} spacing={2}>
                         <Alert severity={alertSeverity} onClose={() => setAlertMessage(null)}>{alertMessage}</Alert>
                     </Stack>
                 )}
-
-                {/* List + filters */}
                 <BlankCard>
                     <Stack direction="row" spacing={2} justifyContent="flex-end" mt={2} mb={2} mr={2}>
                         {isFilterActive && hasDownloadPermission && (
@@ -1325,7 +1264,6 @@ const ListBetweenReceipt = () => {
                                                 <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                                 <StyledTableCell sx={{ maxWidth: 150 }}>
                                                     {row.description && row.description.trim().length > 0 ? (
-                                                        // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                         <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                             <Button
 
@@ -1337,7 +1275,6 @@ const ListBetweenReceipt = () => {
                                                             </Button>
                                                         </CustomTooltip>
                                                     ) : (
-                                                        // حالت دوم: اگر توضیحات نال یا خالی بود
                                                         <Typography variant="body2" align="center">
                                                             -
                                                         </Typography>
@@ -1352,7 +1289,7 @@ const ListBetweenReceipt = () => {
                                                                 startIcon={<IconEye />}
                                                                 onClick={() => {
                                                                     setDetailsToShow(row.receiptDetails || []);
-                                                                    setViewedReceipt(row); // ✅ این خط اضافه شد
+                                                                    setViewedReceipt(row);
                                                                     setOpenDetailsModal(true);
                                                                 }}
                                                             >
@@ -1402,7 +1339,6 @@ const ListBetweenReceipt = () => {
                 </BlankCard>
             </Box>
 
-            {/* Details Modal - به همراه جدول جمع کل */}
             <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Fiş Detayları</DialogTitle>
                 <DialogContent dividers>
@@ -1431,7 +1367,6 @@ const ListBetweenReceipt = () => {
                                 </Table>
                             </TableContainer>
 
-                            {/* ✅ بخش جدید: جدول خلاصه جمع‌ها بر اساس واحد */}
                             <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
                                 <TableContainer component={Paper} variant="outlined" sx={{ width: 'auto', minWidth: '300px' }}>
                                     <Table size="small">
@@ -1443,7 +1378,6 @@ const ListBetweenReceipt = () => {
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
-                                            {/* استفاده از تابع موجود calculateTotalQuantity */}
                                             {Object.entries(calculateTotalQuantity(detailsToShow)).map(([unit, total]) => (
                                                 <TableRow key={unit}>
                                                     <StyledTableCell sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
@@ -1465,14 +1399,14 @@ const ListBetweenReceipt = () => {
                 </DialogContent>
                 <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
                     <Stack
-                        direction={{ xs: 'column', sm: 'row' }} // در موبایل ستونی، در دسکتاپ ردیفی
-                        spacing={2} // فاصله یکسان بین تمام دکمه‌ها
-                        sx={{ width: '100%' }} // اشغال تمام عرض کادر
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={2}
+                        sx={{ width: '100%' }}
                     >
                         <Button
                             variant="contained"
                             color="error"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }}
                             startIcon={<IconFileDownload />}
                             disabled={!viewedReceipt}
@@ -1483,7 +1417,7 @@ const ListBetweenReceipt = () => {
                         <Button
                             variant="contained"
                             color="success"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }}
                             startIcon={<IconFileDownload />}
                             disabled={!viewedReceipt}
@@ -1492,13 +1426,12 @@ const ListBetweenReceipt = () => {
                             Excel İndir
                         </Button>
                         <Button onClick={() => setOpenDetailsModal(false)} color="secondary" variant="outlined"
-                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            fullWidth
                             sx={{ flex: 1 }} >Kapat</Button>
                     </Stack>
                 </DialogActions>
             </Dialog>
 
-            {/* Delete */}
             <DeleteBetweenReceipt
                 openModal={openDeleteModal}
                 onClose={handleCloseDeleteModal}
@@ -1508,7 +1441,6 @@ const ListBetweenReceipt = () => {
                 showAlert={showAlert}
             />
 
-            {/* All Receipts Download Modal */}
             <Dialog open={openAllDownloadModal} onClose={() => setOpenAllDownloadModal(false)}>
                 <DialogTitle>Tüm Fişler İçin Format Seçin</DialogTitle>
                 <DialogContent>
@@ -1545,7 +1477,6 @@ const ListBetweenReceipt = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Filtered Receipts Download Modal */}
             <Dialog open={openFilteredDownloadModal} onClose={() => setOpenFilteredDownloadModal(false)}>
                 <DialogTitle>Filtrelenmiş Fişler İçin Format Seçin</DialogTitle>
                 <DialogContent>
@@ -1563,7 +1494,6 @@ const ListBetweenReceipt = () => {
                 <DialogActions><Button onClick={() => setOpenFilteredDownloadModal(false)} color="secondary">İptal</Button></DialogActions>
             </Dialog>
 
-            {/* Single Receipt Details Download Modal */}
             <Dialog open={openReceiptDetailsDownloadModal} onClose={() => setOpenReceiptDetailsDownloadModal(false)}>
                 <DialogTitle>Detaylı Fiş Raporu İçin Format Seçin</DialogTitle>
                 <DialogContent>
@@ -1581,7 +1511,6 @@ const ListBetweenReceipt = () => {
                 <DialogActions><Button onClick={() => setOpenReceiptDetailsDownloadModal(false)} color="secondary">İptal</Button></DialogActions>
             </Dialog>
 
-            {/* NEW: Sevk Listesi Modal (Radio Açık/Sonlandırılmış) */}
             <Dialog open={openDispatchListModal} onClose={() => setOpenDispatchListModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Depolar Arası Sevk Listesi</DialogTitle>
                 <DialogContent dividers>
@@ -1628,7 +1557,6 @@ const ListBetweenReceipt = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* NEW: Confirm End Dispatch after Insert */}
             <Dialog open={openEndDispatchConfirmModal} onClose={() => setOpenEndDispatchConfirmModal(false)}>
                 <DialogTitle>Fatura Durumu Onayı</DialogTitle>
                 <DialogContent>

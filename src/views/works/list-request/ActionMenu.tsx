@@ -4,7 +4,6 @@ import { IconDots, IconEdit, IconTrash, IconFileDownload } from '@tabler/icons-r
 import { CustomTooltip, useTooltip } from 'src/context/TooltipContext';
 import { MaterialRequestType, WorkhouseRentRequest } from './RequestTabs';
 
-// --- Interfaces ---
 interface ActionMenuProps {
     row: MaterialRequestType | WorkhouseRentRequest;
     type: 'material' | 'rental';
@@ -20,11 +19,7 @@ interface ActionMenuProps {
     };
 }
 
-// ==============================================================================
-// 1. ActionMenu COMPONENT
-// ==============================================================================
 const ActionMenu: React.FC<ActionMenuProps> = ({ row, permissions, handlers }) => {
-    // ⬅️ استیت anchorEl و مدیریت منو اکنون داخل این کامپوننت کوچک است!
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const openMenu = Boolean(anchorEl);
     const { isTooltipGloballyEnabled } = useTooltip();
@@ -37,7 +32,6 @@ const ActionMenu: React.FC<ActionMenuProps> = ({ row, permissions, handlers }) =
         setAnchorEl(null);
     };
 
-    // وضعیت فقط برای درخواست‌های در حال انتظار (Status 0) قابل ویرایش/حذف است
     const isDisabled = row.status !== 0;
 
     return (

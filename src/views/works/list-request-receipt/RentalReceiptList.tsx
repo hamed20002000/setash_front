@@ -12,7 +12,6 @@ import server from 'src/assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
 
-// ⬅️ Import توابع و واسط‌ها از فایل والد (RequestReceiptTabs)
 import {
     WorkhouseRentRequest, RequestStatusHistory, Attachment, CommonRequestType, Workhouse,
     StyledTableCell, statusToLabel, statusToColor, exportRequestPdf, exportRequestExcel, formatDateDisplay
@@ -20,9 +19,6 @@ import {
 import { useNavigate } from "react-router";
 
 
-// ==============================================================================
-// 1. INTERFACES & PROPS
-// ==============================================================================
 interface RentalReceiptListProps {
     requestsList: WorkhouseRentRequest[];
     loadingData: boolean;
@@ -30,18 +26,13 @@ interface RentalReceiptListProps {
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
     hasStatusUpdatePermission: boolean;
     hasDownloadPermission: boolean;
-    // ⬅️ Workhouse Props
     workhouses: Workhouse[];
     selectedWorkhouseId: string | number;
     setSelectedWorkhouseId: React.Dispatch<React.SetStateAction<string | number>>;
-    // ⬅️ Handlers از والد
     handleOpenHistoryModal: (history: RequestStatusHistory[]) => void;
     handleOpenAttachmentsModal: (attachments: Attachment[]) => void;
 }
 
-// ==============================================================================
-// 2. MAIN COMPONENT
-// ==============================================================================
 
 const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
 
@@ -49,20 +40,17 @@ const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
     const { requestsList, loadingData, fetchRequests, showAlert, hasStatusUpdatePermission, hasDownloadPermission } = props;
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // --- Table States (محلی) ---
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<CommonRequestType | null>(null);
     const openMenu = Boolean(anchorEl);
 
-    // --- Status Update States (محلی) ---
     const [loadingButton, setLoadingButton] = useState<boolean>(false);
     const [openStatusModal, setOpenStatusModal] = useState(false);
     const [newStatus, setNewStatus] = useState<1 | 2 | null>(null);
     const [statusDescription, setStatusDescription] = useState<string>('');
 
-    // --- Download Modal State (محلی) ---
     const [openDownloadSingleModal, setOpenDownloadSingleModal] = useState(false);
 
     const [openDetailsModal, setOpenDetailsModal] = useState(false);
@@ -74,7 +62,6 @@ const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
     };
 
 
-    // --- Handlers ---
     const handleCloseMenu = () => { setAnchorEl(null); };
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: WorkhouseRentRequest) => {
         setAnchorEl(event.currentTarget);
@@ -95,8 +82,6 @@ const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
         setStatusDescription('');
         setSelectedRowForMenu(null);
     };
-
-    // --- API Call: Update Status for Rental ---
     const submitStatusUpdate = async () => {
         if (!selectedRowForMenu || newStatus === null) return;
         if (newStatus === 2 && !statusDescription.trim()) { showAlert("Reddetme nedeni zorunludur.", "warning"); return; }
@@ -106,7 +91,6 @@ const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
         if (!authToken) { showAlert('Kimlik doğrulama hatası.', 'error'); setLoadingButton(false); return; }
 
         try {
-            // ⬅️ API CALL برای Kiralama
             const apiEndpoint = server.baseurl + server.hr + "update-workhouse-request-status";
 
             const payload = {
@@ -131,12 +115,11 @@ const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
         finally { setLoadingButton(false); }
     };
 
-    // --- Workhouse Filter Handler ---
     const handleWorkhouseFilterChange = (_event: React.SyntheticEvent, newValue: Workhouse | null) => {
         const newWorkhouseId = newValue ? newValue.id : '';
         props.setSelectedWorkhouseId(newWorkhouseId);
         setPage(0);
-        fetchRequests(newWorkhouseId); // ⬅️ فچ کردن داده‌های جدید
+        fetchRequests(newWorkhouseId);
     };
 
     const handleChangePage = (_event: unknown, newPage: number) => setPage(newPage);
@@ -148,10 +131,6 @@ const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
         return requestsList.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
     }, [requestsList, page, rowsPerPage]);
 
-
-    // ==============================================================================
-    // 3. RENDER
-    // ==============================================================================
     return (
         <Box>
             <Paper elevation={0} sx={{ p: 2, mb: 2 }}>
@@ -192,7 +171,6 @@ const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
                                         <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.rentStartDate)}</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.rentEndDate)}</Typography></StyledTableCell>
 
-                                        {/* ⬅️ قیمت با فرمت ارز */}
                                         <StyledTableCell>
                                             <Typography variant="body1">
                                                 {(() => {
@@ -204,7 +182,6 @@ const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
                                             </Typography>
                                         </StyledTableCell>
 
-                                        {/* ⬅️ Cell Durum (History Icon) - اتصال به والد */}
                                         <StyledTableCell>
                                             <Stack direction="row" alignItems="center" spacing={1}>
                                                 <Chip label={statusToLabel(row.status)} color={statusToColor(row.status)} size="small" />
@@ -216,7 +193,6 @@ const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
                                             </Stack>
                                         </StyledTableCell>
 
-                                        {/* ⬅️ Cell Ekler - اتصال به والد */}
                                         <StyledTableCell>
                                             {row.attachments && row.attachments.length > 0 ? (
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Ekleri görüntüle ve indir" : ""}>
@@ -236,7 +212,6 @@ const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
                                             </Button>
                                         </StyledTableCell>
 
-                                        {/* ⬅️ Cell عملیات (Menu) */}
                                         <StyledTableCell>
                                             <IconButton onClick={(event) => handleClickMenu(event, row)}><IconDots width={18} /></IconButton>
                                             <Menu anchorEl={anchorEl} open={openMenu && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
@@ -267,7 +242,6 @@ const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
                 labelRowsPerPage="Satır başına düşen:" labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
             />
 
-            {/* --- Status Update Modal (محلی) --- */}
             <Dialog open={openStatusModal} onClose={handleCloseStatusModal} maxWidth="sm" fullWidth>
                 <DialogTitle>{newStatus === 1 ? 'Talebi Onayla' : 'Talebi Reddet'}</DialogTitle>
                 <DialogContent dividers>
@@ -288,7 +262,6 @@ const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
                 </DialogActions>
             </Dialog>
 
-            {/* --- Download Modal (محلی) --- */}
             <Dialog open={openDownloadSingleModal} onClose={() => setOpenDownloadSingleModal(false)} maxWidth="xs">
                 <DialogTitle>Talep Raporunu İndir</DialogTitle>
                 <DialogContent>

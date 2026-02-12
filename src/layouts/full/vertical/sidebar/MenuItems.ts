@@ -32,7 +32,6 @@ import {
 } from '@tabler/icons-react';
 import server from '../../../../assets/address.json';
 
-// Type Definitions
 export interface MenuitemsType {
   [x: string]: any;
   id?: string;
@@ -174,7 +173,6 @@ export const getDynamicMenuItems = async (allowedOperations: string[]): Promise<
 
   const finalMenuItems: MenuitemsType[] = [];
 
-  // فقط در صورتی که داشبورد در بین منوهای فیلتر شده وجود داشته باشد، آن را اضافه کنید
   const dashboardItem = mappedMenuItems.find(item => item.title === 'Gösterge Paneli');
   if (dashboardItem) {
     finalMenuItems.push({

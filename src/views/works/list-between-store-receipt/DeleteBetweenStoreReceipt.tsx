@@ -8,10 +8,8 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import server from 'src/assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// --- Type Definitions (Props) ---
 type Props = {
     openModal: boolean;
-    // تغییر نام prop ها از dispatch به receipt
     receiptIdToDelete: string | null;
     receiptCodeToDelete: string;
     onClose: () => void;
@@ -40,7 +38,6 @@ const DeleteBetweenStoreReceipt = ({ openModal, receiptIdToDelete, receiptCodeTo
 
         setLoading(true);
         try {
-            // ✨ تغییر API endpoint به 'delete-between-store-receipt'
             const response = await axios.delete(
                 `${server.baseurl}${server.warehouse}delete-between-store-receipt/${receiptIdToDelete}`,
                 {

@@ -1,7 +1,7 @@
 // SystemRole.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState, useRef, useCallback, useMemo } from "react"; // useCallback را اضافه کنید
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TableContainer, Table, TableHead, TableRow, TableBody,
@@ -478,7 +478,7 @@ const SystemRole = () => {
     }
   }
 
-  const sendStatusUpdate = useCallback(async (currentName: string, statusValue: number) => { // اضافه شدن useCallback
+  const sendStatusUpdate = useCallback(async (currentName: string, statusValue: number) => {
     clearAlert();
 
     const authToken = localStorage.getItem('authToken');

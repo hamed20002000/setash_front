@@ -43,21 +43,6 @@ export interface OrderDetailType {
     description: string;
 }
 
-// export interface InvoiceDetailType {
-//     id: string;
-//     quantity: string;
-//     price: string;
-//     totalPrice: string;
-//     discountPercent: string;
-//     discountAmount: string;
-//     totalDiscount: string;
-//     totalNetPrice: string;
-//     createAt: string;
-//     recordStatus: number;
-//     description: string;
-//     firm: boolean | null;
-//     invoiceHeader: InvoiceHeaderType;
-// }
 
 export interface InvoiceDetailType {
     id: string;
@@ -72,10 +57,10 @@ export interface InvoiceDetailType {
     recordStatus: number;
     description: string;
     firm: boolean | null;
-    item: ItemType; // اضافه شده
+    item: ItemType;
     orderDetail?: OrderDetailType;
     invoiceHeader: InvoiceHeaderType;
-    provider?: ProviderType; // اضافه شده
+    provider?: ProviderType;
 }
 
 export interface InvoiceHeaderType {
@@ -115,19 +100,6 @@ export interface InvoiceType {
 
 }
 
-// **تغییرات در اینترفیس‌های زیر اعمال شده است**
-// export interface ReceiptItem {
-//     id: string;
-//     quantity: string;
-//     createAt: string;
-//     recordStatus: number;
-//     firm: boolean;
-//     description: string;
-//     item: ItemType;
-//     invoiceDetail: InvoiceDetailType;
-//     provider: ProviderType; // 👈 اضافه شده
-//     orderDetail?: OrderDetailType; // 👈 اضافه شده
-// }
 
 export interface ReceiptItem {
     id: string;
@@ -138,8 +110,8 @@ export interface ReceiptItem {
     description: string;
     item: ItemType;
     invoiceDetail: InvoiceDetailType;
-    provider?: ProviderType; // 👈 تغییر یافته به اختیاری
-    orderDetail?: OrderDetailType; // 👈 اضافه شده و اختیاری
+    provider?: ProviderType;
+    orderDetail?: OrderDetailType;
 }
 
 export interface ProcessedReceiptItem {
@@ -156,7 +128,7 @@ export interface ProcessedReceiptItem {
     firm: boolean;
     recordStatus?: number;
     isDeleted?: boolean;
-    orderDetail?: OrderDetailType; // 👈 اضافه شده
+    orderDetail?: OrderDetailType;
 }
 
 export interface ReceiptType {

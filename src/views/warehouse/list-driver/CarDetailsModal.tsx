@@ -21,11 +21,10 @@ import { useNavigate } from 'react-router';
 
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    fontFamily: 'NotoSans',
+    fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: {
-        fontSize: '1rem', // Masaüstünde daha büyük
+        fontSize: '1rem',
     },
 }));
 
@@ -51,31 +50,25 @@ const CarDetailsModal: React.FC<CarDetailsModalProps> = ({
     driverName,
 }) => {
     const navigate = useNavigate();
-    // Form states
     const [carName, setCarName] = useState('');
     const [carModel, setCarModel] = useState('');
     const [carPlate, setCarPlate] = useState('');
     const [editingVehicleId, setEditingVehicleId] = useState<number | null>(null);
 
-    // Form validation states
     const [carNameError, setCarNameError] = useState(false);
     const [carModelError, setCarModelError] = useState(false);
     const [carPlateError, setCarPlateError] = useState(false);
 
-    // Modal and data states
     const [vehiclesList, setVehiclesList] = useState<VehicleData[]>([]);
     const [loadingData, setLoadingData] = useState(false);
     const [loadingButton, setLoadingButton] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
 
-    // Internal Alert states
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
-    // Menu and delete modal states
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<VehicleData | null>(null);
-    // const openMenu = Boolean(anchorEl);
 
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
     const [vehicleToDelete, setVehicleToDelete] = useState<VehicleData | null>(null);

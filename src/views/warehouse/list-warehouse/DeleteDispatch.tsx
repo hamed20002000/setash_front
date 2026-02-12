@@ -69,7 +69,6 @@ const DeleteDispatch = ({ openModal, dispatchIdToDelete, dispatchCodeToDelete, o
             }
         } finally {
             setLoading(false);
-            // ** مهم ** : فراخوانی onClose را در نهایت برای اطمینان از بسته شدن مودال اضافه کنید.
             onClose();
         }
     };
