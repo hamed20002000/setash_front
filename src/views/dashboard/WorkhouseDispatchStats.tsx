@@ -111,6 +111,8 @@ const WorkhouseDispatchStats = () => {
                 </Box>
 
                 <Stack direction="row" spacing={1.5}>
+                    <IconButton onClick={handleDownload} color="primary" sx={{ border: '1px solid #e2e8f0', bgcolor: '#fff' }}>
+                        <IconDownload size={20} /></IconButton>
                     <ToggleButtonGroup value={viewMode} exclusive onChange={(_, v) => v && setViewMode(v)} size="small" sx={{ bgcolor: '#fff' }}>
                         <ToggleButton value="chart">
 
@@ -127,7 +129,6 @@ const WorkhouseDispatchStats = () => {
                                 <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>Liste</Typography>
                             </Stack></ToggleButton>
                     </ToggleButtonGroup>
-                    <IconButton onClick={handleDownload} sx={{ border: '1px solid #e2e8f0', bgcolor: '#fff' }}><IconDownload size={20} /></IconButton>
                 </Stack>
             </Stack>
 

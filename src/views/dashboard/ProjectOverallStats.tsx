@@ -99,7 +99,7 @@ const ProjectOverallStats = () => {
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(0);
     const [isAutoPlay, setIsAutoPlay] = useState(true);
-    const pageSize = 4;
+    const pageSize = 5;
 
     useEffect(() => {
         const fetchData = async () => {
