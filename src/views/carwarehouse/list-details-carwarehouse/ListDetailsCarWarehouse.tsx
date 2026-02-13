@@ -1152,6 +1152,59 @@ const ListDetailsCarWarehouse: React.FC = () => {
         showAlert('PDF başarıyla oluşturuldu.', 'success');
     };
 
+    const exportAvailableToPdf = (data: any[], title: string) => {
+        if (!data || data.length === 0) {
+            showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning');
+            return;
+        }
+
+        const doc = new jsPDF();
+        const docAny = doc as any;
+
+        try {
+            docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+            docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+            doc.setFont('NotoSans');
+        } catch (e) {
+            console.error("Font loading error", e);
+        }
+
+        addPdfHeader(doc, title);
+
+        const columns = [
+            { header: 'Plaka', dataKey: 'plaque' },
+            { header: 'Marka/Model', dataKey: 'car' },
+            { header: 'Yakıt Tipi', dataKey: 'fuel' },
+            { header: 'Depo', dataKey: 'warehouse' },
+            { header: 'Kayıt Tarihi', dataKey: 'date' }
+        ];
+
+        const rows = data.map(item => ({
+            plaque: item.carWarehouseDetail?.plaque || '-',
+            car: `${item.carWarehouseDetail?.brand || ''} ${item.carWarehouseDetail?.model || ''}`,
+            fuel: item.carWarehouseDetail?.fuelType || '-',
+            warehouse: item.carWarehouseDetail?.carWarehouse?.name || '-',
+            date: formatDateDisplay(item.carWarehouseDetail?.createAt)
+        }));
+
+        autoTable(docAny, {
+            columns: columns,
+            body: rows,
+            startY: 55,
+            theme: 'grid',
+            styles: { font: 'NotoSans', fontSize: 8, cellPadding: 3 },
+            headStyles: { fillColor: [46, 125, 50], textColor: [255, 255, 255], fontStyle: 'normal' },
+            didDrawPage: () => {
+                addPdfFooter(doc);
+            },
+            margin: { left: 20, right: 20 }
+        });
+
+        const fileName = `${title}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+        doc.save(fileName);
+        showAlert('PDF başarıyla oluşturuldu.', 'success');
+    };
+
     return (
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
@@ -1662,12 +1715,21 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                     </TableContainer>
                                 </Box>
                             )}
-
                             {activeTab === 1 && (
                                 <Box>
-                                    <Stack direction="row" justifyContent="space-between" mb={2}>
+                                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                                         <Typography variant="h6" color="success.main">Mevcut (Boşta) Araçlar</Typography>
+
+                                        <Button
+                                            variant="outlined"
+                                            color="success"
+                                            startIcon={<IconFileText />}
+                                            onClick={() => exportAvailableToPdf(availableCars, "Mevcut_Araclar")}
+                                        >
+                                            PDF
+                                        </Button>
                                     </Stack>
+
                                     <TableContainer component={Paper} variant="outlined">
                                         <Table size="small">
                                             <TableHead sx={{ bgcolor: '#f5fff5' }}>
@@ -1679,19 +1741,16 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
-                                                {availableCars.map((car) => (
-                                                    <TableRow key={car.id}>
-                                                        <TableCell><b>{car.plaque}</b></TableCell>
-                                                        <TableCell>{car.brand} {car.model}</TableCell>
-                                                        <TableCell>{car.fuelType}</TableCell>
+                                                {availableCars.map((item) => (
+                                                    <TableRow key={item.carWarehouseDetail?.id}>
+                                                        <TableCell><b>{item.carWarehouseDetail?.plaque}</b></TableCell>
+                                                        <TableCell>{item.carWarehouseDetail?.brand} {item.carWarehouseDetail?.model}</TableCell>
+                                                        <TableCell>{item.carWarehouseDetail?.fuelType}</TableCell>
                                                         <TableCell>
-                                                            <Chip label="Mevcut" size="small" color="success" variant="filled" />
+                                                            <Chip label="Mevcut" size="small" color="success" />
                                                         </TableCell>
                                                     </TableRow>
                                                 ))}
-                                                {availableCars.length === 0 && (
-                                                    <TableRow><TableCell colSpan={4} align="center">Boşta araç bulunamadi.</TableCell></TableRow>
-                                                )}
                                             </TableBody>
                                         </Table>
                                     </TableContainer>

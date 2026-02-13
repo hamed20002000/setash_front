@@ -148,7 +148,7 @@ const ListKPIList = () => {
             startY: (doc as any).lastAutoTable.finalY + 20,
             head: [["Proje Kodu", "Proje Adı", "Şantiye", "KPI"]],
             body: projectBody,
-            styles: { font: 'NotoSans', fontSize: 9 },
+            styles: { font: 'NotoSans', fontStyle: "normal", fontSize: 9 },
             headStyles: { fillColor: [75, 85, 99] },
             didDrawPage: () => addFooter(doc)
         });

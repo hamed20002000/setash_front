@@ -575,18 +575,29 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
         }
     }, [navigate, projectPlanningDateId, showAlert]);
 
-
     const fetchComboOptions = useCallback(async () => {
         setComboLoading(true);
         const authToken = localStorage.getItem('authToken');
-        if (!authToken || !projectPlanningDateId) { setComboLoading(false); return; }
+
+        if (!authToken || !projectPlanningDateId) {
+            setComboLoading(false);
+            return;
+        }
+
         try {
             const planningResponse = await axios.get(
                 `${server.baseurl}${server.warehouse}get-project-planning-implementation-dates-by-id/${projectPlanningDateId}`,
                 { headers: { "Authorization": `Bearer ${authToken}` } }
             );
+
             const workId = planningResponse.data?.data?.projectPlanning?.project?.workhouse?.work?.id;
-            if (!workId) { setChannelOptions([]); setTransmissionOptions([]); setComboLoading(false); return; }
+
+            if (!workId) {
+                setChannelOptions([]);
+                setTransmissionOptions([]);
+                setComboLoading(false);
+                return;
+            }
 
             const networkResponse = await axios.get(
                 `${server.baseurl}${server.initialoperations}get-network-by-work-id/${workId}`,
@@ -594,42 +605,62 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
             );
 
             const data = networkResponse.data?.data;
-            if (!data) { setChannelOptions([]); setTransmissionOptions([]); setComboLoading(false); return; }
 
+            if (!data) {
+                setChannelOptions([]);
+                setTransmissionOptions([]);
+                setComboLoading(false);
+                return;
+            }
+            const idToNameMap: Record<number, string> = {};
+            const chOptions: ChannelOption[] = [];
 
-            const ch: ChannelOption[] = [];
             (data.networkTrAdis || []).forEach((trAd: any) => {
                 (trAd.channelRows || []).forEach((row: any) => {
                     if (row?.id) {
-                        ch.push({
-                            id: Number(row.id),
-                            name: row.productType?.name || row.label || `Kanal ${row.id}`,
-                            channelRowId: Number(row.id),
+                        const realName = row.productType?.name || row.label || row.title || `Direk ${row.id}`;
+                        const rowId = Number(row.id);
+
+                        idToNameMap[rowId] = realName;
+
+                        chOptions.push({
+                            id: rowId,
+                            name: realName,
+                            channelRowId: rowId,
                             type: row.productType?.type
                         });
                     }
                 });
             });
-            setChannelOptions(ch);
-            const idToName: Record<number, string> = ch.reduce((acc, o) => { acc[o.id] = o.name; return acc; }, {} as Record<number, string>);
-            const tr: TransmissionOption[] = (data.transmissionRows || []).map((row: any) => {
+
+            setChannelOptions(chOptions);
+
+            const trOptions: TransmissionOption[] = (data.transmissionRows || []).map((row: any) => {
+                const rowId = Number(row.id);
+
                 const fromId = Number(row.fromProductType?.id);
                 const toId = Number(row.toProductType?.id);
-                const fromName = idToName[fromId] || row.fromProductType?.name || row.fromProductType?.label || 'Bilinmeyen';
-                const toName = idToName[toId] || row.toProductType?.name || row.toProductType?.label || 'Bilinmeyen';
-                return { id: Number(row.id), name: `${fromName} -> ${toName}`, transmissionRowId: Number(row.id) };
+
+                const fromName = idToNameMap[fromId] || `ID:${fromId}`;
+                const toName = idToNameMap[toId] || `ID:${toId}`;
+
+                return {
+                    id: rowId,
+                    name: `${fromName} -> ${toName}`,
+                    transmissionRowId: rowId
+                };
             });
-            setTransmissionOptions(tr);
-        } catch {
+
+            setTransmissionOptions(trOptions);
+
+        } catch (error) {
+            console.error("Combo Fetch Error:", error);
             setChannelOptions([]);
             setTransmissionOptions([]);
         } finally {
             setComboLoading(false);
         }
-    }, [projectPlanningDateId, server.baseurl, server.warehouse, server.initialoperations]);
-
-
-
+    }, [projectPlanningDateId]);
 
     const createPayload = (isEdit = false) => {
         if (!projectPlanningDateId || !selectedCombo) {
@@ -1221,7 +1252,15 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                                         </StyledTableCell>
                                         <StyledTableCell>
                                             <Typography variant="body2">
-                                                {row.channelRowId ? (row.channelName ?? `Kanal ID: ${row.channelRowId}`) : (row.transmissionName ?? `Hat ID: ${row.transmissionRowId}`)}
+                                                {(() => {
+                                                    if (row.channelRowId) {
+                                                        const found = channelOptions.find(o => o.id === row.channelRowId);
+                                                        return found ? found.name : (row.channelName ?? `Kanal ID: ${row.channelRowId}`);
+                                                    } else {
+                                                        const found = transmissionOptions.find(o => o.id === row.transmissionRowId);
+                                                        return found ? found.name : (row.transmissionName ?? `Hat ID: ${row.transmissionRowId}`);
+                                                    }
+                                                })()}
                                             </Typography>
                                         </StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{format(new Date(row.startDate), 'dd MMMM yyyy', { locale: tr })}</Typography></StyledTableCell>
@@ -1368,7 +1407,13 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                                 <>
                                     <Grid item xs={12}><Typography variant="subtitle2" mt={2} color="info.main" fontWeight="bold">İletkenler Detayı</Typography></Grid>
                                     <Grid item xs={12} sm={6}>
-                                        <Typography variant="body2" color="primary.main">Hat: {detailData.transmissionName ?? `Hat ID: ${detailData.transmissionRowId}`}</Typography>
+                                        <Typography variant="body2" color="primary.main">
+                                            Hat: {
+                                                transmissionOptions.find(o => o.id === detailData.transmissionRowId)?.name
+                                                || detailData.transmissionName
+                                                || `Hat ID: ${detailData.transmissionRowId}`
+                                            }
+                                        </Typography>
                                     </Grid>
                                     <Grid item xs={12} sm={6}>
                                         <Typography variant="body2" color="primary.main">Çekilen Kablo Miktarı: <Chip label={`${detailData.cekilenKabloMiktari} m`} size="small" /></Typography>
