@@ -725,6 +725,14 @@ const ListConcreteReport = () => {
         }, 0);
     }, [processedData]);
 
+    const calculatedFilteredTotalQuantity = useMemo(() => {
+        if (!processedData) return 0;
+        return processedData.reduce((acc, row) => {
+            const val = cleanNumber(row.quantity);
+            return acc + val;
+        }, 0);
+    }, [processedData]);
+
     const tableHeaders: { label: string; key: keyof ConcreteReportRowType }[] = [
         { label: 'Şantiye Adı', key: 'workhousen_name' },
         { label: 'Proje Adı', key: 'proje_adi' },
@@ -964,16 +972,26 @@ const ListConcreteReport = () => {
                         {reportData && reportData.data?.length > 0 && (
                             <TableFooter>
                                 <TableRow>
-                                    <StyledTableCell colSpan={6} align="right" sx={{ borderTop: '2px solid #ddd', padding: 2 }}>
+                                    <StyledTableCell colSpan={4} align="right" sx={{ borderTop: '2px solid #ddd', padding: 2 }}>
                                         <Typography variant="h6" fontWeight="bold">
-                                            {searchTerm ? 'Toplam (Filtrelenmiş):' : 'Genel Toplam (Tüm Veriler):'}
+                                            {searchTerm ? 'Toplam (Filtrelenmiş):' : 'Genel Toplam :'}
                                         </Typography>
                                     </StyledTableCell>
+
+                                    <StyledTableCell align="left" sx={{ borderTop: '2px solid #ddd', padding: 2 }}>
+                                        <Typography variant="h6" fontWeight="bold">
+                                            {calculatedFilteredTotalQuantity.toLocaleString('us-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </Typography>
+                                    </StyledTableCell>
+
+                                    <StyledTableCell sx={{ borderTop: '2px solid #ddd' }}></StyledTableCell>
+
                                     <StyledTableCell align="left" sx={{ borderTop: '2px solid #ddd', padding: 2 }}>
                                         <Typography variant="h5" color="primary" fontWeight="bold">
                                             {calculatedFilteredTotalPrice.toLocaleString('us-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL
                                         </Typography>
                                     </StyledTableCell>
+
                                     <StyledTableCell sx={{ borderTop: '2px solid #ddd' }}></StyledTableCell>
                                 </TableRow>
                             </TableFooter>
