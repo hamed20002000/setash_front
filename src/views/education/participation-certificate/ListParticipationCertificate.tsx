@@ -288,7 +288,7 @@ const ListParticipationCertificate: React.FC = () => {
 
 
     return (
-        <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
+       <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
 
             <Typography variant="h5">
                 <IconAward size={30} style={{ marginLeft: '10px', color: '#007BFF' }} />

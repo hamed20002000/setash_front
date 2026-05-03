@@ -255,17 +255,18 @@ const ListPersonnelConsigneds: React.FC = () => {
         });
     }, [currentMenu]);
 
-    const hasPermission = (opName: string) => {
-        return allowedOperations.some((op: any) =>
-            op.systemOperationName === opName &&
-            currentMenuOpIds.includes(String(op.menuOperationId))
-        );
-    };
+     const hasPermission = (opName: string) => {   
+    return allowedOperations.some((op: any) =>
+      op.systemOperationName === opName
+    //  &&
+    //   currentMenuOpIds.includes(String(op.menuOperationId))
+    );
+  };
 
     const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
     const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
-    const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
+    const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazdırmak"), [allowedOperations, currentMenuOpIds]);
 
     const [personnelConsigneds, setPersonnelConsigneds] = useState<PersonnelConsigned[]>([]);
     const [personnelList, setPersonnelList] = useState<PersonnelType[]>([]);
@@ -346,7 +347,7 @@ const ListPersonnelConsigneds: React.FC = () => {
     };
     const clearAlert = () => setAlertMessage(null);
     useEffect(() => {
-        let timer: NodeJS.Timeout;
+        let timer: number;
         if (alertMessage) timer = setTimeout(() => clearAlert(), 5000);
         return () => { if (timer) clearTimeout(timer); };
     }, [alertMessage]);
@@ -1459,7 +1460,7 @@ const ListPersonnelConsigneds: React.FC = () => {
                                                 </CustomTooltip>
                                                 <Menu anchorEl={anchorEl} open={openMenu}
                                                     onClose={handleCloseMenu}>
-                                                    {hasCreatePermission && ( // مجوز Edit یا Create برای تغییر پیوست‌ها نیاز است
+                                                    {hasCreatePermission && ( 
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kayda ek dosya (resim/pdf) ekle veya mevcut ekleri düzenle." : ""}>
                                                             <MuiMenuItem onClick={() => handleOpenAttachModal(selectedRowForMenu!)}>
                                                                 <ListItemIcon><IconLink width={18} /></ListItemIcon>

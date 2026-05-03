@@ -255,10 +255,11 @@ const ListUsers = () => {
     });
   }, [currentMenu]);
 
-  const hasPermission = (opName: string) => {
+    const hasPermission = (opName: string) => {   
     return allowedOperations.some((op: any) =>
-      op.systemOperationName === opName &&
-      currentMenuOpIds.includes(String(op.menuOperationId))
+      op.systemOperationName === opName
+    //  &&
+    //   currentMenuOpIds.includes(String(op.menuOperationId))
     );
   };
 
@@ -502,7 +503,7 @@ const ListUsers = () => {
   };
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: number;
     if (alertMessage) {
       timer = setTimeout(() => {
         clearAlert();
@@ -673,6 +674,7 @@ const ListUsers = () => {
     if (!authToken) { showAlert('Lütfen giriş yapın.', 'warning'); navigate("/"); return; }
 
     let finalImageSrc = profileImageUrl;
+    debugger
 
     if (profileRawFile && profileRawFile.length > 0) {
 
@@ -694,7 +696,7 @@ const ListUsers = () => {
     } = {
       id: editingUserId,
       username: username,
-      imageSrc: finalImageSrc,
+      imageSrc: finalImageSrc.replace("https://setasportal.com",""),
     };
 
     setLoadingButton(true);

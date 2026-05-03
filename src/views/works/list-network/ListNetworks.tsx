@@ -212,17 +212,18 @@ const ListNetwork = () => {
         });
     }, [currentMenu]);
 
-    const hasPermission = (opName: string) => {
-        return allowedOperations.some((op: any) =>
-            op.systemOperationName === opName &&
-            currentMenuOpIds.includes(String(op.menuOperationId))
-        );
-    };
+     const hasPermission = (opName: string) => {   
+    return allowedOperations.some((op: any) =>
+      op.systemOperationName === opName
+    //  &&
+    //   currentMenuOpIds.includes(String(op.menuOperationId))
+    );
+  };
 
     const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
     const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
-    const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
+    const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazdırmak"), [allowedOperations, currentMenuOpIds]);
 
     useEffect(() => {
         let filtered = allNetworks;

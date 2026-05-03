@@ -226,12 +226,13 @@ const ListWorks = () => {
         });
     }, [currentMenu]);
 
-    const hasPermission = (opName: string) => {
-        return allowedOperations.some((op: any) =>
-            op.systemOperationName === opName &&
-            currentMenuOpIds.includes(String(op.menuOperationId))
-        );
-    };
+    const hasPermission = (opName: string) => {   
+    return allowedOperations.some((op: any) =>
+      op.systemOperationName === opName
+    //  &&
+    //   currentMenuOpIds.includes(String(op.menuOperationId))
+    );
+  };
 
     const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
     const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
@@ -283,7 +284,7 @@ const ListWorks = () => {
         setAlertSeverity(severity);
     };
     const clearAlert = () => {
-        let timer: NodeJS.Timeout;
+        let timer: number;
         if (alertMessage) {
             timer = setTimeout(() => {
                 setAlertMessage(null);

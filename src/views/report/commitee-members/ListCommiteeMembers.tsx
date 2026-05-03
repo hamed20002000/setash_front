@@ -251,17 +251,18 @@ const ListCommiteeMembers = () => {
         });
     }, [currentMenu]);
 
-    const hasPermission = (opName: string) => {
-        return allowedOperations.some((op: any) =>
-            op.systemOperationName === opName &&
-            currentMenuOpIds.includes(String(op.menuOperationId))
-        );
-    };
+    const hasPermission = (opName: string) => {   
+    return allowedOperations.some((op: any) =>
+      op.systemOperationName === opName
+    //  &&
+    //   currentMenuOpIds.includes(String(op.menuOperationId))
+    );
+  };
 
     const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
     const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
-    const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
+    const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazdırmak"), [allowedOperations, currentMenuOpIds]);
 
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -273,7 +274,7 @@ const ListCommiteeMembers = () => {
     };
 
     useEffect(() => {
-        let timer: NodeJS.Timeout;
+        let timer: number;
         if (alertMessage) {
             timer = setTimeout(() => {
                 clearAlert();

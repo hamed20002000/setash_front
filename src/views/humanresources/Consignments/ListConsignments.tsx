@@ -414,17 +414,18 @@ const ListConsignments: React.FC = () => {
         });
     }, [currentMenu]);
 
-    const hasPermission = (opName: string) => {
-        return allowedOperations.some((op: any) =>
-            op.systemOperationName === opName &&
-            currentMenuOpIds.includes(String(op.menuOperationId))
-        );
-    };
+    const hasPermission = (opName: string) => {   
+    return allowedOperations.some((op: any) =>
+      op.systemOperationName === opName
+    //  &&
+    //   currentMenuOpIds.includes(String(op.menuOperationId))
+    );
+  };
 
     const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
     const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
     const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
-    const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
+    const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazdırmak"), [allowedOperations, currentMenuOpIds]);
 
 
 
@@ -517,7 +518,7 @@ const ListConsignments: React.FC = () => {
     };
     const clearAlert = () => setAlertMessage(null);
     useEffect(() => {
-        let timer: NodeJS.Timeout;
+        let timer: number;
         if (alertMessage) timer = setTimeout(() => clearAlert(), 5000);
         return () => { if (timer) clearTimeout(timer); };
     }, [alertMessage]);
@@ -1189,7 +1190,7 @@ const ListConsignments: React.FC = () => {
     }, [attachmentsToView.length]);
 
     useEffect(() => {
-        let intervalId: NodeJS.Timeout | null = null;
+        let intervalId: number;
         const intervalDuration = 5000;
 
         if (openAttachmentsModal && attachmentsToView.length > 1) {

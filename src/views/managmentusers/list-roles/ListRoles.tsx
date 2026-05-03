@@ -220,10 +220,11 @@ const SystemRole = () => {
     });
   }, [currentMenu]);
 
-  const hasPermission = (opName: string) => {
+   const hasPermission = (opName: string) => {   
     return allowedOperations.some((op: any) =>
-      op.systemOperationName === opName &&
-      currentMenuOpIds.includes(String(op.menuOperationId))
+      op.systemOperationName === opName
+    //  &&
+    //   currentMenuOpIds.includes(String(op.menuOperationId))
     );
   };
 
@@ -313,7 +314,7 @@ const SystemRole = () => {
   }, [getListRole]);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: number;
     if (alertMessage) {
       timer = setTimeout(() => {
         clearAlert();
@@ -880,7 +881,7 @@ const SystemRole = () => {
                           onClose={handleCloseMenu}
                           MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}` }}
                         >
-                          {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
+                          {Number(selectedRowForMenu?.id) !== 1 &&hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
                             <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu rolü pasif yap" : ""}>
                               <MuiMenuItem onClick={handleSetInactive}>
                                 <ListItemIcon>
@@ -888,9 +889,9 @@ const SystemRole = () => {
                                 </ListItemIcon>
                                 Pasif Yap
                               </MuiMenuItem>
-                            </CustomTooltip>
+                            </CustomTooltip> 
                           )}
-                          {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
+                          {Number(selectedRowForMenu?.id) !== 1 &&hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
                             <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu rolü aktif yap" : ""}>
                               <MuiMenuItem onClick={handleSetActive}>
                                 <ListItemIcon>
@@ -900,7 +901,7 @@ const SystemRole = () => {
                               </MuiMenuItem>
                             </CustomTooltip>
                           )}
-                          {hasChangeOpPermission && (
+                          {Number(selectedRowForMenu?.id) !== 1 && hasChangeOpPermission && (
                             <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu rolün operasyonlarını seçin" : ""}>
                               <MuiMenuItem onClick={handleClickOpenOperationModal}>
                                 <ListItemIcon>
@@ -910,7 +911,7 @@ const SystemRole = () => {
                               </MuiMenuItem>
                             </CustomTooltip>
                           )}
-                          {hasEditPermission && (
+                          {Number(selectedRowForMenu?.id) !== 1 &&hasEditPermission && (
                             <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu rolü düzenle" : ""}>
                               <MuiMenuItem onClick={handleEditClick}>
                                 <ListItemIcon>
@@ -920,7 +921,7 @@ const SystemRole = () => {
                               </MuiMenuItem>
                             </CustomTooltip>
                           )}
-                          {hasDeletePermission && (
+                          {Number(selectedRowForMenu?.id) !== 1 &&hasDeletePermission && (
                             <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu rolü sil" : ""}>
                               <MuiMenuItem onClick={handleClickOpenDeleteModal}>
                                 <ListItemIcon>
