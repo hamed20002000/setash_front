@@ -777,9 +777,17 @@ const ListCarWarehouse: React.FC = () => {
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Kod</CustomFormLabel>
                                 <CustomTextField placeholder="Kodu Girin"  size="small" fullWidth value={code}
-                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                                 {(e.target.value)?.length>10 ? setCode(code): setCode(e.target.value); setCodeError(false); }} 
-                                 error={codeError} helperText={codeError ? 'Bu alan zorunludur!' : ''} />
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                    const newValue = e.target.value;
+
+                                    if (newValue.length > 10) {
+                                        setCodeError(true);
+                                    } else {
+                                        setCode(newValue);
+                                        setCodeError(false);
+                                    }
+                                    }}
+                                 error={codeError} helperText={codeError ? 'Lütfen geçerli bir değer girin. En fazla 10 karakter kullanabilirsiniz' :''} />
                             </Grid>
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Bölge Seçimi</CustomFormLabel>

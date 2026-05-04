@@ -1600,6 +1600,7 @@ const ListPersonnel: React.FC = () => {
 
         setActiveCarConsignment([]);
         setActiveConsignments([]);
+        debugger
 
         try {
             const consignmentRes = await axios.get(

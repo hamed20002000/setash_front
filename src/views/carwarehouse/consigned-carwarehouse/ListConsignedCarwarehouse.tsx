@@ -674,7 +674,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
         if (!warehouseId) { setCarDetailsList([]); return; }
         const authToken = localStorage.getItem('authToken');
         if (!authToken) return;
-
         try {
             const url = `${server.baseurl}${server.warehouse}get-car-warehouse-details-by-warehouseId/${warehouseId}`;
             const res = await axios.get(url, { headers: { Authorization: `Bearer ${authToken}` } });
@@ -794,6 +793,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
             if (response.data.httpStatusCode === 200) {
                 const activeWorkhouses = response.data.data.filter((wh: WorkhouseType) => wh.recordStatus === 0);
                 setWorkhousesList(activeWorkhouses);
+                
             } else {
                 showAlert(response.data.message || 'Şantiye listesi alınamadı.', 'error');
             }
@@ -866,7 +866,9 @@ const ListConsignedCarwarehouse: React.FC = () => {
         const consignedStatus = !isReturnMode;
 
         const personnelToSend = isReturnMode ? originalRecord!.personnel.id : selectedPersonnel!.id;
-        const workhouseToSend = isReturnMode ? originalRecord!.workhouse.id : selectedWorkhouse!.id;
+        const workhouseToSend = isReturnMode ? originalRecord!.workhouse.id : selectedWorkhouse==null?null: selectedWorkhouse!.id;
+
+        
         const payload: ConsignedCarPayload = {
             date: date ? date.toISOString() : new Date().toISOString(),
             attachments: finalAttachments,
@@ -987,13 +989,12 @@ const ListConsignedCarwarehouse: React.FC = () => {
         }
 
         const finalAttachments: AttachmentType[] = [...returnAttachments, ...(fileUrls?.map(url => ({ fileUrl: url })) ?? [])];
-
         const payload: ConsignedCarPayload = {
             date: returnDate ? returnDate.toISOString() : new Date().toISOString(),
             attachments: finalAttachments,
             description: returnDescription,
             kilometer: Number(returnKilometer),
-            carWarhouseDetailId: Number(rowToReturn.carWarhouseDetail.id),
+            carWarhouseDetailId: Number(rowToReturn.carWarehouseDetail.id),
             personnelId: Number(rowToReturn.personnel.id),
             workhouseId: rowToReturn?.workhouse?.id ? Number(rowToReturn.workhouse.id) : null,
             consigned: false,
@@ -1340,6 +1341,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
                                 <CustomFormLabel>Şantiye</CustomFormLabel>
                                 <Autocomplete
                                     size="small"
+                                    
                                     options={workhousesList}
                                     getOptionLabel={(option) => `${option.name} (${option.code})`}
                                     isOptionEqualToValue={(option, value) => option.id === value.id}
@@ -1359,10 +1361,24 @@ const ListConsignedCarwarehouse: React.FC = () => {
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Araç Depo</CustomFormLabel>
                                 <Autocomplete size="small"
-                                    options={warehousesList} getOptionLabel={(option) => `${option.name} (${option.code})`} isOptionEqualToValue={(option, value) => option.id === value.id} value={selectedWarehouse} onChange={(_, newValue) => { setSelectedWarehouse(newValue); setWarehouseError(false); }} renderInput={(params) => (<TextField {...params} label="Araç Depo Seçin" error={warehouseError} helperText={warehouseError ? 'Zorunlu alan.' : ''} />)} disabled={isReturnMode || loadingButton} /></Grid>
+                                    options={warehousesList} getOptionLabel={(option) => `${option.name} (${option.code})`}
+                                     isOptionEqualToValue={(option, value) => option.id === value.id}
+                                      value={selectedWarehouse} 
+                                      onChange={(_, newValue) => { setSelectedWarehouse(newValue); setWarehouseError(false); }}
+                                       renderInput={(params) => (<TextField {...params} 
+                                       label="Araç Depo Seçin" error={warehouseError} 
+                                       helperText={warehouseError ? 'Zorunlu alan.' : ''} />)} 
+                                       disabled={isReturnMode || loadingButton} /></Grid>
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Emanet Edilecek Araç</CustomFormLabel>
-                                <Autocomplete size="small" options={carDetailsList} getOptionLabel={(option) => `${option.brand} - ${option.plaque}`} isOptionEqualToValue={(option, value) => option.id === value.id} value={selectedCarDetail} onChange={(_, newValue) => { setSelectedCarDetail(newValue); setCarDetailError(false); }} renderInput={(params) => (<TextField {...params} label="Araç Seçin" error={carDetailError} helperText={carDetailError ? 'Zorunlu alan.' : ''} />)} disabled={!selectedWarehouse || loadingButton || isReturnMode} /></Grid>
+                                <Autocomplete size="small" options={carDetailsList}
+                                 getOptionLabel={(option) => `${option.brand} - ${option.plaque}`}
+                                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                                   value={selectedCarDetail} 
+                                   onChange={(_, newValue) => { setSelectedCarDetail(newValue); setCarDetailError(false); }}
+                                    renderInput={(params) => (<TextField {...params} label="Araç Seçin" error={carDetailError}
+                                     helperText={carDetailError ? 'Zorunlu alan.' : ''} />)}
+                                      disabled={!selectedWarehouse || loadingButton || isReturnMode} /></Grid>
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>{isReturnMode ? 'Geri Alan Personel' : 'Emanet Alan Personel'}</CustomFormLabel>
                                 <Autocomplete size="small" options={personnelList} getOptionLabel={(option) => `${option.name} ${option.family}`} isOptionEqualToValue={(option, value) => option.id === value.id} value={selectedPersonnel} onChange={(_, newValue) => { setSelectedPersonnel(newValue); setPersonnelError(false); }} renderInput={(params) => (<TextField {...params} label="Personel Seçin" error={personnelError} helperText={personnelError ? 'Zorunlu alan.' : ''} />)} disabled={loadingButton || isReturnMode} /></Grid>
