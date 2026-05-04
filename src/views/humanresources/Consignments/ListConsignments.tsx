@@ -685,6 +685,8 @@ const ListConsignments: React.FC = () => {
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
             }
             else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }finally {
+            setLoadingData(false);
         }
     }, [navigate]);
 
@@ -957,6 +959,8 @@ const ListConsignments: React.FC = () => {
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
             }
             else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }finally {
+            setLoadingData(false);
         }
     }, [showAlert]);
 
@@ -1751,12 +1755,7 @@ const ListConsignments: React.FC = () => {
                 </Box>
 
                 <TableContainer>
-                    {loadingData ? (
-                        <Box display="flex" justifyContent="center" alignItems="center" height="200px">
-                            <CircularProgress />
-                            <Typography variant="h6" sx={{ ml: 2 }}>Kayıtlar yükleniyor...</Typography>
-                        </Box>
-                    ) : (
+                
                         <Table aria-label="consignments table">
                             <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                                 <TableRow>
@@ -1791,10 +1790,16 @@ const ListConsignments: React.FC = () => {
 
                                     <StyledTableCell></StyledTableCell>
                                 </TableRow>
-                            </TableHead>
+                            </TableHead>  
                             <TableBody>
-                                {paginatedRows.length > 0 ? (
-                                    paginatedRows.map((row) => (
+                              {loadingData ? (
+                        <Box display="flex" justifyContent="center" alignItems="center" height="200px">
+                            <CircularProgress />
+                            <Typography variant="h6" sx={{ ml: 2 }}>Kayıtlar yükleniyor...</Typography>
+                        </Box>
+                    ) : paginatedRows.length > 0 ? (
+                                    paginatedRows.map((row) => {
+                                        return(
                                         <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                             <StyledTableCell>{row.code || '-'}</StyledTableCell>
                                             <StyledTableCell>{row.name || '-'}</StyledTableCell>
@@ -1879,15 +1884,20 @@ const ListConsignments: React.FC = () => {
                                                 </Menu>
                                             </StyledTableCell>
                                         </TableRow>
-                                    ))
+                                    )
+})
                                 ) : (
                                     <TableRow>
-                                        <StyledTableCell colSpan={7} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç kayıt bulunamadı.</Typography></StyledTableCell>
+                                        <StyledTableCell colSpan={7} align="center">
+                                            <Typography variant="subtitle1" color="textSecondary">Hiç kayıt bulunamadı.</Typography>
+                                            </StyledTableCell>
                                     </TableRow>
-                                )}
+                              
+                         )}
+                           
                             </TableBody>
                         </Table>
-                    )}
+                   
                 </TableContainer>
 
                 <TablePagination rowsPerPageOptions={[5, 10, 25]} component="div" count={filteredConsignments.length} rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage} labelRowsPerPage="Satır başına düşen:" labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`} />

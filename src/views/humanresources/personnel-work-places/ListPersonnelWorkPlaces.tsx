@@ -527,6 +527,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
         if (role.toLowerCase() !== 'admin') {
             requestParams = { rolename: role };
         }
+        debugger
         try {
             const response = await axios.get(`${server.baseurl}${server.initialoperations}get-store-by-id/${storeId}`,
                 {

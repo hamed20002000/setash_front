@@ -1417,7 +1417,7 @@ const ListUsers = () => {
                           onClose={handleCloseMenu}
                           MenuListProps={{ 'aria-labelledby': `basic-button-${selectedUserForMenu?.id}` }}
                         >
-                          {hasEditPermission && selectedUserForMenu?.recordStatus === 0 && (
+                          {(selectedUserForMenu?.username)?.toLowerCase() !== "super_admin" && hasEditPermission && selectedUserForMenu?.recordStatus === 0 && (
                             <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kullanıcıyı pasif yap" : ""}>
                               <MuiMenuItem onClick={() => sendStatusUpdate(selectedUserForMenu.id, 1)}>
                                 <ListItemIcon><DoNotDisturbOnRoundedIcon width={18} /></ListItemIcon>
@@ -1425,7 +1425,7 @@ const ListUsers = () => {
                               </MuiMenuItem>
                             </CustomTooltip>
                           )}
-                          {hasEditPermission && selectedUserForMenu?.recordStatus === 1 && (
+                           {(selectedUserForMenu?.username)?.toLowerCase() !== "super_admin" && hasEditPermission && selectedUserForMenu?.recordStatus === 1 && (
                             <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kullanıcıyı aktif yap" : ""}>
                               <MuiMenuItem onClick={() => sendStatusUpdate(selectedUserForMenu!.id, 0)}>
                                 <ListItemIcon><DoneRoundedIcon width={18} /></ListItemIcon>
@@ -1433,7 +1433,7 @@ const ListUsers = () => {
                               </MuiMenuItem>
                             </CustomTooltip>
                           )}
-                          {hasChangePassPermission && (
+                           {(selectedUserForMenu?.username)?.toLowerCase() !== "super_admin" &&hasChangePassPermission && (
                             <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kullanıcının şifresini değiştir" : ""}>
                               <MuiMenuItem onClick={handleClickOpenChangePasswordModal}>
                                 <ListItemIcon><IconKey width={18} /></ListItemIcon>
@@ -1441,7 +1441,7 @@ const ListUsers = () => {
                               </MuiMenuItem>
                             </CustomTooltip>
                           )}
-                          {hasChangeRoleOpPermission && (
+                           {(selectedUserForMenu?.username)?.toLowerCase() !== "super_admin" &&hasChangeRoleOpPermission && (
                             <>
                               <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kullanıcının rollerini yönet" : ""}>
                                 <MuiMenuItem onClick={handleClickOpenRoleModal}>
@@ -1457,7 +1457,7 @@ const ListUsers = () => {
                               </CustomTooltip>
                             </>
                           )}
-                          {hasEditPermission && (
+                           {(selectedUserForMenu?.username)?.toLowerCase() !== "super_admin" &&hasEditPermission && (
                             <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kullanıcı bilgilerini düzenle" : ""}>
                               <MuiMenuItem onClick={handleEditItemClick}>
                                 <ListItemIcon><IconEdit width={18} /></ListItemIcon>
@@ -1465,7 +1465,7 @@ const ListUsers = () => {
                               </MuiMenuItem>
                             </CustomTooltip>
                           )}
-                          {hasDeletePermission && (
+                           {(selectedUserForMenu?.username)?.toLowerCase() !== "super_admin" &&hasDeletePermission && (
                             <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kullanıcıyı sil" : ""}>
                               <MuiMenuItem onClick={handleClickOpenDeleteModal}>
                                 <ListItemIcon><IconTrash width={18} /></ListItemIcon>
