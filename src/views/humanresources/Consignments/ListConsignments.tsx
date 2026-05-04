@@ -1190,7 +1190,7 @@ const ListConsignments: React.FC = () => {
     }, [attachmentsToView.length]);
 
     useEffect(() => {
-        let intervalId: number;
+        let intervalId: NodeJS.Timeout;
         const intervalDuration = 5000;
 
         if (openAttachmentsModal && attachmentsToView.length > 1) {
