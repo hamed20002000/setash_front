@@ -366,7 +366,7 @@ const ListCategory = () => {
   };
 
   useEffect(() => {
-    let timer: number;
+    let timer: NodeJS.Timeout;
     if (alertMessage) {
       timer = setTimeout(() => {
         clearAlert();

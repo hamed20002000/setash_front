@@ -971,7 +971,7 @@ const ExcelImportComponent = () => {
     const availableItemsList = itemsList.filter(item => !selectedItemIds.includes(item.id));
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => { setAlertMessage(message); setAlertSeverity(severity); };
     const clearAlert = () => { setAlertMessage(null); };
-    useEffect(() => { let timer: number; if (alertMessage) { timer = setTimeout(() => { clearAlert(); }, 5000); } return () => { clearTimeout(timer); }; }, [alertMessage]);
+    useEffect(() => { let timer: NodeJS.Timeout; if (alertMessage) { timer = setTimeout(() => { clearAlert(); }, 5000); } return () => { clearTimeout(timer); }; }, [alertMessage]);
 
     useEffect(() => {
         const timer = setTimeout(() => {

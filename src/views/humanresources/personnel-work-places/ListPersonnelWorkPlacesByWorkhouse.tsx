@@ -186,7 +186,7 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
     }, []);
     const clearAlert = () => setAlertMessage(null);
     useEffect(() => {
-        let timer: number;
+        let timer: NodeJS.Timeout;
         if (alertMessage) timer = setTimeout(() => clearAlert(), 5000);
         return () => { if (timer) clearTimeout(timer); };
     }, [alertMessage, clearAlert]);

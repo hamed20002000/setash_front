@@ -42,7 +42,7 @@ const ChangeUserPasswordModal = ({ openModal, onClose, userId, showAlert }: Prop
     }
   }, [openModal]);
   useEffect(() => {
-    let timer: number;
+    let timer: NodeJS.Timeout;
     if (openModal && copyIconState === 'copied') {
       timer = setTimeout(() => {
         setCopyIconState('copy');

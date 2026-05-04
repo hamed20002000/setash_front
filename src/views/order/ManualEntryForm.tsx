@@ -897,7 +897,7 @@ const ManualEntryForm = () => {
 
     const clearAlert = () => { setAlertMessage(null); };
     useEffect(() => {
-        let timer: number;
+        let timer: NodeJS.Timeout;
         if (alertMessage) { timer = setTimeout(() => { clearAlert(); }, 5000); }
         return () => { clearTimeout(timer); };
     }, [alertMessage]);

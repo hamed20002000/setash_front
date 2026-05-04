@@ -918,7 +918,7 @@ const ListCommiteeMembersReport = () => {
 
     useEffect(() => { fetchConfirmationData(); }, [fetchConfirmationData]);
     useEffect(() => { fetchLatestProjectReports(); }, [fetchLatestProjectReports]);
-    useEffect(() => { let timer: number; if (alertMessage) { timer = setTimeout(() => { clearAlert(); }, 5000); } return () => { clearTimeout(timer); }; }, [alertMessage]);
+    useEffect(() => { let timer: NodeJS.Timeout; if (alertMessage) { timer = setTimeout(() => { clearAlert(); }, 5000); } return () => { clearTimeout(timer); }; }, [alertMessage]);
 
     const handleExportExcelDynamic = async (reportType: 'all' | 'confirmed') => {
         const authToken = localStorage.getItem('authToken');

@@ -284,7 +284,7 @@ const ListWorks = () => {
         setAlertSeverity(severity);
     };
     const clearAlert = () => {
-        let timer: number;
+        let timer: NodeJS.Timeout;
         if (alertMessage) {
             timer = setTimeout(() => {
                 setAlertMessage(null);
