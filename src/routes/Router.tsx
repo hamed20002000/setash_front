@@ -119,9 +119,9 @@ const Router = [
         path: '/dashboards/dashboard',
         exact: true,
         element: (
-          <PermissionGuard requiredOperationName="Görüntülemek">
+          // <PermissionGuard requiredOperationName="Görüntülemek">
             <ModernDash />
-          </PermissionGuard>
+          // </PermissionGuard>
         )
       },
       {

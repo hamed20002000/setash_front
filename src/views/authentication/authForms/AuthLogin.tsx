@@ -115,12 +115,12 @@ const AuthLogin = ({ title, subtext }: loginType) => {
           },
         }
       );
-
-      if (response.data.success) {
+debugger
+      if (response.data.success) {debugger
 
         const token = response.data.data;
 
-        if (token) {
+        if (token) {debugger
           localStorage.setItem('authToken', token);
 
           loadAuthData();
@@ -135,7 +135,12 @@ const AuthLogin = ({ title, subtext }: loginType) => {
 
             navigate(internalPath);
 
-          } else {
+          }
+          else if (redirectUrl==null) {
+            navigate('/dashboards/dashboard');
+          }
+          
+          else {
             navigate('/dashboards/dashboard');
           }
         } else {
