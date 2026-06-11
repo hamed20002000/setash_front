@@ -1393,12 +1393,14 @@ const ListDetailsCarWarehouse: React.FC = () => {
                         <Grid item xs={12} sm={4} md={4}>
                             <Autocomplete
                                 size="small"
+                                key={selectedCarWarehouse?.id}
                                 options={carWarehousesList}
                                 getOptionLabel={(option) => `${option.name} (${option.code})`}
                                 isOptionEqualToValue={(option, value) => option.id === value.id}
                                 value={selectedCarWarehouse}
                                 onChange={(_, newValue) => {
                                     setTableCarWarehouse(newValue);
+                                     setSelectedCarWarehouse(newValue);
                                 }}
                                 renderInput={(params) => (
                                     <TextField
