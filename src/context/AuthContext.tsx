@@ -16,7 +16,7 @@ import {
   IconInbox, IconClockHour3, IconTag, IconUserX, IconBarcode, IconTruck, IconParking, IconHandGrab,
   IconSchool, IconNotebook, IconBooks, IconFileCertificate, IconFileImport, IconCrown, IconFileReport,
   IconFileText, IconListDetails, IconCarOff, IconFileSpreadsheet, IconClipboardData, IconCurrencyTaka,
-  IconLayoutDashboard, IconChartInfographic
+  IconLayoutDashboard, IconChartInfographic,IconNotification,IconBellRinging
 } from '@tabler/icons-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 interface UserRole {
@@ -138,7 +138,7 @@ const IconComponents: { [key: string]: React.ElementType } = {
   IconInbox, IconClockHour3, IconTag, IconUserX, IconBarcode, IconTruck, IconParking, IconHandGrab,
   IconSchool, IconNotebook, IconBooks, IconFileCertificate, IconFileImport, IconCrown, IconFileReport,
   IconFileText, IconListDetails, IconCarOff, IconFileSpreadsheet, IconClipboardData, IconCurrencyTaka,
-  IconLayoutDashboard, IconChartInfographic
+  IconLayoutDashboard, IconChartInfographic,IconNotification,IconBellRinging
 };
 
 const getIconComponent = (iconName: string): React.ElementType => IconComponents[iconName.trim()] || IconPlus;

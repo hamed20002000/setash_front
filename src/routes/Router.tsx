@@ -10,6 +10,7 @@ const BlankLayout = Loadable(lazy(() => import('../layouts/blank/BlankLayout')))
 const ModernDash = Loadable(lazy(() => import('../views/dashboard/Modern')));
 const SystemOperation = Loadable(lazy(() => import('../views/managmentusers/system-operation/SystemOperation')));
 const ListRoles = Loadable(lazy(() => import('../views/managmentusers/list-roles/ListRoles')));
+const ListNotif = Loadable(lazy(() => import('../views/managmentusers/list-notif/ListNotif')));
 const ListUsers = Loadable(lazy(() => import('../views/managmentusers/list-users/ListUsers')));
 const ListCategory = Loadable(lazy(() => import('../views/baseinfo/category/ListCategory')));
 const ListUnit = Loadable(lazy(() => import('../views/baseinfo/unit/ListUnit')));
@@ -137,6 +138,14 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListRoles />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/notif/list-notif',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListNotif />
           </PermissionGuard>
         )
       },

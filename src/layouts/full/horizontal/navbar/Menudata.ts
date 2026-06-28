@@ -20,7 +20,8 @@ import {
   IconUsersGroup, IconCalendarTime, IconQuestionMark, IconInbox, IconClockHour3, IconTag,
   IconUserX, IconBarcode, IconTruck, IconParking, IconHandGrab, IconSchool, IconNotebook, IconBooks,
   IconFileCertificate, IconFileImport, IconCrown, IconFileReport, IconFileText, IconListDetails, IconCarOff,
-  IconFileSpreadsheet, IconClipboardData, IconCurrencyTaka, IconLayoutDashboard, IconChartInfographic
+  IconFileSpreadsheet, IconClipboardData, IconCurrencyTaka,
+   IconLayoutDashboard, IconChartInfographic, IconNotification,IconBellRinging
 } from '@tabler/icons-react';
 
 import server from '../../../../assets/address.json';
@@ -91,7 +92,8 @@ const IconComponents: { [key: string]: React.ElementType } = {
   'IconFileText': IconFileText, 'IconListDetails': IconListDetails, 'IconCarOff': IconCarOff,
   'IconFileSpreadsheet': IconFileSpreadsheet, 'IconClipboardData': IconClipboardData,
   'IconCurrencyTaka': IconCurrencyTaka, 'IconLayoutDashboard': IconLayoutDashboard,
-  'IconChartInfographic': IconChartInfographic
+  'IconChartInfographic': IconChartInfographic, 'IconNotification': IconNotification,
+  'IconBellRinging': IconBellRinging
 };
 
 const getIconComponent = (iconIdentifier: string | undefined): React.ElementType => {

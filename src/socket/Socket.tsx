@@ -17,6 +17,12 @@ function joinBaseAndNs(base: string, ns: string) {
 let socket: Socket | null = null;
 let currentRole: 'admin' | 'user' | '' = '';
 
+type JwtPayload = {
+    userid?: string;
+    userId?: string;
+    id?: string;
+};
+
 const defaultOpts = {
     path: PATH,
     transports: ['websocket', 'polling'] as string[],
@@ -37,16 +43,41 @@ function readRoleFromStorage(): 'admin' | 'user' | '' {
     }
 }
 
-export function getSocket(): Socket {
-    if (socket) return socket;
+function readUserIdFromStorage(): string {
+    try {
+        const token = localStorage.getItem('authToken');
+        if (!token) return '';
 
+        const payload = token.split('.')[1];
+        if (!payload) return '';
+
+        const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+        const decoded = JSON.parse(atob(base64)) as JwtPayload;
+        return decoded.userid || decoded.userId || decoded.id || '';
+    } catch {
+        return '';
+    }
+}
+
+function getSocketQuery() {
     const role = readRoleFromStorage();
+    const userId = readUserIdFromStorage();
     currentRole = role as any;
+
+    return {
+        role,
+        userId,
+    };
+}
+
+export function getSocket(): Socket {
+    
+    if (socket) return socket;
 
     const url = joinBaseAndNs(BASE_URL, NAMESPACE);
     socket = io(url, {
         ...defaultOpts,
-        query: { role },
+        query: getSocketQuery(),
     });
 
     return socket;
@@ -59,15 +90,12 @@ export function connectIfNeeded() {
 }
 
 export function switchRole() {
-    const role = readRoleFromStorage();
-    currentRole = role as any;
-
     if (!socket) {
         socket = getSocket();
     }
 
     const opts = (socket!.io.opts as any) || {};
-    opts.query = { ...(opts.query || {}), role };
+    opts.query = { ...(opts.query || {}), ...getSocketQuery() };
 
     if (socket!.connected) socket!.disconnect();
     socket!.connect();
@@ -94,11 +122,9 @@ export function getCurrentRole() {
 
 export function reEstablishConnection() {
     const s = getSocket();
-    const role = readRoleFromStorage();
-    currentRole = role as any;
 
     const opts = (s.io.opts as any) || {};
-    opts.query = { ...(opts.query || {}), role };
+    opts.query = { ...(opts.query || {}), ...getSocketQuery() };
 
     if (s.connected) s.disconnect();
     s.connect();

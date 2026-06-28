@@ -1,6 +1,6 @@
 {
-    "baseurl": "https://setasportal.com/api/",
-    "socketurl": "https://setasportal.com",
+    "baseurl": "http://localhost:3333/api/",
+    "socketurl": "http://localhost:3333",
     "urldpwonload": "https://setasportal.com",
     "admin": "Admin/",
     "login": "auth/",

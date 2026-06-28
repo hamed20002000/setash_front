@@ -206,6 +206,7 @@ function push(type: NotifyType, n: Noti) {
 
 
 function onNotifyEvent(eventName: NotifyType, payload: any) {
+    console.log(payload, 'onNotifyEvent', eventName );
     if (!payload?.type) {
         payload.type = eventName;
     }
@@ -224,6 +225,11 @@ function onNotifyEvent(eventName: NotifyType, payload: any) {
 }
 
 function onConnect() {
+    console.log('[socket] connected', {
+        id: socket?.id,
+        role: state.role,
+        at: new Date().toISOString(),
+    });
     state.connected = true;
     state.needsRefresh = true;
     emit();
@@ -238,11 +244,13 @@ const NOTIFY_EVENTS: NotifyType[] = [
     'project-created', 'project-planning-created', 'project-planning-implementation-created',
     'personnel-created', 'leave-created', 'project-planning-date-created', 'request', 'tender'
 ];
+const SERVER_NOTIFY_EVENT = 'new-notify';
 
 function bind() {
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('connect_error', onConnectError);
+    socket.on(SERVER_NOTIFY_EVENT, onNotifyEvent.bind(null, SERVER_NOTIFY_EVENT as NotifyType));
 
     NOTIFY_EVENTS.forEach(event => {
         socket.on(event, onNotifyEvent.bind(null, event));
@@ -253,6 +261,7 @@ function unbind() {
     socket.off('connect', onConnect);
     socket.off('disconnect', onDisconnect);
     socket.off('connect_error', onConnectError);
+    (socket as any).removeAllListeners(SERVER_NOTIFY_EVENT);
 
     NOTIFY_EVENTS.forEach(event => {
         (socket as any).removeAllListeners(event);
