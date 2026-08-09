@@ -12,6 +12,10 @@ import {
   ToggleButtonGroup, ToggleButton as MuiToggleButton,
   TableSortLabel,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 
 import { keyframes, styled } from '@mui/material/styles';
@@ -28,6 +32,8 @@ import axios from 'axios';
 import server from '../../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
+import MicIcon from '@mui/icons-material/Mic';
+import SendIcon from '@mui/icons-material/Send';
 
 import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
@@ -192,8 +198,15 @@ const SystemRole = () => {
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [isBlinking, setIsBlinking] = useState(true);
 
-
   const [loadingData, setLoadingData] = useState<boolean>(true);
+
+  // Voice Modal States
+  const [openVoiceModal, setOpenVoiceModal] = useState(false);
+  const [voiceInput, setVoiceInput] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<any>(null);
+  const recognitionRef = useRef<any>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
 
   const { menuItems, allowedOperations } = useAuth();
@@ -313,8 +326,174 @@ const SystemRole = () => {
     getListRole();
   }, [getListRole]);
 
+  // Voice Modal Handlers
+  const handleOpenVoiceModal = useCallback(() => {
+    setOpenVoiceModal(true);
+    setVoiceInput('');
+  }, []);
+
+  const handleCloseVoiceModal = useCallback(() => {
+    setOpenVoiceModal(false);
+    setIsRecording(false);
+    
+    // Stop recognition
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current.abort();
+    }
+    
+    // Stop stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    
+    // Stop media recorder
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+    }
+  }, []);
+
+  const handleStartRecording = useCallback(async () => {
+    try {
+      // Get audio stream
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      // Initialize Speech Recognition
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        showAlert('مرورگر شما از تشخیص صوت پشتیبانی نمی‌کند', 'error');
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'fa-IR'; // Persian language
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' ';
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        // Update textarea with combined text
+        if (finalTranscript) {
+          setVoiceInput(prev => prev + finalTranscript);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        showAlert('خطا در تشخیص صوت: ' + event.error, 'error');
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognitionRef.current = recognition;
+      
+      // Create media recorder (optional, for audio backup)
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+
+      // Start speech recognition
+      recognition.start();
+
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      showAlert('خطا در دسترسی به میکروفن', 'error');
+      setIsRecording(false);
+    }
+  }, [showAlert]);
+
+  const handleStopRecording = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+    }
+    
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+    }
+    
+    setIsRecording(false);
+  }, []);
+
+  const handleSendVoiceMessage = useCallback(async () => {
+    if (!voiceInput.trim()) {
+      showAlert('لطفاً متنی را وارد کنید', 'warning');
+      return;
+    }
+
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+      showAlert('لطفاً ابتدا وارد شوید', 'warning');
+      navigate('/');
+      return;
+    }
+
+    try {
+      setLoadingButton(true);
+      const response = await axios.post(
+        'http://localhost:3001/api/baseinfo/agent',
+        { text: voiceInput },
+        {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          }
+        }
+      );
+
+      if (response.data.httpStatusCode === 200 || response.status === 201) {
+        setVoiceInput(response.data|| '');
+        showAlert('پیام با موفقیت ارسال شد', 'success');
+
+         setTimeout(() => {
+              handleCloseVoiceModal();
+          },5000)
+        
+      } else {
+        showAlert(response.data.message || 'خطایی در ارسال پیام رخ داد', 'error');
+      }
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      if (error.response?.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate('/');
+        showAlert('نشست شما پایان یافت. لطفاً دوباره وارد شوید', 'error');
+      } else {
+        showAlert(error.response?.data?.message || 'خطا در ارسال پیام', 'error');
+      }
+    } finally {
+      setLoadingButton(false);
+    }
+  }, [voiceInput, showAlert, handleCloseVoiceModal, navigate]);
+
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     if (alertMessage) {
       timer = setTimeout(() => {
         clearAlert();
@@ -634,6 +813,7 @@ const SystemRole = () => {
           >
             {!isFormVisible && hasCreatePermission && (
               <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Rol Belgesi kaydetmek için tıklayınız" : ""}>
+                <>
                 <BlinkingButton
                   variant="contained"
                   color="primary"
@@ -643,6 +823,21 @@ const SystemRole = () => {
                 >
                   Yeni Rol Kaydet
                 </BlinkingButton>
+
+                <BlinkingButton
+                  variant="contained"
+                  color="secondary"
+                  onClick={handleOpenVoiceModal}
+                  isBlinking={isBlinking}
+                  fullWidth={false}
+                  className="blink-button"
+                  startIcon={<MicIcon />}
+                >
+                  صوتی پیام
+                </BlinkingButton>
+                </>
+
+
               </CustomTooltip>
             )}
             {isFormVisible && (
@@ -975,6 +1170,82 @@ const SystemRole = () => {
         roleId={roleIdForOperations?.toString() || null}
         showAlert={showAlert}
       />
+
+      {/* Voice Message Modal */}
+      <Dialog 
+        open={openVoiceModal} 
+        onClose={handleCloseVoiceModal}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h6" component="span">
+            ارسال پیام صوتی
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <Stack spacing={2}>
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                متن پیام
+              </Typography>
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                placeholder="متنی را اینجا وارد کنید یا از میکروفن استفاده کنید..."
+                value={voiceInput}
+                onChange={(e) => setVoiceInput(e.target.value)}
+                variant="outlined"
+              />
+            </Box>
+            
+            <Box display="flex" justifyContent="center" gap={2}>
+              <Button
+                variant={isRecording ? "contained" : "outlined"}
+                color={isRecording ? "error" : "primary"}
+                startIcon={<MicIcon />}
+                onClick={isRecording ? handleStopRecording : handleStartRecording}
+              >
+                {isRecording ? 'ضبط را متوقف کنید' : 'شروع ضبط'}
+              </Button>
+            </Box>
+
+            {isRecording && (
+              <Box display="flex" justifyContent="center" alignItems="center" gap={1}>
+                <CircularProgress size={20} />
+                <Typography variant="body2" color="primary">
+                  در حال ضبط...
+                </Typography>
+              </Box>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button 
+            onClick={handleCloseVoiceModal}
+            variant="outlined"
+            disabled={loadingButton}
+          >
+            بستن
+          </Button>
+          <Button 
+            onClick={handleSendVoiceMessage}
+            variant="contained"
+            color="primary"
+            startIcon={<SendIcon />}
+            disabled={loadingButton}
+          >
+            {loadingButton ? (
+              <>
+                <BoltIcon sx={{ mr: 1, fontSize: 20 }} /> در حال ارسال...
+              </>
+            ) : (
+              'ارسال'
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 };

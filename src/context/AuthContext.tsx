@@ -194,6 +194,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           filteredAndMappedMenus.push(menuItem);
         }
       });
+      filteredAndMappedMenus.push({
+            id: uniqueId(),
+            title:"AI",
+            href: "ai",
+            icon: getIconComponent("IconFileText"),
+            chipColor: 'secondary',
+            children: undefined,
+            menuOperations: {},
+
+      });
 
     return filteredAndMappedMenus;
   }, []);

@@ -18,6 +18,7 @@ import { AppState } from 'src/store/Store';
 
 const Sidebar = () => {
 
+
     const lgUp = useMediaQuery((theme: any) => theme.breakpoints.up('lg'));
 
     const customizer = useSelector((state: AppState) => state.customizer);

@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import Loadable from '../layouts/full/shared/loadable/Loadable';
 
 import PermissionGuard from 'src/context/PermissionGuard';
+import AiAgentPage from 'src/views/ai/ai';
 
 
 const FullLayout = Loadable(lazy(() => import('../layouts/full/FullLayout')));
@@ -121,7 +122,7 @@ const Router = [
         exact: true,
         element: (
           // <PermissionGuard requiredOperationName="Görüntülemek">
-            <ModernDash />
+          <ModernDash />
           // </PermissionGuard>
         )
       },
@@ -742,6 +743,12 @@ const Router = [
         )
       },
       { path: '*', element: <Navigate to="/auth/404" /> },
+      {
+        path: '/ai',
+        element: (
+          <AiAgentPage />
+        )
+      },
     ],
   },
   {

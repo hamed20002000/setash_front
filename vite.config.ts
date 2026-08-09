@@ -6,8 +6,11 @@ import svgr from '@svgr/rollup';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-    
-    server: { port:3001 },
+
+    server: {
+        port: 3002,
+    },
+    plugins: [svgr(), react()],
     resolve: {
         alias: {
             src: resolve(__dirname, 'src'),
@@ -38,10 +41,5 @@ export default defineConfig({
     },
 
 
-    
-    // plugins: [react(),svgr({
-    //   exportAsDefault: true
-    // })],
     assetsInclude: ['**/*.xlsx'],
-    plugins: [svgr(), react()],
 });

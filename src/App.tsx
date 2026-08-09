@@ -19,6 +19,7 @@ import { TooltipProvider } from './context/TooltipContext';
 
 
 import NotifyBootstrap from './socket/NotifyBootstrap';
+import AiAgentPage from "./views/ai/ai";
 
 function App() {
   const routing = useRoutes(Router);
@@ -36,6 +37,7 @@ function App() {
                 <CssBaseline />
                 <ScrollToTop>
                   {routing}
+                  {/* <AiAgentPage /> */}
                 </ScrollToTop>
               </RTL>
             </ThemeProvider>
