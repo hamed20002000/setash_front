@@ -499,7 +499,7 @@ const ListUsers = () => {
     if (!fileUrl || fileUrl === "N/A" || fileUrl.startsWith('data:')) {
       return DEFAULT_IMAGE_URL;
     }
-    return `${server.urldpwonload}${fileUrl}`;
+    return `http://localhost:3001${fileUrl}`;
   };
 
   useEffect(() => {
