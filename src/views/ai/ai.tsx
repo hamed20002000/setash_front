@@ -4,9 +4,13 @@ import { AlertType } from "src/components/shared/Alert/alert.type";
 import { useNavigate } from "react-router";
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/StopCircleSharp';
+import Mic from '@mui/icons-material/Mic';
+import EmptyIcon from '@mui/icons-material/GraphicEq';
+import Arrow from '@mui/icons-material/ArrowUpwardOutlined';
 import { uniqueId } from "lodash";
 import { FunctionCallResultType, SelectedFileType } from "./ai.types";
 import server from "../../assets/address.json"
+import { useSpeechToText } from "./hooks/useSpeechToText";
 
 
 
@@ -25,6 +29,12 @@ function AiAgentPage() {
     const mediaRecorderRef = useRef<any>(null);
     const recognitionRef = useRef<any>(null);
     const streamRef = useRef<MediaStream | null>(null);
+    const {
+        start,
+        stop,
+        isListening,
+        blobToAudioData
+    } = useSpeechToText();
     //#endregion----------------- Constants---------------
 
 
@@ -132,25 +142,29 @@ function AiAgentPage() {
             if (response.data.httpStatusCode === 200 || response.status === 201) {
 
                 if (response.data.data.result === "success") {
-                    setHistory([...history, {
+                    setHistory([{
                         id: uniqueId(),
                         list: response.data.data.list,
                         message: response.data.data.message,
                         result: response.data.data.result,
+                        continuePrompt: response.data.data.continuePrompt,
+                        toolName: response.data.data.toolName,
                         time: `${new Date().getHours().toString()}:${new Date().getMinutes().toString()}`
-                    }])
+                    },...history])
                     setVoiceInput('');
                     setSelectedFile([]);
 
                 }
                 else {
-                    setHistory([...history, {
+                    setHistory([{
                         id: uniqueId(),
                         list: response.data.data.list,
                         message: response.data.data.message,
                         result: response.data.data.result,
-                        time: `${new Date().getHours().toString()}:${new Date().getMinutes().toString()}`
-                    }])
+                        continuePrompt: response.data.data.continuePrompt,
+                        toolName: response.data.data.toolName,
+                        time: `${new Date().getHours().toString()}:${new Date().getMinutes().toString().padStart(2,"0")}`
+                    },...history])
                 }
 
 
@@ -175,13 +189,26 @@ function AiAgentPage() {
         } finally {
             setLoadingButton(false);
         }
-    }, [voiceInput, alert, navigate,selectedFile]);
+    }, [voiceInput, alert, navigate, selectedFile]);
 
 
     const toggleRecording = () => {
         setIsRecording((current) => !current);
     };
 
+    const generateResultViewLink=(toolName:string)=>{
+
+         switch(toolName){
+            case "create_role":
+            case "update_role":
+            case "delete_role": 
+            case "update_role_record_status":   
+                return("/managmentusers/list-roles")
+            default:
+                return ""    
+         }
+         return ""
+    }
     //#endregion----------------- Handlers---------------
 
     //#region-------------------- Functions ---------------
@@ -201,9 +228,7 @@ function AiAgentPage() {
         <div className="agent-page">
             {/* Sidebar */}
 
-            {/* {
-                alert.alertMessage!=""&&<Alert {...alert}/>
-            } */}
+
             <aside className="agent-sidebar">
                 <div className="sidebar-header">
                     <div className="brand">
@@ -249,84 +274,13 @@ function AiAgentPage() {
                 </div>
             </aside>
 
-            {/* Main */}
             <main className="agent-main">
-                {/* Header */}
-                {/* <header className="agent-header">
-                    <div>
-                        <div className="mobile-brand">
-                            <div className="brand-icon">AI</div>
 
-                            <strong>AI Agent</strong>
-                        </div>
 
-                        <LogoDarkRTL />
-                    </div>
-
-                    <div className="header-user">
-                        <div className="header-user-info">
-                            <strong>Hamed</strong>
-                            <span>Administrator</span>
-                        </div>
-
-                        <div className="avatar">H</div>
-                    </div>
-                </header> */}
 
                 {/* Workspace */}
                 <div className="workspace">
-                    {/* Conversation */}
-                    {/* <section className="conversation-panel">
-            <div className="panel-title">
-              <div>
-                <span className="eyebrow">CONVERSATION</span>
-                <h2>Role management</h2>
-              </div>
 
-              <span className="live-badge">
-                <span />
-                Live
-              </span>
-            </div>
-
-            <div className="messages">
-              <UserMessage>
-                Vekil rolünü oluştur.
-              </UserMessage>
-
-              <AgentMessage>
-                <div className="agent-thinking">
-                  <span className="thinking-dot" />
-                  <span className="thinking-dot" />
-                  <span className="thinking-dot" />
-                </div>
-
-                <p>
-                  Rol oluşturuluyor...
-                </p>
-              </AgentMessage>
-
-              <AgentMessage success>
-                <div className="success-header">
-                  <div className="success-icon">✓</div>
-
-                  <div>
-                    <strong>Rol başarıyla oluşturuldu.</strong>
-
-                    <span>
-                      create_role işlemi tamamlandı.
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mini-result">
-                  <span>Role</span>
-                  <strong>Vekil</strong>
-                </div>
-              </AgentMessage>
-            </div>
-
-          </section> */}
 
                     {/* Result Workspace */}
                     <section
@@ -341,32 +295,36 @@ function AiAgentPage() {
 
                                 <h2>İşlem sonucu</h2>
                             </div>
-
-                            {/* <button
-                className="close-mobile-workspace"
-                onClick={() => setShowWorkspace(false)}
-              >
-                ×
-              </button> */}
                         </div>
 
 
 
                         {history.map((item) => (
-                            <div className="operation-card" key={item.id}>
+                            <div className={`operation-card ${item.result == "success" ? "success" : "error"}`} key={item.id}>
                                 <div className="operation-top">
                                     <div className={`${item.result == "success" ? "operation-success" : "operation-error"}`}>
                                         <span>{item.result == "success" ? "✓" : "x"}</span>
                                     </div>
 
                                     <div style={{ flex: "1", minWidth: 0, overflow: "hidden", overflowWrap: "break-word" }}>
-                                        <strong style={{ overflow: "hidden", flex: "1", textWrap: "nowrap", textOverflow: "ellipsis" }}>
-                                            {item.message}
-                                        </strong>
 
-                                        <span>
+                                        <div style={{display:"flex",width:"100%",gap:"8px"}}>
+                                            <strong style={{ overflow: "hidden", textWrap: "nowrap", textOverflow: "ellipsis" }}>
+                                                {item.message}
+                                            </strong>
+                                             {item.toolName && (
+                                                <a href={generateResultViewLink(item.toolName)} style={{color:"blue",textDecoration:"underline",textWrap:"nowrap"}} target="_blank" >
+                                                    Sonucu Görüntüle
+                                                </a>
+                                            )}
+                                             <span style={{fontWeight:"bold",color:"black"}}>
                                             {item.time}
-                                        </span>
+                                           </span>
+                                        </div>
+
+                                       {item.continuePrompt && (
+                                            <h5 style={{margin:"0",color:"#977200"}}>{item.continuePrompt}</h5>
+                                        )}
                                     </div>
 
                                     <span className={`${item.result == "success" ? "success-pill" : "error-pill"}`}>
@@ -376,77 +334,7 @@ function AiAgentPage() {
                             </div>
                         ))}
 
-                        {/* Roles */}
-                        {/* <div className="data-section">
-              <div className="data-section-header">
-                <div>
-                  <h3>Roles</h3>
 
-                  <span>
-                    Current system data
-                  </span>
-                </div>
-
-                <button className="refresh-button">
-                  ↻
-                </button>
-              </div>
-
-              <div className="search-box">
-                <span>⌕</span>
-
-                <input
-                  placeholder="Search roles..."
-                />
-              </div>
-
-              <div className="roles-table-wrapper">
-                <table className="roles-table">
-                  <thead>
-                    <tr>
-                      <th>Role</th>
-                      <th>Status</th>
-                      <th />
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {roles.map((role) => (
-                      <tr key={role.id}>
-                        <td>
-                          <div className="table-role">
-                            <div>
-                              {role.name.charAt(0)}
-                            </div>
-
-                            <strong>
-                              {role.name}
-                            </strong>
-                          </div>
-                        </td>
-
-                        <td>
-                          <span className="table-status">
-                            <i />
-                            {role.status}
-                          </span>
-                        </td>
-
-                        <td>
-                          <button className="more-button">
-                            ···
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <button className="view-all">
-                View all roles →
-              </button>
-            </div> */}
 
 
                         <div className="composer-container">
@@ -475,7 +363,7 @@ function AiAgentPage() {
                             </div>
 
 
-                            {isRecording && (
+                            {/* {isListening && (
                                 <div className="recording">
                                     <div className="recording-indicator">
                                         <span />
@@ -495,12 +383,12 @@ function AiAgentPage() {
 
                                     <button
                                         className="stop-recording"
-                                        onClick={toggleRecording}
+                                        onClick={stop}
                                     >
                                         Stop
                                     </button>
                                 </div>
-                            )}
+                            )} */}
 
                             <div className="composer">
                                 <button
@@ -519,7 +407,7 @@ function AiAgentPage() {
                                 />
 
                                 <textarea
-                                    value={voiceInput}
+                                    value={isListening ? `` : voiceInput}
                                     onChange={(event) =>
                                         //setPrompt(event.target.value)
                                         setVoiceInput(event.target.value)
@@ -538,19 +426,19 @@ function AiAgentPage() {
                                 />
 
                                 <button
-                                    className={`composer-button ${isRecording ? "recording-button" : ""
+                                    className={`composer-button ${isListening ? "recording-button" : ""
                                         }`}
-                                    onClick={toggleRecording}
+                                    onClick={()=>{ isListening?stop():start()}}
                                     title="Voice input"
                                 >
-                                    🎤
+                                    <Mic style={{fill:isListening?"greenyellow":"gray"}}/>
                                 </button>
 
                                 <button
                                     className={`send-button ${!voiceInput.trim() ? "inactive" : ""}`}
                                     onClick={handleSubmit}
                                 >
-                                    {loadingButton ? <BoltIcon className="waiting-request-response" color="inherit" sx={{ mr: 1, fontSize: 20 }} /> : "↑"}
+                                    {loadingButton ? <BoltIcon className="waiting-request-response" color="inherit" sx={{ mr: 1, fontSize: 20 }} /> : voiceInput.trim()?<Arrow style={{width:"19px",height:"19px"}}/>:<EmptyIcon/>}
                                 </button>
                             </div>
 

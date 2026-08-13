@@ -4,7 +4,9 @@ export type FunctionCallResultType={
     list:any[],
     time:string,
     id:string,
-    attachments?:File[]
+    attachments?:File[],
+    continuePrompt?:string,
+    toolName?:string,
 }
 
 export type SelectedFileType={

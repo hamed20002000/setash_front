@@ -20,11 +20,25 @@ import { TooltipProvider } from './context/TooltipContext';
 
 import NotifyBootstrap from './socket/NotifyBootstrap';
 import AiAgentPage from "./views/ai/ai";
+import { loadWhisper } from "./services/whisper.service";
+import { useEffect } from "react";
 
 function App() {
   const routing = useRoutes(Router);
   const theme = ThemeSettings();
   const customizer = useSelector((state: AppState) => state.customizer);
+
+   useEffect(() => {
+    loadWhisper()
+      .then(() => {
+        console.log('Whisper is ready');
+      })
+      .catch((error) => {
+        console.error('Whisper failed:', error);
+      });
+  }, []);
+
+  
 
   return (
     <Provider store={store}>

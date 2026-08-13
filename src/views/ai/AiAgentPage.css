@@ -657,10 +657,10 @@ button {
 
   padding: 7px;
 
-  border: 1px solid var(--border);
-  border-radius: 14px;
+  border: 1px solid #212121;
+  border-radius: 50px;
 
-  background: var(--surface-soft);
+  background: #333336;
 
   transition: 0.2s;
 }
@@ -685,7 +685,7 @@ button {
 
   background: transparent;
 
-  color: var(--text);
+  color: white;
 
   font-size: 13px;
 }
@@ -705,7 +705,7 @@ button {
   align-items: center;
   justify-content: center;
 
-  border-radius: 9px;
+  border-radius: 25px;
 
   background: transparent;
 
@@ -719,7 +719,7 @@ button {
 }
 
 .recording-button {
-  background: #fee2e2;
+  background: #504545;
   color: var(--danger);
 }
 
@@ -734,7 +734,7 @@ button {
   filter: brightness(0.95);
 }
 .send-button.inactive {
-  background:#ef4444;
+  background:#2c67c5;
 }
 
 .composer-hint {
@@ -902,6 +902,13 @@ button {
   background: var(--surface-soft);
 }
 
+.operation-card.success {
+   border: 1px solid #0abe7c;
+}
+.operation-card.error {
+   border: 1px solid #e42706;
+}
+
 .operation-top {
   display: flex;
   align-items: center;
@@ -909,16 +916,17 @@ button {
 }
 
 .operation-success {
+
   width: 32px;
   height: 32px;
 
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
 
   border-radius: 9px;
 
-  background: var(--success-soft);
+  background: #0abe7c;;
   color: var(--success);
 
   font-weight: 800;
@@ -928,13 +936,13 @@ button {
   width: 32px;
   height: 32px;
 
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
 
   border-radius: 9px;
 
-  background: var(--danger-soft);
+  background: e42706;
   color: var(--danger);
 
   font-weight: 800;
@@ -965,8 +973,8 @@ button {
 
   border-radius: 20px;
 
-  background: var(--success-soft);
-  color: var(--success);
+  background:#0abe7c;
+  color: white;
 
   font-size: 9px;
   font-weight: 600;
@@ -978,8 +986,8 @@ button {
 
   border-radius: 20px;
 
-  background: var(--danger-soft);
-  color: var(--danger);
+  background:#e42706;
+  color: white;
 
   font-size: 9px;
   font-weight: 600;
