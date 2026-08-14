@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "./AiAgentPage.css";
 import { AlertType } from "src/components/shared/Alert/alert.type";
 import { useNavigate } from "react-router";
@@ -8,9 +8,10 @@ import Mic from '@mui/icons-material/Mic';
 import EmptyIcon from '@mui/icons-material/GraphicEq';
 import Arrow from '@mui/icons-material/ArrowUpwardOutlined';
 import { uniqueId } from "lodash";
-import { FunctionCallResultType, SelectedFileType } from "./ai.types";
+import { FunctionCallResultType, JwtPayload, SelectedFileType } from "./ai.types";
 import server from "../../assets/address.json"
 import { useSpeechToText } from "./hooks/useSpeechToText";
+import { io } from "socket.io-client";
 
 
 
@@ -52,6 +53,9 @@ function AiAgentPage() {
         onClose: () => { }
     })
     const [history, setHistory] = useState<FunctionCallResultType[]>([])
+    const [progress, setProgress] = useState({
+        currentOp: undefined
+    })
     //#endregion----------------- States ---------------
 
 
@@ -105,13 +109,11 @@ function AiAgentPage() {
 
     const handleSubmit = useCallback(async () => {
         if (!voiceInput.trim()) {
-            // setAlert({ alertMessage: "Lütfen bir metin girin.", severity: 'error', onClose: () => { setAlert({ ...alert, alertMessage: "" }) } });
             return;
         }
 
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
-
             setAlert({
                 alertMessage: "Lütfen önce giriş yapın.",
                 severity: "error",
@@ -140,32 +142,6 @@ function AiAgentPage() {
             );
 
             if (response.data.httpStatusCode === 200 || response.status === 201) {
-
-                if (response.data.data.result === "success") {
-                    setHistory([{
-                        id: uniqueId(),
-                        list: response.data.data.list,
-                        message: response.data.data.message,
-                        result: response.data.data.result,
-                        continuePrompt: response.data.data.continuePrompt,
-                        toolName: response.data.data.toolName,
-                        time: `${new Date().getHours().toString()}:${new Date().getMinutes().toString()}`
-                    },...history])
-                    setVoiceInput('');
-                    setSelectedFile([]);
-
-                }
-                else {
-                    setHistory([{
-                        id: uniqueId(),
-                        list: response.data.data.list,
-                        message: response.data.data.message,
-                        result: response.data.data.result,
-                        continuePrompt: response.data.data.continuePrompt,
-                        toolName: response.data.data.toolName,
-                        time: `${new Date().getHours().toString()}:${new Date().getMinutes().toString().padStart(2,"0")}`
-                    },...history])
-                }
 
 
 
@@ -196,18 +172,18 @@ function AiAgentPage() {
         setIsRecording((current) => !current);
     };
 
-    const generateResultViewLink=(toolName:string)=>{
+    const generateResultViewLink = (toolName: string) => {
 
-         switch(toolName){
+        switch (toolName) {
             case "create_role":
             case "update_role":
-            case "delete_role": 
-            case "update_role_record_status":   
-                return("/managmentusers/list-roles")
+            case "delete_role":
+            case "update_role_record_status":
+                return ("/managmentusers/list-roles")
             default:
-                return ""    
-         }
-         return ""
+                return ""
+        }
+        return ""
     }
     //#endregion----------------- Handlers---------------
 
@@ -216,7 +192,91 @@ function AiAgentPage() {
         setSelectedFile((prev) => prev.filter((_, i) => i !== index));
 
     };
+    const decodeJwtToken = (token: string): JwtPayload | null => {
+        try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(
+                atob(base64)
+                    .split('')
+                    .map(function (c) {
+                        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                    })
+                    .join(''),
+            );
+
+            return JSON.parse(jsonPayload);
+        } catch (e) {
+            return null;
+        }
+    };
+
     //#endregion----------------- Functions---------------
+
+
+    //#region-------------------- UseEffects -------------
+    useEffect(() => {
+        const authToken = localStorage.getItem('authToken');
+        const decoded = authToken ? decodeJwtToken(authToken) : null;
+        const userId = decoded?.userid;
+
+        const handleToolResult = (data: any) => {
+            if (data.result === "success") {
+                setHistory([{
+                    id: uniqueId(),
+                    list: data.list,
+                    message: data.message,
+                    result: data.result,
+                    continuePrompt: data.continuePrompt,
+                    toolName: data.toolName,
+                    time: `${new Date().getHours().toString()}:${new Date().getMinutes().toString()}`
+                }, ...history])
+                setVoiceInput('');
+                setSelectedFile([]);
+
+            }
+            else {
+                setHistory([{
+                    id: uniqueId(),
+                    list: data.list,
+                    message: data.message,
+                    result: data.result,
+                    continuePrompt: data.continuePrompt,
+                    toolName: data.toolName,
+                    time: `${new Date().getHours().toString()}:${new Date().getMinutes().toString().padStart(2, "0")}`
+                }, ...history])
+            }
+
+            setProgress({ currentOp: undefined })
+
+        }
+        const handleToolCurrent = (data: any) => {
+            setProgress({ currentOp: data.currentOp })
+        }
+        const socket = io('http://localhost:3001/agent', {
+            path: '/socket.io',
+            transports: ['websocket', 'polling'] as string[],
+    
+            query: {
+                userId: userId
+            }
+        })
+          const timer = setTimeout(() => {
+        console.log('connecting...');
+        socket.connect();
+    }, 100);
+        socket.on("agent-current-tool", handleToolCurrent)
+        socket.on("agent-tool-result", handleToolResult)
+        socket.on("connect", () => {
+            console.log("hgfhgfhgfhgfhgfhgfhgf")
+        })
+        return () => {
+            socket.off('agent-tool-result', handleToolResult);
+            socket.off('agent-current-tool', handleToolCurrent);
+            socket.disconnect();
+        };
+    }, [])
+    //#endregion----------------- UseEffects -------------
 
 
 
@@ -298,6 +358,12 @@ function AiAgentPage() {
                         </div>
 
 
+                        {
+                            progress.currentOp != undefined && <div>
+
+                                <span>{progress.currentOp}</span>
+                            </div>
+                        }
 
                         {history.map((item) => (
                             <div className={`operation-card ${item.result == "success" ? "success" : "error"}`} key={item.id}>
@@ -308,22 +374,22 @@ function AiAgentPage() {
 
                                     <div style={{ flex: "1", minWidth: 0, overflow: "hidden", overflowWrap: "break-word" }}>
 
-                                        <div style={{display:"flex",width:"100%",gap:"8px"}}>
+                                        <div style={{ display: "flex", width: "100%", gap: "8px" }}>
                                             <strong style={{ overflow: "hidden", textWrap: "nowrap", textOverflow: "ellipsis" }}>
                                                 {item.message}
                                             </strong>
-                                             {item.toolName && (
-                                                <a href={generateResultViewLink(item.toolName)} style={{color:"blue",textDecoration:"underline",textWrap:"nowrap"}} target="_blank" >
+                                            {item.toolName && (
+                                                <a href={generateResultViewLink(item.toolName)} style={{ color: "blue", textDecoration: "underline", textWrap: "nowrap" }} target="_blank" >
                                                     Sonucu Görüntüle
                                                 </a>
                                             )}
-                                             <span style={{fontWeight:"bold",color:"black"}}>
-                                            {item.time}
-                                           </span>
+                                            <span style={{ fontWeight: "bold", color: "black" }}>
+                                                {item.time}
+                                            </span>
                                         </div>
 
-                                       {item.continuePrompt && (
-                                            <h5 style={{margin:"0",color:"#977200"}}>{item.continuePrompt}</h5>
+                                        {item.continuePrompt && (
+                                            <h5 style={{ margin: "0", color: "#977200" }}>{item.continuePrompt}</h5>
                                         )}
                                     </div>
 
@@ -428,17 +494,17 @@ function AiAgentPage() {
                                 <button
                                     className={`composer-button ${isListening ? "recording-button" : ""
                                         }`}
-                                    onClick={()=>{ isListening?stop():start()}}
+                                    onClick={() => { isListening ? stop() : start() }}
                                     title="Voice input"
                                 >
-                                    <Mic style={{fill:isListening?"greenyellow":"gray"}}/>
+                                    <Mic style={{ fill: isListening ? "greenyellow" : "gray" }} />
                                 </button>
 
                                 <button
                                     className={`send-button ${!voiceInput.trim() ? "inactive" : ""}`}
                                     onClick={handleSubmit}
                                 >
-                                    {loadingButton ? <BoltIcon className="waiting-request-response" color="inherit" sx={{ mr: 1, fontSize: 20 }} /> : voiceInput.trim()?<Arrow style={{width:"19px",height:"19px"}}/>:<EmptyIcon/>}
+                                    {loadingButton ? <BoltIcon className="waiting-request-response" color="inherit" sx={{ mr: 1, fontSize: 20 }} /> : voiceInput.trim() ? <Arrow style={{ width: "19px", height: "19px" }} /> : <EmptyIcon />}
                                 </button>
                             </div>
 

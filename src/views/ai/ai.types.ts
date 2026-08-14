@@ -13,3 +13,10 @@ export type SelectedFileType={
     file:File,
     path:string,
 }
+
+
+export interface JwtPayload {
+  username?: string;
+  role?: string | string[];
+  userid?: string;
+}
