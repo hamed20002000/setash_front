@@ -222,7 +222,7 @@ function AiAgentPage() {
 
         const handleToolResult = (data: any) => {
             if (data.result === "success") {
-                setHistory([{
+                setHistory((prev)=>[{
                     id: uniqueId(),
                     list: data.list,
                     message: data.message,
@@ -230,7 +230,7 @@ function AiAgentPage() {
                     continuePrompt: data.continuePrompt,
                     toolName: data.toolName,
                     time: `${new Date().getHours().toString()}:${new Date().getMinutes().toString()}`
-                }, ...history])
+                }, ...prev])
                 setVoiceInput('');
                 setSelectedFile([]);
 
@@ -268,7 +268,7 @@ function AiAgentPage() {
         socket.on("agent-current-tool", handleToolCurrent)
         socket.on("agent-tool-result", handleToolResult)
         socket.on("connect", () => {
-            console.log("hgfhgfhgfhgfhgfhgfhgf")
+            console.log("nnnnnnnnn="+userId)
         })
         return () => {
             socket.off('agent-tool-result', handleToolResult);
@@ -359,9 +359,10 @@ function AiAgentPage() {
 
 
                         {
-                            progress.currentOp != undefined && <div>
+                            progress.currentOp != undefined && <div style={{padding:"8px",paddingLeft:"35px",color:"#22222"}}>
 
-                                <span>{progress.currentOp}</span>
+                                <span style={{color:"#7b5d16",fontWeight:"bolder"}}>{progress.currentOp}</span>
+                                <span style={{color:"#7b5d16",fontWeight:"normal"}}>...</span>
                             </div>
                         }
 
