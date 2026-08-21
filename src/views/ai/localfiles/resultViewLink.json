@@ -1,0 +1,50 @@
+{
+    "create_role": "/managmentusers/list-roles",
+    "update_role": "/managmentusers/list-roles",
+    "delete_role": "/managmentusers/list-roles",
+    "update_role_record_status": "/managmentusers/list-roles",
+    "create_user": "/managmentusers/list-users",
+    "update_user": "/managmentusers/list-users",
+    "delete_user": "/managmentusers/list-users",
+    "update_user_record_status": "/managmentusers/list-users",
+    "change-user-password": "/managmentusers/list-users",
+    "assign-user-roles": "/managmentusers/list-users",
+
+    "create_category": "/baseinfo/list-categories",
+    "update_category": "/baseinfo/list-categories",
+    "deleteـcategory": "/baseinfo/list-categories",
+    "update_category_record_status": "/baseinfo/list-categories",
+    "change_category_parent": "/baseinfo/list-categories",
+
+    "create_item_unit": "/baseinfo/list-units",
+    "update_item_unit": "/baseinfo/list-units",
+    "delete_item_unit": "/baseinfo/list-units",
+    "update_item_unit_record_status": "/baseinfo/list-units",
+
+    "create_product": "/baseinfo/list-items",
+    "update_product": "/baseinfo/list-items.",
+    "delete_product": "/baseinfo/list-items",
+    "update_product_record_status": "/baseinfo/list-items",
+
+
+    "create_pole_or_transformer": "/product-type/list-product-types/",
+    "update_pole_or_transformer": "/product-type/list-product-types/",
+    "delete_pole_or_transformer": "/product-type/list-product-types/",
+    "update_pole_or_transformer_record_status": "/product-type/list-product-types/",
+
+    "create_region": "/region/list-regions/",
+    "update_region": "/region/list-regions/",
+    "delete_region": "/region/list-regions/",
+    "update_region_record_status": "/region/list-regions/",
+    "change_region_parent": "/region/list-regions/",
+
+    "create_supplier": "/provider/list-provider/",
+    "update_supplier": "/provider/list-provider/",
+    "delete_supplier": "/provider/list-provider/",
+    "update_supplier_record_status": "/provider/list-provider/",
+
+    "create_force_major": "/baseinfo/list-forcemajor",
+    "update_force_major": "/baseinfo/list-forcemajor",
+    "delete_force_major": "/baseinfo/list-forcemajor",
+    "update_force_major_record_status": "/baseinfo/list-forcemajor"
+}

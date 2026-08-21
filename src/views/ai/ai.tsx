@@ -12,7 +12,7 @@ import { FunctionCallResultType, JwtPayload, SelectedFileType } from "./ai.types
 import server from "../../assets/address.json"
 import { useSpeechToText } from "./hooks/useSpeechToText";
 import { io } from "socket.io-client";
-
+import resultViewLink from './localfiles/resultViewLink.json'
 
 
 
@@ -174,16 +174,9 @@ function AiAgentPage() {
 
     const generateResultViewLink = (toolName: string) => {
 
-        switch (toolName) {
-            case "create_role":
-            case "update_role":
-            case "delete_role":
-            case "update_role_record_status":
-                return ("/managmentusers/list-roles")
-            default:
-                return ""
-        }
-        return ""
+        if (!toolName) return "";
+        const key = toolName.trim();
+        return resultViewLink[key as keyof typeof resultViewLink] ?? "";
     }
     //#endregion----------------- Handlers---------------
 
@@ -222,7 +215,7 @@ function AiAgentPage() {
 
         const handleToolResult = (data: any) => {
             if (data.result === "success") {
-                setHistory((prev)=>[{
+                setHistory((prev) => [{
                     id: uniqueId(),
                     list: data.list,
                     message: data.message,
@@ -236,7 +229,7 @@ function AiAgentPage() {
 
             }
             else {
-                setHistory([{
+                setHistory((prev)=>[{
                     id: uniqueId(),
                     list: data.list,
                     message: data.message,
@@ -244,7 +237,7 @@ function AiAgentPage() {
                     continuePrompt: data.continuePrompt,
                     toolName: data.toolName,
                     time: `${new Date().getHours().toString()}:${new Date().getMinutes().toString().padStart(2, "0")}`
-                }, ...history])
+                }, ...prev])
             }
 
             setProgress({ currentOp: undefined })
@@ -256,19 +249,19 @@ function AiAgentPage() {
         const socket = io('http://localhost:3001/agent', {
             path: '/socket.io',
             transports: ['websocket', 'polling'] as string[],
-    
+
             query: {
                 userId: userId
             }
         })
-          const timer = setTimeout(() => {
-        console.log('connecting...');
-        socket.connect();
-    }, 100);
+        const timer = setTimeout(() => {
+            console.log('connecting...');
+            socket.connect();
+        }, 100);
         socket.on("agent-current-tool", handleToolCurrent)
         socket.on("agent-tool-result", handleToolResult)
         socket.on("connect", () => {
-            console.log("nnnnnnnnn="+userId)
+            console.log("nnnnnnnnn=" + userId)
         })
         return () => {
             socket.off('agent-tool-result', handleToolResult);
@@ -359,10 +352,10 @@ function AiAgentPage() {
 
 
                         {
-                            progress.currentOp != undefined && <div style={{padding:"8px",paddingLeft:"35px",color:"#22222"}}>
+                            progress.currentOp != undefined && <div style={{ padding: "8px", paddingLeft: "35px", color: "#22222" }}>
 
-                                <span style={{color:"#7b5d16",fontWeight:"bolder"}}>{progress.currentOp}</span>
-                                <span style={{color:"#7b5d16",fontWeight:"normal"}}>...</span>
+                                <span style={{ color: "#7b5d16", fontWeight: "bolder" }}>{progress.currentOp}</span>
+                                <span style={{ color: "#7b5d16", fontWeight: "normal" }}>...</span>
                             </div>
                         }
 

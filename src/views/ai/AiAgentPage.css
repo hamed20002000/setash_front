@@ -640,6 +640,7 @@ button {
   position:sticky;
   bottom:0px;
   width:100%;
+  margin-top: 5px;
 }
 .composer-container .file-container{
   display: flex;
@@ -900,6 +901,8 @@ button {
   border-radius: 13px;
 
   background: var(--surface-soft);
+  margin-bottom: 0px;
+  margin-top: 5px;
 }
 
 .operation-card.success {
